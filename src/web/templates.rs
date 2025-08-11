@@ -650,3 +650,274 @@ pub struct Stats {
     pub total_scholars: usize,
     pub total_citations: usize,
 }
+
+pub fn venue_detail_page(
+    venue: &crate::models::Venue,
+    papers: &[&crate::models::Paper],
+    total_citations: usize,
+    top_authors: &[(String, usize)]
+) -> Markup {
+    base_template(
+        &format!("{} - QIndex", venue.name),
+        html! {
+            .container.py-5 {
+                // Breadcrumb
+                nav aria-label="breadcrumb" {
+                    ol class="breadcrumb" {
+                        li class="breadcrumb-item" {
+                            a href="/" { "Home" }
+                        }
+                        li class="breadcrumb-item" {
+                            a href="/venues" { "Venues" }
+                        }
+                        li class="breadcrumb-item active" {
+                            (venue.name)
+                        }
+                    }
+                }
+                
+                // Venue header
+                .card.mb-4.shadow-sm {
+                    .card-body {
+                        h1.card-title.mb-3 { (venue.name) }
+                        
+                        .row {
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Tier" }
+                                    .display-6 {
+                                        span class=(format!("badge bg-{}", 
+                                            if venue.tier == "A*" { "success" } 
+                                            else if venue.tier == "A" { "primary" }
+                                            else { "secondary" }
+                                        )) { (venue.tier) }
+                                    }
+                                }
+                            }
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Field" }
+                                    p.lead { (venue.field) }
+                                }
+                            }
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Papers" }
+                                    .display-6 { (papers.len()) }
+                                }
+                            }
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Total Citations" }
+                                    .display-6 { (total_citations) }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                .row {
+                    // Top Authors
+                    .col-md-4.mb-4 {
+                        .card.h-100.shadow-sm {
+                            .card-header.bg-primary.text-white {
+                                h5.mb-0 { "Top Authors" }
+                            }
+                            .card-body {
+                                @if top_authors.is_empty() {
+                                    p.text-muted { "No authors found" }
+                                } @else {
+                                    ul.list-group.list-group-flush {
+                                        @for (author, count) in top_authors {
+                                            li.list-group-item.d-flex.justify-content-between {
+                                                span { (author) }
+                                                span.badge.bg-secondary { (count) " papers" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Recent Papers
+                    .col-md-8.mb-4 {
+                        .card.h-100.shadow-sm {
+                            .card-header.bg-primary.text-white {
+                                h5.mb-0 { "Papers (" (papers.len()) ")" }
+                            }
+                            .card-body.overflow-auto style="max-height: 600px;" {
+                                @if papers.is_empty() {
+                                    p.text-muted { "No papers found" }
+                                } @else {
+                                    .list-group {
+                                        @for (i, paper) in papers.iter().enumerate() {
+                                            @if i < 50 {  // Show first 50 papers
+                                                .list-group-item {
+                                                    h6.mb-1 { (paper.title) }
+                                                    p.mb-1.text-muted.small {
+                                                        @for (j, author) in paper.authors.iter().enumerate() {
+                                                            @if j > 0 { ", " }
+                                                            (author)
+                                                        }
+                                                    }
+                                                    .d-flex.justify-content-between {
+                                                        small.text-muted {
+                                                            @if let Some(year) = paper.year {
+                                                                "Year: " (year)
+                                                            }
+                                                        }
+                                                        small.text-muted {
+                                                            "Citations: " (paper.cited_by.len())
+                                                        }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        @if papers.len() > 50 {
+                                            .list-group-item.text-center.text-muted {
+                                                "... and " (papers.len() - 50) " more papers"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+}
+
+pub fn scholar_detail_page(
+    scholar: &crate::models::Scholar,
+    papers: &[&crate::models::Paper],
+    papers_by_venue: &std::collections::HashMap<String, Vec<&crate::models::Paper>>,
+    total_citations: usize
+) -> Markup {
+    base_template(
+        &format!("{} - QIndex", scholar.name),
+        html! {
+            .container.py-5 {
+                // Breadcrumb
+                nav aria-label="breadcrumb" {
+                    ol class="breadcrumb" {
+                        li class="breadcrumb-item" {
+                            a href="/" { "Home" }
+                        }
+                        li class="breadcrumb-item" {
+                            a href="/scholars" { "Scholars" }
+                        }
+                        li class="breadcrumb-item active" {
+                            (scholar.name)
+                        }
+                    }
+                }
+                
+                // Scholar header
+                .card.mb-4.shadow-sm {
+                    .card-body {
+                        h1.card-title.mb-3 { (scholar.name) }
+                        
+                        .row {
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Affiliation" }
+                                    p.lead {
+                                        @if !scholar.affiliations.is_empty() {
+                                            (scholar.affiliations.join(", "))
+                                        } @else {
+                                            span.text-muted { "Unknown" }
+                                        }
+                                    }
+                                }
+                            }
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Papers" }
+                                    .display-6 { (papers.len()) }
+                                }
+                            }
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "Citations" }
+                                    .display-6 { (total_citations) }
+                                }
+                            }
+                            .col-md-3 {
+                                .stat-box.text-center {
+                                    h5 { "H-Index" }
+                                    .display-6 { (scholar.h_index) }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                .row {
+                    // Venues Published In
+                    .col-md-4.mb-4 {
+                        .card.h-100.shadow-sm {
+                            .card-header.bg-primary.text-white {
+                                h5.mb-0 { "Venues" }
+                            }
+                            .card-body {
+                                @if papers_by_venue.is_empty() {
+                                    p.text-muted { "No venues found" }
+                                } @else {
+                                    ul.list-group.list-group-flush {
+                                        @for (venue, venue_papers) in papers_by_venue {
+                                            li.list-group-item.d-flex.justify-content-between {
+                                                (venue)
+                                                span.badge.bg-secondary { (venue_papers.len()) " papers" }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Publications
+                    .col-md-8.mb-4 {
+                        .card.h-100.shadow-sm {
+                            .card-header.bg-primary.text-white {
+                                h5.mb-0 { "Publications" }
+                            }
+                            .card-body.overflow-auto style="max-height: 600px;" {
+                                @if papers.is_empty() {
+                                    p.text-muted { "No publications found" }
+                                } @else {
+                                    .list-group {
+                                        @for (i, paper) in papers.iter().enumerate() {
+                                            @if i < 50 {  // Show first 50 papers
+                                                .list-group-item {
+                                                    h6.mb-1 { (paper.title) }
+                                                    p.mb-1.text-muted.small {
+                                                        "Venue: " (paper.venue)
+                                                        @if let Some(year) = paper.year {
+                                                            " (" (year) ")"
+                                                        }
+                                                    }
+                                                    small.text-muted {
+                                                        "Citations: " (paper.cited_by.len())
+                                                    }
+                                                }
+                                            }
+                                        }
+                                        @if papers.len() > 50 {
+                                            .list-group-item.text-center.text-muted {
+                                                "... and " (papers.len() - 50) " more publications"
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    )
+}

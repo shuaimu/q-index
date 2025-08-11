@@ -4,7 +4,8 @@ use maud::{Markup, html};
 
 use crate::web::state::APP_STATE;
 use crate::web::templates::{
-    index_page, venues_page, scholars_page, search_results_page, Stats, base_template
+    index_page, venues_page, scholars_page, search_results_page, Stats, base_template,
+    venue_detail_page, scholar_detail_page
 };
 
 #[derive(Deserialize)]
@@ -103,6 +104,302 @@ pub async fn search_handler(query: web::Query<SearchQuery>) -> Result<Markup> {
     let scholars = graph.search_scholars(&query.q);
     
     Ok(search_results_page(&query.q, &venues, &scholars))
+}
+
+pub async fn venue_detail_handler(path: web::Path<String>) -> Result<Markup> {
+    let venue_id = path.into_inner();
+    
+    let state = APP_STATE.get().ok_or_else(|| 
+        actix_web::error::ErrorInternalServerError("Application state not initialized")
+    )?;
+    
+    let graph = state.graph.read().unwrap();
+    
+    // Find the venue
+    let venue = graph.venues.get(&venue_id)
+        .ok_or_else(|| actix_web::error::ErrorNotFound("Venue not found"))?;
+    
+    // Get papers for this venue
+    let papers: Vec<_> = venue.papers.iter()
+        .filter_map(|paper_id| graph.papers.get(paper_id))
+        .collect();
+    
+    // Calculate venue statistics
+    let total_citations: usize = papers.iter()
+        .map(|p| p.cited_by.len())
+        .sum();
+    
+    // Get top authors for this venue
+    let mut author_counts: std::collections::HashMap<String, usize> = std::collections::HashMap::new();
+    for paper in &papers {
+        for author in &paper.authors {
+            *author_counts.entry(author.clone()).or_insert(0) += 1;
+        }
+    }
+    let mut top_authors: Vec<_> = author_counts.into_iter().collect();
+    top_authors.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+    top_authors.truncate(10);
+    
+    Ok(venue_detail_page(venue, &papers, total_citations, &top_authors))
+}
+
+pub async fn scholar_detail_handler(path: web::Path<String>) -> Result<Markup> {
+    let scholar_id = path.into_inner();
+    let state = APP_STATE.get().ok_or_else(|| 
+        actix_web::error::ErrorInternalServerError("Application state not initialized")
+    )?;
+    
+    let graph = state.graph.read().unwrap();
+    
+    // Find the scholar
+    let scholar = graph.scholars.get(&scholar_id)
+        .ok_or_else(|| actix_web::error::ErrorNotFound("Scholar not found"))?;
+    
+    // Get papers for this scholar
+    let papers: Vec<_> = scholar.papers.iter()
+        .filter_map(|paper_id| graph.papers.get(paper_id))
+        .collect();
+    
+    // Group papers by venue
+    let mut papers_by_venue: std::collections::HashMap<String, Vec<&crate::models::Paper>> = std::collections::HashMap::new();
+    for paper in &papers {
+        papers_by_venue.entry(paper.venue.clone()).or_insert_with(Vec::new).push(*paper);
+    }
+    
+    // Calculate scholar statistics
+    let total_citations: usize = papers.iter()
+        .map(|p| p.cited_by.len())
+        .sum();
+    
+    Ok(scholar_detail_page(scholar, &papers, &papers_by_venue, total_citations))
+}
+
+pub async fn about_handler() -> Result<Markup> {
+    Ok(base_template(
+        "About - QIndex",
+        html! {
+            .container.py-5 {
+                .row.justify-content-center {
+                    .col-md-8 {
+                        h1.mb-4 { "About QIndex" }
+                        
+                        .card.mb-4 {
+                            .card-body {
+                                h5.card-title { "What is QIndex?" }
+                                p.card-text {
+                                    "QIndex is an academic quality index calculator that uses the PageRank algorithm "
+                                    "to evaluate the quality and impact of academic conferences, journals, and scholars. "
+                                    "It analyzes citation networks to determine the relative importance of venues and researchers."
+                                }
+                            }
+                        }
+                        
+                        .card.mb-4 {
+                            .card-body {
+                                h5.card-title { "How It Works" }
+                                ul {
+                                    li { "Parses bibliography data from BibTeX files" }
+                                    li { "Builds citation networks between papers, venues, and scholars" }
+                                    li { "Applies PageRank algorithm to calculate importance scores" }
+                                    li { "Computes QIndex scores for scholars based on venue quality" }
+                                    li { "Provides rankings and analytics for academic venues and researchers" }
+                                }
+                            }
+                        }
+                        
+                        .card.mb-4 {
+                            .card-body {
+                                h5.card-title { "Data Sources" }
+                                p.card-text {
+                                    "QIndex uses bibliography data from major computer science conferences and journals, "
+                                    "including venues tracked by CSRankings.org. Citation data can be enriched using "
+                                    "APIs from Semantic Scholar, CrossRef, and other academic databases."
+                                }
+                            }
+                        }
+                        
+                        .card {
+                            .card-body {
+                                h5.card-title { "Open Source" }
+                                p.card-text {
+                                    "QIndex is open source software. Contributions and feedback are welcome!"
+                                }
+                                a.btn.btn-primary href="https://github.com/shuai/qindex" target="_blank" {
+                                    "View on GitHub"
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ))
+}
+
+pub async fn statistics_handler() -> Result<Markup> {
+    let state = APP_STATE.get().ok_or_else(|| 
+        actix_web::error::ErrorInternalServerError("Application state not initialized")
+    )?;
+    
+    let graph = state.graph.read().unwrap();
+    
+    // Calculate statistics
+    let total_papers = graph.papers.len();
+    let total_venues = graph.venues.len();
+    let total_scholars = graph.scholars.len();
+    let total_citations = graph.edges.len();
+    
+    // Papers by year
+    let mut papers_by_year: std::collections::BTreeMap<u32, usize> = std::collections::BTreeMap::new();
+    for paper in graph.papers.values() {
+        if let Some(year) = paper.year {
+            *papers_by_year.entry(year).or_insert(0) += 1;
+        }
+    }
+    
+    // Papers by venue
+    let mut papers_by_venue: Vec<(String, usize)> = graph.venues.iter()
+        .map(|(_, v)| (v.name.clone(), v.papers.len()))
+        .collect();
+    papers_by_venue.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+    papers_by_venue.truncate(10);
+    
+    // Top cited papers
+    let mut top_cited: Vec<_> = graph.papers.values()
+        .map(|p| (p.title.clone(), p.cited_by.len()))
+        .collect();
+    top_cited.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
+    top_cited.truncate(10);
+    
+    Ok(base_template(
+        "Statistics - QIndex",
+        html! {
+            .container.py-5 {
+                h1.mb-4 { "Dataset Statistics" }
+                
+                // Overview cards
+                .row.mb-4 {
+                    .col-md-3 {
+                        .card.text-center {
+                            .card-body {
+                                h5.card-title { "Total Papers" }
+                                .display-4 { (total_papers) }
+                            }
+                        }
+                    }
+                    .col-md-3 {
+                        .card.text-center {
+                            .card-body {
+                                h5.card-title { "Total Venues" }
+                                .display-4 { (total_venues) }
+                            }
+                        }
+                    }
+                    .col-md-3 {
+                        .card.text-center {
+                            .card-body {
+                                h5.card-title { "Total Scholars" }
+                                .display-4 { (total_scholars) }
+                            }
+                        }
+                    }
+                    .col-md-3 {
+                        .card.text-center {
+                            .card-body {
+                                h5.card-title { "Total Citations" }
+                                .display-4 { (total_citations) }
+                            }
+                        }
+                    }
+                }
+                
+                .row {
+                    // Papers by year
+                    .col-md-6.mb-4 {
+                        .card.h-100 {
+                            .card-header { h5.mb-0 { "Papers by Year" } }
+                            .card-body {
+                                @if papers_by_year.is_empty() {
+                                    p.text-muted { "No year data available" }
+                                } @else {
+                                    .table-responsive {
+                                        table.table.table-sm {
+                                            thead {
+                                                tr {
+                                                    th { "Year" }
+                                                    th { "Papers" }
+                                                }
+                                            }
+                                            tbody {
+                                                @for (year, count) in papers_by_year.iter().rev().take(10) {
+                                                    tr {
+                                                        td { (year) }
+                                                        td { (count) }
+                                                    }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Top venues by paper count
+                    .col-md-6.mb-4 {
+                        .card.h-100 {
+                            .card-header { h5.mb-0 { "Top Venues by Paper Count" } }
+                            .card-body {
+                                .table-responsive {
+                                    table.table.table-sm {
+                                        thead {
+                                            tr {
+                                                th { "Venue" }
+                                                th { "Papers" }
+                                            }
+                                        }
+                                        tbody {
+                                            @for (venue, count) in &papers_by_venue {
+                                                tr {
+                                                    td { (venue) }
+                                                    td { (count) }
+                                                }
+                                            }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // Most cited papers
+                .card {
+                    .card-header { h5.mb-0 { "Most Cited Papers" } }
+                    .card-body {
+                        .table-responsive {
+                            table.table.table-sm {
+                                thead {
+                                    tr {
+                                        th { "Paper Title" }
+                                        th { "Citations" }
+                                    }
+                                }
+                                tbody {
+                                    @for (title, count) in &top_cited {
+                                        tr {
+                                            td { (title) }
+                                            td { (count) }
+                                        }
+                                    }
+                                }
+                            }
+                        }
+                    }
+                }
+            }
+        }
+    ))
 }
 
 // API Handlers
@@ -238,206 +535,4 @@ pub async fn api_stats_fields() -> Result<HttpResponse> {
     };
     
     Ok(HttpResponse::Ok().json(data))
-}
-
-pub async fn about_handler() -> Result<Markup> {
-    Ok(base_template("About", html! {
-        div class="row" {
-            div class="col-lg-8 mx-auto" {
-                h1 class="mb-4" {
-                    i class="bi bi-info-circle me-3" {}
-                    "About QIndex"
-                }
-                
-                div class="card mb-4" {
-                    div class="card-body" {
-                        h5 class="card-title" { "What is QIndex?" }
-                        p class="card-text" {
-                            "QIndex is an academic quality index calculator that uses the PageRank algorithm "
-                            "to evaluate conferences, journals, and scholars based on citation networks. "
-                            "Unlike traditional metrics like h-index, QIndex considers venue prestige and "
-                            "citation patterns to provide a more nuanced evaluation of academic impact."
-                        }
-                    }
-                }
-                
-                div class="card mb-4" {
-                    div class="card-body" {
-                        h5 class="card-title" { "Algorithm" }
-                        h6 { "Venue PageRank" }
-                        p {
-                            "We build a directed graph where nodes represent venues and edges represent "
-                            "citations between papers published in those venues. The PageRank algorithm "
-                            "then calculates the relative importance of each venue."
-                        }
-                        
-                        h6 class="mt-3" { "Scholar QIndex" }
-                        p {
-                            "Scholar scores combine multiple factors:"
-                        }
-                        pre class="bg-light p-3" {
-                            code {
-                                "QIndex = Σ(paper_score) × log(total_papers + 1)\n"
-                                "\n"
-                                "where paper_score = venue_pagerank × year_decay × author_position_weight"
-                            }
-                        }
-                    }
-                }
-                
-                div class="card mb-4" {
-                    div class="card-body" {
-                        h5 class="card-title" { "Technology Stack" }
-                        ul {
-                            li { strong { "Language:" } " Rust (for performance and safety)" }
-                            li { strong { "Web Framework:" } " Actix-Web" }
-                            li { strong { "Templating:" } " Maud (type-safe HTML)" }
-                            li { strong { "Algorithm:" } " Custom PageRank implementation" }
-                            li { strong { "Data:" } " BibTeX parsing with nom-bibtex" }
-                        }
-                    }
-                }
-                
-                div class="card" {
-                    div class="card-body" {
-                        h5 class="card-title" { "Open Source" }
-                        p class="card-text" {
-                            "QIndex is open source and available on "
-                            a href="https://github.com/shuai/qindex" target="_blank" {
-                                "GitHub"
-                                i class="bi bi-box-arrow-up-right ms-1" {}
-                            }
-                            ". Contributions, bug reports, and feature requests are welcome!"
-                        }
-                    }
-                }
-            }
-        }
-    }))
-}
-
-pub async fn statistics_handler() -> Result<Markup> {
-    let state = APP_STATE.get().ok_or_else(|| 
-        actix_web::error::ErrorInternalServerError("Application state not initialized")
-    )?;
-    
-    let graph = state.graph.read().unwrap();
-    
-    Ok(base_template("Statistics", html! {
-        div class="row" {
-            div class="col-12" {
-                h1 class="mb-4" {
-                    i class="bi bi-bar-chart me-3" {}
-                    "Dataset Statistics"
-                }
-                
-                div class="row mb-4" {
-                    div class="col-md-6" {
-                        div class="card" {
-                            div class="card-header bg-primary text-white" {
-                                "Overview"
-                            }
-                            div class="card-body" {
-                                table class="table" {
-                                    tbody {
-                                        tr {
-                                            td { strong { "Total Papers" } }
-                                            td { (graph.papers.len()) }
-                                        }
-                                        tr {
-                                            td { strong { "Total Venues" } }
-                                            td { (graph.venues.len()) }
-                                        }
-                                        tr {
-                                            td { strong { "Total Scholars" } }
-                                            td { (graph.scholars.len()) }
-                                        }
-                                        tr {
-                                            td { strong { "Total Citations" } }
-                                            td { (graph.edges.len()) }
-                                        }
-                                    }
-                                }
-                            }
-                        }
-                    }
-                    
-                    div class="col-md-6" {
-                        div class="card" {
-                            div class="card-header bg-success text-white" {
-                                "Venue Distribution"
-                            }
-                            div class="card-body" {
-                                canvas id="tierChart" {}
-                            }
-                        }
-                    }
-                }
-                
-                div class="row" {
-                    div class="col-12" {
-                        div class="card" {
-                            div class="card-header bg-info text-white" {
-                                "Papers by Year"
-                            }
-                            div class="card-body" {
-                                canvas id="yearChart" {}
-                            }
-                        }
-                    }
-                }
-            }
-        }
-        
-        script {
-            (maud::PreEscaped(r#"
-            // Tier Chart
-            fetch('/api/stats')
-                .then(response => response.json())
-                .then(data => {
-                    const tierCtx = document.getElementById('tierChart').getContext('2d');
-                    new Chart(tierCtx, {
-                        type: 'pie',
-                        data: {
-                            labels: Object.keys(data.data.papers_by_tier),
-                            datasets: [{
-                                data: Object.values(data.data.papers_by_tier),
-                                backgroundColor: [
-                                    'rgba(255, 99, 132, 0.8)',
-                                    'rgba(54, 162, 235, 0.8)',
-                                    'rgba(255, 206, 86, 0.8)',
-                                    'rgba(75, 192, 192, 0.8)'
-                                ]
-                            }]
-                        }
-                    });
-                    
-                    // Year Chart
-                    const yearCtx = document.getElementById('yearChart').getContext('2d');
-                    const years = Object.keys(data.data.papers_by_year).sort();
-                    new Chart(yearCtx, {
-                        type: 'line',
-                        data: {
-                            labels: years,
-                            datasets: [{
-                                label: 'Papers Published',
-                                data: years.map(y => data.data.papers_by_year[y]),
-                                borderColor: 'rgb(75, 192, 192)',
-                                backgroundColor: 'rgba(75, 192, 192, 0.2)',
-                                tension: 0.1
-                            }]
-                        },
-                        options: {
-                            responsive: true,
-                            scales: {
-                                y: {
-                                    beginAtZero: true
-                                }
-                            }
-                        }
-                    });
-                });
-            "#))
-        }
-    }))
 }

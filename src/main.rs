@@ -5,6 +5,9 @@ mod export;
 mod cli;
 mod utils;
 mod web;
+mod citations;
+mod paper_extractor;
+mod paper_finder;
 
 use anyhow::Result;
 use clap::Parser;
@@ -46,6 +49,20 @@ fn main() -> Result<()> {
                 run_web_server(&bib_dir, port).await
             })?;
         }
+        Commands::FetchCitations { bib_dir, cache_dir, max_papers, venue } => {
+            // Use tokio runtime for async API calls
+            let runtime = tokio::runtime::Runtime::new()?;
+            runtime.block_on(async {
+                run_fetch_citations(&bib_dir, &cache_dir, max_papers, venue.as_deref()).await
+            })?;
+        }
+        Commands::ExtractPapers { bib_dir, db_dir, max_papers, venue } => {
+            // Use tokio runtime for async operations
+            let runtime = tokio::runtime::Runtime::new()?;
+            runtime.block_on(async {
+                run_extract_papers(&bib_dir, &db_dir, max_papers, venue.as_deref()).await
+            })?;
+        }
     }
     
     Ok(())
@@ -66,7 +83,12 @@ fn run_calculate(bib_dir: &str, top: usize, output: Option<&str>, export: bool) 
     // Calculate PageRank and QIndex
     println!("🔄 Calculating QIndex scores...");
     let mut calculator = PageRankCalculator::new(&graph);
-    let metrics = calculator.calculate()?;
+    
+    // Try to load citation cache
+    let cache_path = std::path::Path::new("./cache/citations.json");
+    calculator.load_citation_cache(cache_path)?;
+    
+    let _metrics = calculator.calculate()?;
     
     println!("✅ Calculation complete!");
     println!("\n📊 Top {} Venues:", top);
@@ -90,6 +112,11 @@ fn run_venues(bib_dir: &str, top: usize, field: Option<&str>, tier: Option<&str>
     let graph = parser.parse_directory(bib_dir)?;
     
     let mut calculator = PageRankCalculator::new(&graph);
+    
+    // Try to load citation cache
+    let cache_path = std::path::Path::new("./cache/citations.json");
+    calculator.load_citation_cache(cache_path)?;
+    
     calculator.calculate()?;
     
     let venues = calculator.get_top_venues(top, field, tier);
@@ -103,6 +130,11 @@ fn run_scholars(bib_dir: &str, top: usize, min_papers: Option<usize>) -> Result<
     let graph = parser.parse_directory(bib_dir)?;
     
     let mut calculator = PageRankCalculator::new(&graph);
+    
+    // Try to load citation cache
+    let cache_path = std::path::Path::new("./cache/citations.json");
+    calculator.load_citation_cache(cache_path)?;
+    
     calculator.calculate()?;
     
     let scholars = calculator.get_top_scholars(top, min_papers);
@@ -116,6 +148,11 @@ fn run_search(bib_dir: &str, query: &str) -> Result<()> {
     let graph = parser.parse_directory(bib_dir)?;
     
     let mut calculator = PageRankCalculator::new(&graph);
+    
+    // Try to load citation cache
+    let cache_path = std::path::Path::new("./cache/citations.json");
+    calculator.load_citation_cache(cache_path)?;
+    
     calculator.calculate()?;
     
     println!("🔍 Searching for '{}'...\n", query);
@@ -237,6 +274,69 @@ fn display_scholars(scholars: &[models::ScholarRanking]) {
     println!("{}", table);
 }
 
+async fn run_fetch_citations(bib_dir: &str, cache_dir: &str, max_papers: Option<usize>, venue: Option<&str>) -> Result<()> {
+    println!("📚 Loading bibliography from {}", bib_dir);
+    
+    // Parse bibliography files
+    let mut parser = BibParser::new();
+    let mut graph = parser.parse_directory(bib_dir)?;
+    
+    println!("🔍 Found {} papers", graph.papers.len());
+    
+    // Filter by venue if specified
+    if let Some(venue_filter) = venue {
+        let venue_upper = venue_filter.to_uppercase();
+        let filtered: Vec<_> = graph.papers
+            .iter()
+            .filter(|(_, p)| p.venue.to_uppercase().contains(&venue_upper))
+            .map(|(id, _)| id.clone())
+            .collect();
+        
+        println!("📍 Filtering to {} papers from {}", filtered.len(), venue_filter);
+        
+        // Keep only filtered papers
+        graph.papers.retain(|id, _| filtered.contains(id));
+    }
+    
+    // Create cache directory if it doesn't exist
+    std::fs::create_dir_all(cache_dir)?;
+    
+    println!("🌐 Fetching citation data from Semantic Scholar API...");
+    println!("   (This may take a while due to rate limits)");
+    
+    // Fetch citations
+    let cache_path = std::path::Path::new(cache_dir);
+    let citation_cache = citations::fetch_all_citations(&graph, cache_path, max_papers).await?;
+    
+    println!("\n✅ Citation fetch complete!");
+    println!("📊 Fetched data for {} papers", citation_cache.papers.len());
+    
+    // Show some statistics
+    let total_citations: usize = citation_cache.papers.values()
+        .map(|p| p.citation_count)
+        .sum();
+    let total_references: usize = citation_cache.papers.values()
+        .map(|p| p.reference_count)
+        .sum();
+    
+    println!("📈 Total citations: {}", total_citations);
+    println!("📚 Total references: {}", total_references);
+    
+    // Show top cited papers
+    let mut papers_by_citations: Vec<_> = citation_cache.papers.values().collect();
+    papers_by_citations.sort_by_key(|p| std::cmp::Reverse(p.citation_count));
+    
+    println!("\n🏆 Top 10 Most Cited Papers:");
+    for (i, paper) in papers_by_citations.iter().take(10).enumerate() {
+        println!("{}. {} ({} citations)", 
+                 i + 1, 
+                 paper.title, 
+                 paper.citation_count);
+    }
+    
+    Ok(())
+}
+
 async fn run_web_server(bib_dir: &str, port: u16) -> Result<()> {
     println!("🌐 Starting QIndex Web Server");
     println!("📚 Loading data from: {}", bib_dir);
@@ -244,5 +344,78 @@ async fn run_web_server(bib_dir: &str, port: u16) -> Result<()> {
     println!();
     
     crate::web::server::start_server(bib_dir, port).await?;
+    Ok(())
+}
+
+async fn run_extract_papers(bib_dir: &str, db_dir: &str, max_papers: Option<usize>, venue: Option<&str>) -> Result<()> {
+    println!("📚 Loading bibliography from {}", bib_dir);
+    
+    // Parse bibliography files
+    let mut parser = BibParser::new();
+    let mut graph = parser.parse_directory(bib_dir)?;
+    
+    println!("🔍 Found {} papers", graph.papers.len());
+    
+    // Filter by venue if specified
+    if let Some(venue_filter) = venue {
+        let venue_upper = venue_filter.to_uppercase();
+        let filtered: Vec<_> = graph.papers
+            .iter()
+            .filter(|(_, p)| p.venue.to_uppercase().contains(&venue_upper))
+            .map(|(id, _)| id.clone())
+            .collect();
+        
+        println!("📍 Filtering to {} papers from {}", filtered.len(), venue_filter);
+        
+        // Keep only filtered papers
+        graph.papers.retain(|id, _| filtered.contains(id));
+    }
+    
+    // Create database directory if it doesn't exist
+    std::fs::create_dir_all(db_dir)?;
+    
+    println!("🌐 Extracting paper metadata from online sources...");
+    println!("   (This may take a while to be respectful to servers)");
+    
+    // Extract metadata
+    let db_path = std::path::Path::new(db_dir);
+    let paper_db = paper_extractor::extract_all_papers(&graph, db_path, max_papers).await?;
+    
+    println!("\n✅ Paper extraction complete!");
+    println!("📊 Extracted metadata for {} papers", paper_db.papers.len());
+    
+    // Show statistics
+    let with_pdf: usize = paper_db.papers.values()
+        .filter(|p| p.pdf_url.is_some())
+        .count();
+    let with_doi: usize = paper_db.papers.values()
+        .filter(|p| p.doi.is_some())
+        .count();
+    let with_arxiv: usize = paper_db.papers.values()
+        .filter(|p| p.arxiv_id.is_some())
+        .count();
+    let total_refs: usize = paper_db.papers.values()
+        .map(|p| p.reference_count)
+        .sum();
+    
+    println!("📄 Papers with PDF URLs: {}", with_pdf);
+    println!("🔗 Papers with DOIs: {}", with_doi);
+    println!("📝 Papers from ArXiv: {}", with_arxiv);
+    println!("📚 Total references extracted: {}", total_refs);
+    
+    // Show papers with most references extracted
+    let mut papers_by_refs: Vec<_> = paper_db.papers.values().collect();
+    papers_by_refs.sort_by_key(|p| std::cmp::Reverse(p.reference_count));
+    
+    if !papers_by_refs.is_empty() {
+        println!("\n🏆 Papers with Most References Extracted:");
+        for (i, paper) in papers_by_refs.iter().take(5).enumerate() {
+            println!("{}. {} ({} references)", 
+                     i + 1, 
+                     paper.title, 
+                     paper.reference_count);
+        }
+    }
+    
     Ok(())
 }

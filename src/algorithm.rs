@@ -7,6 +7,8 @@ use crate::models::{
     CitationGraph, QIndexMetrics, AlgorithmParams,
     VenueRanking, ScholarRanking, Scholar
 };
+use crate::citations::CitationCache;
+use std::path::Path;
 // CSRankings venue checking will be implemented inline
 
 /// Check if a venue name matches a CSRankings conference
@@ -63,6 +65,7 @@ pub struct PageRankCalculator<'a> {
     venue_graph: HashMap<String, HashMap<String, f64>>,
     venue_scores: HashMap<String, f64>,
     scholar_scores: HashMap<String, f64>,
+    citation_cache: Option<CitationCache>,
 }
 
 impl<'a> PageRankCalculator<'a> {
@@ -73,7 +76,24 @@ impl<'a> PageRankCalculator<'a> {
             venue_graph: HashMap::new(),
             venue_scores: HashMap::new(),
             scholar_scores: HashMap::new(),
+            citation_cache: None,
         }
+    }
+    
+    /// Load citation cache from disk if available
+    pub fn load_citation_cache(&mut self, cache_path: &Path) -> Result<()> {
+        if cache_path.exists() {
+            match CitationCache::load_from_file(cache_path) {
+                Ok(cache) => {
+                    info!("Loaded citation cache with {} papers", cache.papers.len());
+                    self.citation_cache = Some(cache);
+                }
+                Err(e) => {
+                    debug!("Could not load citation cache: {}", e);
+                }
+            }
+        }
+        Ok(())
     }
     
     pub fn calculate(&mut self) -> Result<QIndexMetrics> {
@@ -102,60 +122,128 @@ impl<'a> PageRankCalculator<'a> {
     }
     
     fn build_venue_graph(&mut self) {
-        // Build venue-to-venue citation graph
-        for paper in self.graph.papers.values() {
-            let from_venue = &paper.venue;
-            if from_venue.is_empty() {
-                continue;
-            }
+        // First check if we have citation cache data
+        let has_cached_citations = self.citation_cache.as_ref()
+            .map(|c| !c.papers.is_empty())
+            .unwrap_or(false);
+        
+        if has_cached_citations {
+            info!("Using citation data from cache");
+            let cache = self.citation_cache.as_ref().unwrap();
             
-            let from_venue_id = normalize_venue_id(from_venue);
-            
-            // Process citations
-            for cited_id in &paper.citations {
-                if let Some(cited_paper) = self.graph.papers.get(cited_id) {
-                    let to_venue = &cited_paper.venue;
-                    if !to_venue.is_empty() && to_venue != from_venue {
-                        let to_venue_id = normalize_venue_id(to_venue);
+            // Build graph using cached citation data
+            for (paper_id, citation_data) in &cache.papers {
+                if let Some(paper) = self.graph.papers.get(paper_id) {
+                    let from_venue = &paper.venue;
+                    if from_venue.is_empty() {
+                        continue;
+                    }
+                    
+                    let from_venue_id = normalize_venue_id(from_venue);
+                    
+                    // Process references (papers this paper cites)
+                    // For venue graph, we count citations between venues
+                    // The citation count gives us the strength of connection
+                    if citation_data.reference_count > 0 {
+                        // Add weight based on reference count
+                        // This is a proxy for how much this venue cites others
+                        let weight = (citation_data.reference_count as f64).ln() + 1.0;
                         
-                        // Calculate weight with year decay
-                        let mut weight = 1.0;
-                        if let (Some(from_year), Some(to_year)) = (paper.year, cited_paper.year) {
-                            let year_diff = (from_year as i32 - to_year as i32).abs();
-                            if year_diff > 0 {
-                                weight *= self.params.year_decay.powi(year_diff);
-                            }
-                        }
-                        
+                        // For now, distribute weight uniformly among all venues
+                        // In a more sophisticated version, we'd look up each reference
                         *self.venue_graph
                             .entry(from_venue_id.clone())
                             .or_insert_with(HashMap::new)
-                            .entry(to_venue_id)
+                            .entry("_aggregate".to_string())
+                            .or_insert(0.0) += weight;
+                    }
+                    
+                    // Process citations (papers that cite this paper)
+                    if citation_data.citation_count > 0 {
+                        // This venue is being cited, which increases its importance
+                        let weight = (citation_data.citation_count as f64).ln() + 1.0;
+                        
+                        *self.venue_graph
+                            .entry("_aggregate".to_string())
+                            .or_insert_with(HashMap::new)
+                            .entry(from_venue_id.clone())
                             .or_insert(0.0) += weight;
                     }
                 }
             }
             
-            // Process citations to this paper (reverse direction)
-            for citing_id in &paper.cited_by {
-                if let Some(citing_paper) = self.graph.papers.get(citing_id) {
-                    let to_venue = &citing_paper.venue;
-                    if !to_venue.is_empty() && to_venue != from_venue {
-                        let to_venue_id = normalize_venue_id(to_venue);
-                        
-                        let mut weight = 1.0;
-                        if let (Some(from_year), Some(to_year)) = (citing_paper.year, paper.year) {
-                            let year_diff = (from_year as i32 - to_year as i32).abs();
-                            if year_diff > 0 {
-                                weight *= self.params.year_decay.powi(year_diff);
+            // Remove the aggregate node and distribute its weight
+            if let Some(agg_edges) = self.venue_graph.remove("_aggregate") {
+                for (venue, weight) in agg_edges {
+                    // Distribute incoming citations as self-loops (increases importance)
+                    *self.venue_graph
+                        .entry(venue.clone())
+                        .or_insert_with(HashMap::new)
+                        .entry(venue.clone())
+                        .or_insert(0.0) += weight * 0.1;  // Small self-loop weight
+                }
+            }
+            
+            info!("Built venue graph from cached citations with {} nodes", self.venue_graph.len());
+        } else {
+            // Fall back to using BibTeX citation data if available
+            info!("No cached citation data, using BibTeX citations");
+            
+            // Build venue-to-venue citation graph from BibTeX
+            for paper in self.graph.papers.values() {
+                let from_venue = &paper.venue;
+                if from_venue.is_empty() {
+                    continue;
+                }
+                
+                let from_venue_id = normalize_venue_id(from_venue);
+                
+                // Process citations
+                for cited_id in &paper.citations {
+                    if let Some(cited_paper) = self.graph.papers.get(cited_id) {
+                        let to_venue = &cited_paper.venue;
+                        if !to_venue.is_empty() && to_venue != from_venue {
+                            let to_venue_id = normalize_venue_id(to_venue);
+                            
+                            // Calculate weight with year decay
+                            let mut weight = 1.0;
+                            if let (Some(from_year), Some(to_year)) = (paper.year, cited_paper.year) {
+                                let year_diff = (from_year as i32 - to_year as i32).abs();
+                                if year_diff > 0 {
+                                    weight *= self.params.year_decay.powi(year_diff);
+                                }
                             }
+                            
+                            *self.venue_graph
+                                .entry(from_venue_id.clone())
+                                .or_insert_with(HashMap::new)
+                                .entry(to_venue_id)
+                                .or_insert(0.0) += weight;
                         }
-                        
-                        *self.venue_graph
-                            .entry(to_venue_id.clone())
-                            .or_insert_with(HashMap::new)
-                            .entry(from_venue_id.clone())
-                            .or_insert(0.0) += weight;
+                    }
+                }
+                
+                // Process citations to this paper (reverse direction)
+                for citing_id in &paper.cited_by {
+                    if let Some(citing_paper) = self.graph.papers.get(citing_id) {
+                        let to_venue = &citing_paper.venue;
+                        if !to_venue.is_empty() && to_venue != from_venue {
+                            let to_venue_id = normalize_venue_id(to_venue);
+                            
+                            let mut weight = 1.0;
+                            if let (Some(from_year), Some(to_year)) = (citing_paper.year, paper.year) {
+                                let year_diff = (from_year as i32 - to_year as i32).abs();
+                                if year_diff > 0 {
+                                    weight *= self.params.year_decay.powi(year_diff);
+                                }
+                            }
+                            
+                            *self.venue_graph
+                                .entry(to_venue_id.clone())
+                                .or_insert_with(HashMap::new)
+                                .entry(from_venue_id.clone())
+                                .or_insert(0.0) += weight;
+                        }
                     }
                 }
             }

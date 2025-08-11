@@ -96,4 +96,42 @@ pub enum Commands {
         #[arg(short, long, default_value = "8080")]
         port: u16,
     },
+    
+    /// Fetch citation data from Semantic Scholar
+    FetchCitations {
+        /// Directory containing BibTeX files
+        #[arg(short, long, default_value = "./bib")]
+        bib_dir: String,
+        
+        /// Cache directory for citation data
+        #[arg(short, long, default_value = "./cache")]
+        cache_dir: String,
+        
+        /// Maximum number of papers to fetch (for testing)
+        #[arg(short, long)]
+        max_papers: Option<usize>,
+        
+        /// Only fetch for specific venue
+        #[arg(short, long)]
+        venue: Option<String>,
+    },
+    
+    /// Extract paper metadata and references from online sources
+    ExtractPapers {
+        /// Directory containing BibTeX files
+        #[arg(short, long, default_value = "./bib")]
+        bib_dir: String,
+        
+        /// Database directory for extracted metadata
+        #[arg(short, long, default_value = "./paper_db")]
+        db_dir: String,
+        
+        /// Maximum number of papers to extract (for testing)
+        #[arg(short, long)]
+        max_papers: Option<usize>,
+        
+        /// Only extract for specific venue
+        #[arg(short, long)]
+        venue: Option<String>,
+    },
 }

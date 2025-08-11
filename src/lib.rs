@@ -5,3 +5,6 @@ pub mod export;
 pub mod cli;
 pub mod utils;
 pub mod web;
+pub mod citations;
+pub mod paper_extractor;
+pub mod paper_finder;
