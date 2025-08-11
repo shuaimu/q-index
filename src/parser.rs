@@ -35,7 +35,13 @@ impl BibParser {
             anyhow::bail!("Directory {} does not exist", dir);
         }
         
-        // First, parse title.bib for string definitions
+        // First, parse string definition files
+        let strings_file = path.join("strings.bib");
+        if strings_file.exists() {
+            info!("Parsing string definitions from strings.bib");
+            self.parse_strings(&strings_file)?;
+        }
+        
         let title_file = path.join("title.bib");
         if title_file.exists() {
             info!("Parsing venue definitions from title.bib");
@@ -53,7 +59,10 @@ impl BibParser {
                     .unwrap_or(false)
             })
             .map(|e| e.path().to_path_buf())
-            .filter(|p| !p.file_name().unwrap().to_str().unwrap().contains("title"))
+            .filter(|p| {
+                let name = p.file_name().unwrap().to_str().unwrap();
+                !name.contains("title") && !name.contains("strings")
+            })
             .collect();
         
         info!("Found {} bibliography files", bib_files.len());
@@ -118,9 +127,13 @@ impl BibParser {
             Ok(bib) => {
                 // The Bibtex struct has multiple fields for different entry types
                 // We only care about bibliography entries
-                for entry in bib.bibliographies() {
+                let entries = bib.bibliographies();
+                debug!("Parsing {} - found {} entries", filename, entries.len());
+                
+                for entry in entries {
                     if let Some(paper) = self.parse_entry(&entry, &filename) {
                         let paper_id = paper.id.clone();
+                        debug!("  Parsed paper: {} -> venue: {}", paper_id, paper.venue);
                         self.papers.insert(paper_id.clone(), paper.clone());
                         self.add_to_venue(&paper);
                         self.add_scholars(&paper);
@@ -208,11 +221,107 @@ impl BibParser {
     fn expand_string(&self, value: &str) -> String {
         // Check if this is a string reference
         let trimmed = value.trim();
+        
+        // First check if it's in the strings map
         if let Some(expanded) = self.strings.get(trimmed) {
-            expanded.clone()
-        } else {
-            value.to_string()
+            return expanded.clone();
         }
+        
+        // Handle common venue abbreviations used in our BibTeX files
+        // These map to the actual conference names
+        let venue_map = match trimmed.to_lowercase().as_str() {
+            // Systems conferences
+            "osdi" => "OSDI",
+            "sosp" => "SOSP",
+            "eurosys" => "EuroSys",
+            "nsdi" => "NSDI",
+            "atc" | "usenix atc" => "USENIX ATC",
+            "fast" => "FAST",
+            "asplos" => "ASPLOS",
+            "isca" => "ISCA",
+            
+            // Database conferences
+            "sigmod" => "SIGMOD",
+            "vldb" | "pvldb" => "VLDB",
+            "icde" => "ICDE",
+            "cidr" => "CIDR",
+            "pods" => "PODS",
+            
+            // Security conferences
+            "ccs" => "CCS",
+            "oakland" | "sp" | "s&p" => "Oakland",
+            "usenixsec" | "usenix security" => "USENIX Security",
+            "ndss" => "NDSS",
+            
+            // ML/AI conferences
+            "icml" => "ICML",
+            "neurips" | "nips" => "NeurIPS",
+            "iclr" => "ICLR",
+            "cvpr" => "CVPR",
+            "iccv" => "ICCV",
+            "eccv" => "ECCV",
+            "aaai" => "AAAI",
+            "ijcai" => "IJCAI",
+            
+            // PL conferences
+            "pldi" => "PLDI",
+            "popl" => "POPL",
+            "oopsla" => "OOPSLA",
+            "icfp" => "ICFP",
+            
+            // Theory conferences
+            "stoc" => "STOC",
+            "focs" => "FOCS",
+            "soda" => "SODA",
+            "crypto" => "CRYPTO",
+            "eurocrypt" => "EuroCrypt",
+            "podc" => "PODC",
+            "spaa" => "SPAA",
+            
+            // HCI conferences
+            "chi" => "CHI",
+            "uist" => "UIST",
+            "ubicomp" | "pervasive" => "UbiComp",
+            "iui" => "IUI",
+            
+            // Networking conferences
+            "sigcomm" => "SIGCOMM",
+            "infocom" => "INFOCOM",
+            "imc" => "IMC",
+            "sigmetrics" => "SIGMETRICS",
+            
+            // NLP conferences
+            "acl" => "ACL",
+            "naacl" => "NAACL",
+            "emnlp" => "EMNLP",
+            
+            // Other conferences
+            "hotos" => "HotOS",
+            "socc" => "SoCC",
+            "dsn" => "DSN",
+            "sc" => "SC",
+            "kdd" => "KDD",
+            "www" => "WWW",
+            "icse" => "ICSE",
+            "fse" => "FSE",
+            "ase" => "ASE",
+            
+            // Journals
+            "tods" => "TODS",
+            "tocs" => "TOCS",
+            "toplas" => "TOPLAS",
+            "tkde" => "TKDE",
+            "jacm" => "JACM",
+            "cacm" => "CACM",
+            "jmlr" => "JMLR",
+            "tmlr" => "TMLR",
+            "csur" => "CSUR",
+            
+            // Default: return as-is
+            _ => trimmed
+        };
+        
+        venue_map.to_string()
     }
     
     fn add_to_venue(&mut self, paper: &Paper) {
@@ -337,18 +446,44 @@ fn parse_authors(authors_str: &str) -> Vec<String> {
 fn extract_venue_name(venue: &str) -> String {
     let cleaned = clean_bibtex_string(venue);
     
+    // First, strip year if present (e.g., "CHI 2019" -> "CHI")
+    let without_year = if let Some(pos) = cleaned.rfind(char::is_whitespace) {
+        let potential_year = &cleaned[pos+1..];
+        if potential_year.len() == 4 && potential_year.chars().all(|c| c.is_ascii_digit()) {
+            cleaned[..pos].trim().to_string()
+        } else {
+            cleaned.clone()
+        }
+    } else {
+        cleaned.clone()
+    };
+    
+    // If it's already a short conference name (all caps or title case, no spaces), use it as-is
+    if without_year.len() <= 20 && !without_year.contains("Proceedings") && !without_year.contains("Conference") {
+        return without_year;
+    }
+    
     // Try to extract abbreviation from parentheses
-    if let Some(start) = cleaned.find('(') {
-        if let Some(end) = cleaned[start+1..].find(')') {
-            return cleaned[start+1..start+1+end].trim().to_string();
+    if let Some(start) = without_year.find('(') {
+        if let Some(end) = without_year[start+1..].find(')') {
+            return without_year[start+1..start+1+end].trim().to_string();
         }
     }
     
-    // Otherwise, take the first word or the whole string
-    cleaned.split_whitespace()
-        .next()
-        .unwrap_or(&cleaned)
-        .to_string()
+    // For longer names with "Proceedings" or "Conference", try to extract the key part
+    if without_year.contains("Proceedings") || without_year.contains("Conference") {
+        // Look for common patterns like "Proceedings of CONF" or "CONF Conference"
+        if let Some(idx) = without_year.find(" of ") {
+            let after_of = &without_year[idx+4..];
+            if let Some(space_idx) = after_of.find(' ') {
+                return after_of[..space_idx].trim().to_string();
+            }
+            return after_of.trim().to_string();
+        }
+    }
+    
+    // Otherwise return the venue without year
+    without_year
 }
 
 pub fn normalize_venue_id(venue: &str) -> String {

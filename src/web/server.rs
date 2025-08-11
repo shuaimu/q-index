@@ -18,6 +18,14 @@ pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
     info!("Loaded {} papers, {} venues, {} scholars",
           graph.papers.len(), graph.venues.len(), graph.scholars.len());
     
+    // Debug: Print all venue names
+    info!("All venues loaded from BibTeX:");
+    let mut venues_sorted: Vec<_> = graph.venues.iter().collect();
+    venues_sorted.sort_by_key(|(_, v)| &v.name);
+    for (id, venue) in venues_sorted {
+        info!("  {} -> {} (papers: {})", id, venue.name, venue.papers.len());
+    }
+    
     // Initialize application state
     let state = Arc::new(AppState::new(graph));
     APP_STATE.set(state.clone()).expect("Failed to set application state");

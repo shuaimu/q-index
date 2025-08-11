@@ -7,6 +7,55 @@ use crate::models::{
     CitationGraph, QIndexMetrics, AlgorithmParams,
     VenueRanking, ScholarRanking, Scholar
 };
+// CSRankings venue checking will be implemented inline
+
+/// Check if a venue name matches a CSRankings conference
+fn is_csrankings_venue(venue_name: &str) -> bool {
+    // Normalize and remove year from venue name (e.g., "CHI 2019" -> "CHI")
+    let normalized = venue_name.to_uppercase();
+    
+    // Remove trailing year (4 digits at the end)
+    let without_year = if let Some(pos) = normalized.rfind(char::is_whitespace) {
+        let potential_year = &normalized[pos+1..];
+        if potential_year.len() == 4 && potential_year.chars().all(|c| c.is_ascii_digit()) {
+            normalized[..pos].trim()
+        } else {
+            normalized.as_str()
+        }
+    } else {
+        normalized.as_str()
+    };
+    
+    // Check exact matches first
+    matches!(without_year,
+        // AI Area
+        "AAAI" | "IJCAI" | "CVPR" | "ECCV" | "ICCV" | "ICLR" | "ICML" | "NEURIPS" | "NIPS" |
+        "KDD" | "ACL" | "EMNLP" | "NAACL" | "SIGIR" | "WWW" |
+        
+        // Systems Area  
+        "ASPLOS" | "ISCA" | "MICRO" | "HPCA" | "SIGCOMM" | "NSDI" | "CCS" |
+        "OAKLAND" | "SP" | "S&P" | "NDSS" |
+        "SIGMOD" | "VLDB" | "ICDE" | "PODS" | "DAC" | "ICCAD" | "EMSOFT" | "RTAS" | "RTSS" |
+        "HPDC" | "ICS" | "SC" | "MOBICOM" | "MOBISYS" | "SENSYS" | "IMC" | "SIGMETRICS" |
+        "OSDI" | "SOSP" | "EUROSYS" | "FAST" | "USENIX ATC" | "ATC" |
+        "PLDI" | "POPL" | "ICFP" | "OOPSLA" | "FSE" | "ICSE" | "ASE" | "ISSTA" |
+        "USENIX SECURITY" | "USENIXSEC" |
+        
+        // Theory Area
+        "FOCS" | "SODA" | "STOC" | "CRYPTO" | "EUROCRYPT" | "CAV" | "LICS" | "PODC" | "SPAA" |
+        
+        // Interdisciplinary Areas
+        "ISMB" | "RECOMB" | "SIGGRAPH" | "EUROGRAPHICS" | "SIGCSE" |
+        "EC" | "WINE" | "CHI" | "UBICOMP" | "PERVASIVE" | "IMWUT" | "UIST" | "IUI" |
+        "ICRA" | "IROS" | "RSS" | "VIS" | "VR" |
+        
+        // Special cases
+        "SOCC"
+    ) || 
+    // Also check for partial matches
+    (without_year.contains("USENIX") && without_year.contains("ATC")) ||
+    (without_year.contains("USENIX") && without_year.contains("SECURITY"))
+}
 
 pub struct PageRankCalculator<'a> {
     graph: &'a CitationGraph,
@@ -229,6 +278,13 @@ impl<'a> PageRankCalculator<'a> {
             let total_papers = scholar.papers.len();
             
             for (venue_id, paper_ids) in &scholar.publications_by_venue {
+                // Only consider papers from CSRankings venues
+                if let Some(venue) = self.graph.venues.get(venue_id) {
+                    if !is_csrankings_venue(&venue.name) {
+                        continue;
+                    }
+                }
+                
                 let venue_score = self.venue_scores.get(venue_id).unwrap_or(&0.01);
                 
                 for paper_id in paper_ids {
@@ -290,35 +346,46 @@ impl<'a> PageRankCalculator<'a> {
     }
     
     fn calculate_h_indices(&mut self) {
-        // Calculate H-index for each scholar
+        // Calculate H-index for each scholar (only counting CSRankings papers)
         for scholar in self.graph.scholars.values() {
-            let mut citations: Vec<usize> = Vec::new();
-            
-            for paper_id in &scholar.papers {
-                if let Some(paper) = self.graph.papers.get(paper_id) {
-                    citations.push(paper.cited_by.len());
-                }
-            }
-            
-            citations.sort_by(|a, b| b.cmp(a));
-            
-            let mut h_index = 0;
-            for (i, &citation_count) in citations.iter().enumerate() {
-                if citation_count >= i + 1 {
-                    h_index = i + 1;
-                } else {
-                    break;
-                }
-            }
-            
-            // Store h_index (we'd need mutable access to update the scholar object)
+            let h_index = self.calculate_scholar_h_index(scholar);
             debug!("Scholar {} H-index: {}", scholar.name, h_index);
         }
+    }
+    
+    fn calculate_scholar_h_index(&self, scholar: &Scholar) -> usize {
+        let mut citations: Vec<usize> = Vec::new();
+        
+        for paper_id in &scholar.papers {
+            if let Some(paper) = self.graph.papers.get(paper_id) {
+                // Only consider papers from CSRankings venues
+                if let Some(venue) = self.graph.venues.get(&normalize_venue_id(&paper.venue)) {
+                    if is_csrankings_venue(&venue.name) {
+                        citations.push(paper.cited_by.len());
+                    }
+                }
+            }
+        }
+        
+        citations.sort_by(|a, b| b.cmp(a));
+        
+        let mut h_index = 0;
+        for (i, &citation_count) in citations.iter().enumerate() {
+            if citation_count >= i + 1 {
+                h_index = i + 1;
+            } else {
+                break;
+            }
+        }
+        
+        h_index
     }
     
     pub fn get_top_venues(&self, n: usize, field: Option<&str>, tier: Option<&str>) -> Vec<VenueRanking> {
         let mut rankings: Vec<VenueRanking> = self.graph.venues.values()
             .filter(|v| {
+                // Only include CSRankings conferences
+                is_csrankings_venue(&v.name) &&
                 field.map_or(true, |f| v.field.to_lowercase().contains(&f.to_lowercase())) &&
                 tier.map_or(true, |t| v.tier == t)
             })
@@ -348,21 +415,52 @@ impl<'a> PageRankCalculator<'a> {
         let min_papers = min_papers.unwrap_or(0);
         
         let mut rankings: Vec<ScholarRanking> = self.graph.scholars.values()
-            .filter(|s| s.papers.len() >= min_papers)
             .map(|scholar| {
-                let qindex = self.scholar_scores.get(&scholar.id).unwrap_or(&0.0);
-                
-                // Calculate citation count
+                // Count only CSRankings papers
+                let mut csrankings_paper_count = 0;
                 let mut citation_count = 0;
+                
                 for paper_id in &scholar.papers {
                     if let Some(paper) = self.graph.papers.get(paper_id) {
-                        citation_count += paper.cited_by.len();
+                        if let Some(venue) = self.graph.venues.get(&normalize_venue_id(&paper.venue)) {
+                            if is_csrankings_venue(&venue.name) {
+                                csrankings_paper_count += 1;
+                                citation_count += paper.cited_by.len();
+                            }
+                        }
                     }
                 }
                 
-                // Get top venues
+                // Only include scholars with minimum CSRankings papers
+                if csrankings_paper_count < min_papers {
+                    return None;
+                }
+                
+                let qindex = self.scholar_scores.get(&scholar.id).unwrap_or(&0.0);
+                
+                // Get top CSRankings venues
                 let mut venue_papers: Vec<(String, usize)> = scholar.publications_by_venue.iter()
-                    .map(|(v, p)| (v.clone(), p.len()))
+                    .filter_map(|(venue_id, paper_ids)| {
+                        if let Some(venue) = self.graph.venues.get(venue_id) {
+                            if is_csrankings_venue(&venue.name) {
+                                let csrankings_papers_in_venue = paper_ids.iter()
+                                    .filter(|paper_id| {
+                                        if let Some(paper) = self.graph.papers.get(*paper_id) {
+                                            if let Some(v) = self.graph.venues.get(&normalize_venue_id(&paper.venue)) {
+                                                return is_csrankings_venue(&v.name);
+                                            }
+                                        }
+                                        false
+                                    })
+                                    .count();
+                                Some((venue_id.clone(), csrankings_papers_in_venue))
+                            } else {
+                                None
+                            }
+                        } else {
+                            None
+                        }
+                    })
                     .collect();
                 venue_papers.sort_by(|a, b| b.1.cmp(&a.1));
                 
@@ -373,16 +471,17 @@ impl<'a> PageRankCalculator<'a> {
                     })
                     .collect();
                 
-                ScholarRanking {
+                Some(ScholarRanking {
                     id: scholar.id.clone(),
                     name: scholar.name.clone(),
                     qindex: *qindex,
-                    h_index: calculate_h_index(scholar, &self.graph),
-                    paper_count: scholar.papers.len(),
+                    h_index: self.calculate_scholar_h_index(scholar),
+                    paper_count: csrankings_paper_count,
                     citation_count,
                     top_venues,
-                }
+                })
             })
+            .filter_map(|x| x)
             .collect();
         
         rankings.sort_by(|a, b| b.qindex.partial_cmp(&a.qindex).unwrap());
