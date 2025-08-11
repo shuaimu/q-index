@@ -1,0 +1,39 @@
+# Rust build artifacts
+/target/
+**/*.rs.bk
+*.pdb
+
+# Cargo lock file is included for binaries
+# Cargo.lock
+
+# IDE files
+.idea/
+*.swp
+*.swo
+*~
+.vscode/
+*.iml
+
+# OS files
+.DS_Store
+Thumbs.db
+
+# Output files
+output/
+results/
+
+# Temporary files
+*.tmp
+*.bak
+*.log
+
+# Old Go project files (to be removed)
+/cmd/
+/pkg/
+go.mod
+go.sum
+vendor/
+
+# Development scripts that may change
+dev.sh
+run.sh
