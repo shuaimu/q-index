@@ -391,20 +391,76 @@ pub fn get_venue_tier(venue: &str) -> String {
 pub fn get_venue_field(venue: &str) -> String {
     let venue_upper = venue.to_uppercase();
     
+    // CSRankings subcategories mapping
     let fields = [
-        (vec!["SOSP", "OSDI", "EUROSYS", "ATC", "FAST", "NSDI", "SIGCOMM"], "Systems"),
-        (vec!["SIGMOD", "VLDB", "CIDR", "ICDE", "EDBT"], "Database"),
-        (vec!["STOC", "FOCS", "SODA", "PODC", "DISC", "SPAA"], "Theory"),
-        (vec!["PLDI", "POPL", "OOPSLA", "ECOOP"], "Programming Languages"),
-        (vec!["ASPLOS", "ISCA", "MICRO", "PPOPP", "PACT"], "Architecture"),
-        (vec!["CCS", "SECURITY", "OAKLAND"], "Security"),
-        (vec!["SOCC", "HOTOS"], "Cloud Computing"),
-        (vec!["NEURIPS", "ICML", "ICLR", "CVPR", "ICCV"], "Machine Learning"),
+        // Systems Area
+        (vec!["SOSP", "OSDI", "EUROSYS", "ATC", "FAST", "VEE", "HOTOS"], "Operating Systems"),
+        (vec!["SIGCOMM", "NSDI", "CONEXT", "IMC"], "Computer Networks"),
+        (vec!["CCS", "SECURITY", "OAKLAND", "NDSS", "USENIXSEC"], "Computer Security"),
+        (vec!["SIGMOD", "VLDB", "ICDE", "PODS", "EDBT", "CIDR"], "Databases"),
+        (vec!["SIGMETRICS", "SIGMETRICS", "IMC"], "Measurement & Perf. Analysis"),
+        (vec!["DAC", "ICCAD"], "Design Automation"),
+        (vec!["EMSOFT", "RTAS", "RTSS"], "Embedded & Real-Time Systems"),
+        (vec!["HPDC", "ICS", "SC", "PPoPP"], "High-Performance Computing"),
+        (vec!["MOBICOM", "MOBISYS", "SENSYS", "UBICOMP", "IMWUT"], "Mobile Computing"),
+        
+        // AI Area
+        (vec!["AAAI", "IJCAI"], "Artificial Intelligence"),
+        (vec!["CVPR", "ECCV", "ICCV"], "Computer Vision"),
+        (vec!["ICML", "NEURIPS", "NIPS", "ICLR"], "Machine Learning & Data Mining"),
+        (vec!["ACL", "EMNLP", "NAACL"], "Natural Language Processing"),
+        (vec!["SIGIR", "WWW"], "The Web & Information Retrieval"),
+        
+        // Theory Area
+        (vec!["STOC", "FOCS"], "Algorithms & Complexity"),
+        (vec!["CRYPTO", "EUROCRYPT"], "Cryptography"),
+        (vec!["CAV", "LICS"], "Logic & Verification"),
+        (vec!["PODC", "SPAA", "DISC"], "Parallel & Distributed Computing"),
+        
+        // Systems/Architecture
+        (vec!["ASPLOS", "ISCA", "MICRO", "HPCA"], "Computer Architecture"),
+        (vec!["PLDI", "POPL", "ICFP", "OOPSLA"], "Programming Languages"),
+        (vec!["FSE", "ICSE", "ASE", "ISSTA"], "Software Engineering"),
+        
+        // Interdisciplinary Areas
+        (vec!["SIGGRAPH", "SIGGRAPH ASIA", "EUROGRAPHICS"], "Computer Graphics"),
+        (vec!["EC", "WINE"], "Economics & Computation"),
+        (vec!["CHI", "UIST", "IUI", "CSCW"], "Human-Computer Interaction"),
+        (vec!["ICRA", "IROS", "RSS"], "Robotics"),
+        (vec!["VIS", "VR", "ISMAR"], "Visualization"),
+        (vec!["ISMB", "RECOMB"], "Computational Biology"),
+        (vec!["SIGCSE"], "Computer Science Education"),
+        
+        // Cloud/Distributed
+        (vec!["SOCC"], "Cloud Computing"),
+        (vec!["ICDCS", "MIDDLEWARE"], "Distributed Systems"),
+        
+        // Other important venues
+        (vec!["KDD"], "Data Mining"),
+        (vec!["INFOCOM"], "Networking"),
+        (vec!["DSN"], "Dependable Systems"),
+        (vec!["SODA"], "Algorithms"),
+        (vec!["IPDPS"], "Parallel Processing"),
     ];
     
     for (keywords, field) in fields {
         if keywords.iter().any(|k| venue_upper.contains(k)) {
             return field.to_string();
+        }
+    }
+    
+    // Check for journals
+    if venue_upper.contains("JOURNAL") || venue_upper.contains("TRANSACTIONS") {
+        if venue_upper.contains("DATABASE") {
+            return "Databases".to_string();
+        } else if venue_upper.contains("NETWORK") {
+            return "Computer Networks".to_string();
+        } else if venue_upper.contains("PARALLEL") || venue_upper.contains("DISTRIBUTED") {
+            return "Parallel & Distributed Computing".to_string();
+        } else if venue_upper.contains("SOFTWARE") {
+            return "Software Engineering".to_string();
+        } else if venue_upper.contains("COMPUTER") {
+            return "Computer Systems".to_string();
         }
     }
     

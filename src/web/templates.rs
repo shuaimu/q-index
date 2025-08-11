@@ -347,13 +347,40 @@ pub fn venues_page(venues: &[VenueRanking], field_filter: Option<&str>, tier_fil
                                 label for="field" class="form-label" { "Field" }
                                 select class="form-select" name="field" id="field" {
                                     option value="" { "All Fields" }
-                                    option value="Systems" selected[field_filter == Some("Systems")] { "Systems" }
-                                    option value="Database" selected[field_filter == Some("Database")] { "Database" }
-                                    option value="Theory" selected[field_filter == Some("Theory")] { "Theory" }
-                                    option value="Machine Learning" selected[field_filter == Some("Machine Learning")] { "Machine Learning" }
-                                    option value="Security" selected[field_filter == Some("Security")] { "Security" }
-                                    option value="Architecture" selected[field_filter == Some("Architecture")] { "Architecture" }
+                                    // Systems Area
+                                    option value="Operating Systems" selected[field_filter == Some("Operating Systems")] { "Operating Systems" }
+                                    option value="Computer Networks" selected[field_filter == Some("Computer Networks")] { "Computer Networks" }
+                                    option value="Computer Security" selected[field_filter == Some("Computer Security")] { "Computer Security" }
+                                    option value="Databases" selected[field_filter == Some("Databases")] { "Databases" }
+                                    option value="Computer Architecture" selected[field_filter == Some("Computer Architecture")] { "Computer Architecture" }
+                                    option value="Measurement & Perf. Analysis" selected[field_filter == Some("Measurement & Perf. Analysis")] { "Measurement & Perf. Analysis" }
+                                    option value="High-Performance Computing" selected[field_filter == Some("High-Performance Computing")] { "High-Performance Computing" }
+                                    option value="Mobile Computing" selected[field_filter == Some("Mobile Computing")] { "Mobile Computing" }
+                                    option value="Embedded & Real-Time Systems" selected[field_filter == Some("Embedded & Real-Time Systems")] { "Embedded & Real-Time Systems" }
+                                    // AI Area
+                                    option value="Artificial Intelligence" selected[field_filter == Some("Artificial Intelligence")] { "Artificial Intelligence" }
+                                    option value="Computer Vision" selected[field_filter == Some("Computer Vision")] { "Computer Vision" }
+                                    option value="Machine Learning & Data Mining" selected[field_filter == Some("Machine Learning & Data Mining")] { "Machine Learning & Data Mining" }
+                                    option value="Natural Language Processing" selected[field_filter == Some("Natural Language Processing")] { "Natural Language Processing" }
+                                    option value="The Web & Information Retrieval" selected[field_filter == Some("The Web & Information Retrieval")] { "The Web & Information Retrieval" }
+                                    // Theory Area
+                                    option value="Algorithms & Complexity" selected[field_filter == Some("Algorithms & Complexity")] { "Algorithms & Complexity" }
+                                    option value="Cryptography" selected[field_filter == Some("Cryptography")] { "Cryptography" }
+                                    option value="Logic & Verification" selected[field_filter == Some("Logic & Verification")] { "Logic & Verification" }
+                                    option value="Parallel & Distributed Computing" selected[field_filter == Some("Parallel & Distributed Computing")] { "Parallel & Distributed Computing" }
+                                    // Software/Languages
                                     option value="Programming Languages" selected[field_filter == Some("Programming Languages")] { "Programming Languages" }
+                                    option value="Software Engineering" selected[field_filter == Some("Software Engineering")] { "Software Engineering" }
+                                    // Interdisciplinary
+                                    option value="Human-Computer Interaction" selected[field_filter == Some("Human-Computer Interaction")] { "Human-Computer Interaction" }
+                                    option value="Computer Graphics" selected[field_filter == Some("Computer Graphics")] { "Computer Graphics" }
+                                    option value="Robotics" selected[field_filter == Some("Robotics")] { "Robotics" }
+                                    option value="Visualization" selected[field_filter == Some("Visualization")] { "Visualization" }
+                                    option value="Computational Biology" selected[field_filter == Some("Computational Biology")] { "Computational Biology" }
+                                    // Other
+                                    option value="Cloud Computing" selected[field_filter == Some("Cloud Computing")] { "Cloud Computing" }
+                                    option value="Distributed Systems" selected[field_filter == Some("Distributed Systems")] { "Distributed Systems" }
+                                    option value="General" selected[field_filter == Some("General")] { "General" }
                                 }
                             }
                             div class="col-md-4" {

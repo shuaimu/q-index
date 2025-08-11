@@ -172,31 +172,39 @@ impl<'a> PageRankCalculator<'a> {
             return Ok(());
         }
         
-        // Initialize scores
-        let initial_score = 1.0 / n as f64;
-        for venue in &venues {
-            self.venue_scores.insert(venue.clone(), initial_score);
-        }
+        // Check if we have any citation data
+        let has_citations = !self.venue_graph.is_empty();
         
-        // Power iteration
-        for iteration in 0..self.params.max_iterations {
-            let mut new_scores = HashMap::new();
+        if has_citations {
+            // Use PageRank if we have citation data
+            info!("Running PageRank with citation graph ({} edges)", 
+                  self.venue_graph.values().map(|e| e.len()).sum::<usize>());
             
-            // Initialize with damping
+            // Initialize scores
+            let initial_score = 1.0 / n as f64;
             for venue in &venues {
-                new_scores.insert(venue.clone(), (1.0 - self.params.damping_factor) / n as f64);
+                self.venue_scores.insert(venue.clone(), initial_score);
             }
             
-            // Add contributions from incoming links
-            for (from_venue, edges) in &self.venue_graph {
-                let total_weight: f64 = edges.values().sum();
+            // Power iteration
+            for iteration in 0..self.params.max_iterations {
+                let mut new_scores = HashMap::new();
                 
-                if total_weight > 0.0 {
-                    let from_score = self.venue_scores.get(from_venue).unwrap_or(&initial_score);
+                // Initialize with damping
+                for venue in &venues {
+                    new_scores.insert(venue.clone(), (1.0 - self.params.damping_factor) / n as f64);
+                }
+                
+                // Add contributions from incoming links
+                for (from_venue, edges) in &self.venue_graph {
+                    let total_weight: f64 = edges.values().sum();
                     
-                    for (to_venue, weight) in edges {
-                        let contribution = self.params.damping_factor * from_score * (weight / total_weight);
-                        *new_scores.entry(to_venue.clone()).or_insert(0.0) += contribution;
+                    if total_weight > 0.0 {
+                        let from_score = self.venue_scores.get(from_venue).unwrap_or(&initial_score);
+                        
+                        for (to_venue, weight) in edges {
+                            let contribution = self.params.damping_factor * from_score * (weight / total_weight);
+                            *new_scores.entry(to_venue.clone()).or_insert(0.0) += contribution;
                     }
                 } else {
                     // Distribute evenly if no outgoing links
@@ -233,6 +241,40 @@ impl<'a> PageRankCalculator<'a> {
         if sum > 0.0 {
             for score in self.venue_scores.values_mut() {
                 *score /= sum;
+            }
+        }
+        } else {
+            // No citation data - use alternative scoring based on paper count and venue prestige
+            info!("No citation data available, using prestige-based scoring");
+            
+            for (venue_id, venue) in &self.graph.venues {
+                let mut score = 0.0;
+                
+                // Base score from paper count (logarithmic scale)
+                let paper_count = venue.papers.len() as f64;
+                if paper_count > 0.0 {
+                    score = (paper_count + 1.0).ln() / 10.0;
+                }
+                
+                // Adjust based on CSRankings status
+                if is_csrankings_venue(&venue.name) {
+                    score *= 2.0; // Boost CSRankings venues
+                }
+                
+                // Add some variation based on venue name hash to avoid identical scores
+                let name_hash = venue.name.chars().fold(0u32, |acc, c| acc.wrapping_add(c as u32));
+                let variation = ((name_hash % 100) as f64) / 10000.0;
+                score += variation;
+                
+                self.venue_scores.insert(venue_id.clone(), score);
+            }
+            
+            // Normalize scores
+            let sum: f64 = self.venue_scores.values().sum();
+            if sum > 0.0 {
+                for score in self.venue_scores.values_mut() {
+                    *score /= sum;
+                }
             }
         }
         
