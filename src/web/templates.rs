@@ -96,6 +96,242 @@ pub fn base_template(title: &str, content: Markup) -> Markup {
     }
 }
 
+pub fn index_page_async() -> Markup {
+    base_template(
+        "Dashboard - QIndex",
+        html! {
+            div class="container my-4" {
+                // Header
+                div class="row mb-4" {
+                    div class="col-12" {
+                        h1 class="display-4" {
+                            i class="bi bi-speedometer2 me-3" {}
+                            "QIndex Dashboard"
+                        }
+                        p class="lead" { "Real-time academic quality metrics powered by PageRank algorithm" }
+                    }
+                }
+                
+                // Loading indicator
+                div id="loading" class="text-center my-5" {
+                    div class="spinner-border text-primary" role="status" {
+                        span class="visually-hidden" { "Loading..." }
+                    }
+                    p class="mt-3" { "Loading dashboard data..." }
+                }
+                
+                // Content containers (initially hidden)
+                div id="dashboard-content" style="display: none;" {
+                    // Stats cards
+                    div class="row mb-4" id="stats-cards" {}
+                    
+                    // Rankings tables
+                    div class="row" {
+                        div class="col-lg-6 mb-4" {
+                            div class="card" {
+                                div class="card-header bg-primary text-white" {
+                                    h5 class="mb-0" {
+                                        i class="bi bi-trophy me-2" {}
+                                        "Top Venues by PageRank"
+                                    }
+                                }
+                                div class="card-body" {
+                                    div id="venues-table" {}
+                                }
+                            }
+                        }
+                        
+                        div class="col-lg-6 mb-4" {
+                            div class="card" {
+                                div class="card-header bg-success text-white" {
+                                    h5 class="mb-0" {
+                                        i class="bi bi-person-badge me-2" {}
+                                        "Top Scholars by QIndex"
+                                    }
+                                }
+                                div class="card-body" {
+                                    div id="scholars-table" {}
+                                }
+                            }
+                        }
+                    }
+                    
+                    // Chart
+                    div class="row mt-4" {
+                        div class="col-12" {
+                            div class="card" {
+                                div class="card-header bg-info text-white" {
+                                    h5 class="mb-0" {
+                                        i class="bi bi-graph-up me-2" {}
+                                        "Venue Distribution by Field"
+                                    }
+                                }
+                                div class="card-body" {
+                                    canvas id="fieldChart" width="400" height="100" {}
+                                }
+                            }
+                        }
+                    }
+                }
+                
+                // JavaScript to load data
+                script {
+                    (PreEscaped(r#"
+                    document.addEventListener('DOMContentLoaded', function() {
+                        // Fetch homepage data
+                        fetch('/api/homepage')
+                            .then(response => response.json())
+                            .then(result => {
+                                if (result.success) {
+                                    renderDashboard(result.data);
+                                    document.getElementById('loading').style.display = 'none';
+                                    document.getElementById('dashboard-content').style.display = 'block';
+                                } else {
+                                    showError('Failed to load dashboard data');
+                                }
+                            })
+                            .catch(error => {
+                                console.error('Error:', error);
+                                showError('Failed to load dashboard data');
+                            });
+                    });
+                    
+                    function renderDashboard(data) {
+                        // Render stats cards
+                        const statsHtml = `
+                            <div class="col-md-3">
+                                <div class="card text-white bg-primary mb-3">
+                                    <div class="card-body">
+                                        <h5 class="card-title"><i class="bi bi-file-text me-2"></i>Papers</h5>
+                                        <p class="card-text display-6">${data.stats.total_papers}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-white bg-success mb-3">
+                                    <div class="card-body">
+                                        <h5 class="card-title"><i class="bi bi-building me-2"></i>Venues</h5>
+                                        <p class="card-text display-6">${data.stats.total_venues}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-white bg-info mb-3">
+                                    <div class="card-body">
+                                        <h5 class="card-title"><i class="bi bi-people me-2"></i>Scholars</h5>
+                                        <p class="card-text display-6">${data.stats.total_scholars}</p>
+                                    </div>
+                                </div>
+                            </div>
+                            <div class="col-md-3">
+                                <div class="card text-white bg-warning mb-3">
+                                    <div class="card-body">
+                                        <h5 class="card-title"><i class="bi bi-link-45deg me-2"></i>Citations</h5>
+                                        <p class="card-text display-6">${data.stats.total_citations}</p>
+                                    </div>
+                                </div>
+                            </div>
+                        `;
+                        document.getElementById('stats-cards').innerHTML = statsHtml;
+                        
+                        // Render venues table
+                        let venuesHtml = '<div class="table-responsive"><table class="table table-hover">';
+                        venuesHtml += '<thead><tr><th>#</th><th>Venue</th><th>Tier</th><th>PageRank</th></tr></thead><tbody>';
+                        data.top_venues.forEach((venue, index) => {
+                            const tierClass = venue.tier === 'A*' ? 'bg-danger' : 
+                                            venue.tier === 'A' ? 'bg-warning' : 'bg-secondary';
+                            venuesHtml += `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td><a href="/venue/${venue.id}">${venue.name}</a></td>
+                                    <td><span class="badge ${tierClass}">${venue.tier}</span></td>
+                                    <td>${venue.pagerank.toFixed(4)}</td>
+                                </tr>
+                            `;
+                        });
+                        venuesHtml += '</tbody></table></div>';
+                        venuesHtml += '<a href="/venues" class="btn btn-primary btn-sm">View All Venues<i class="bi bi-arrow-right ms-2"></i></a>';
+                        document.getElementById('venues-table').innerHTML = venuesHtml;
+                        
+                        // Render scholars table
+                        let scholarsHtml = '<div class="table-responsive"><table class="table table-hover">';
+                        scholarsHtml += '<thead><tr><th>#</th><th>Scholar</th><th>QIndex</th><th>H-Index</th></tr></thead><tbody>';
+                        data.top_scholars.forEach((scholar, index) => {
+                            scholarsHtml += `
+                                <tr>
+                                    <td>${index + 1}</td>
+                                    <td><a href="/scholar/${scholar.id}">${scholar.name}</a></td>
+                                    <td><span class="badge bg-primary">${scholar.qindex.toFixed(1)}</span></td>
+                                    <td>${scholar.h_index}</td>
+                                </tr>
+                            `;
+                        });
+                        scholarsHtml += '</tbody></table></div>';
+                        scholarsHtml += '<a href="/scholars" class="btn btn-success btn-sm">View All Scholars<i class="bi bi-arrow-right ms-2"></i></a>';
+                        document.getElementById('scholars-table').innerHTML = scholarsHtml;
+                        
+                        // Load field chart data
+                        loadFieldChart();
+                    }
+                    
+                    function loadFieldChart() {
+                        const ctx = document.getElementById('fieldChart').getContext('2d');
+                        fetch('/api/stats/fields')
+                            .then(response => response.json())
+                            .then(data => {
+                                new Chart(ctx, {
+                                    type: 'bar',
+                                    data: {
+                                        labels: data.labels,
+                                        datasets: [{
+                                            label: 'Number of Papers',
+                                            data: data.values,
+                                            backgroundColor: [
+                                                'rgba(255, 99, 132, 0.6)',
+                                                'rgba(54, 162, 235, 0.6)',
+                                                'rgba(255, 206, 86, 0.6)',
+                                                'rgba(75, 192, 192, 0.6)',
+                                                'rgba(153, 102, 255, 0.6)',
+                                                'rgba(255, 159, 64, 0.6)'
+                                            ],
+                                            borderColor: [
+                                                'rgba(255, 99, 132, 1)',
+                                                'rgba(54, 162, 235, 1)',
+                                                'rgba(255, 206, 86, 1)',
+                                                'rgba(75, 192, 192, 1)',
+                                                'rgba(153, 102, 255, 1)',
+                                                'rgba(255, 159, 64, 1)'
+                                            ],
+                                            borderWidth: 1
+                                        }]
+                                    },
+                                    options: {
+                                        responsive: true,
+                                        maintainAspectRatio: false,
+                                        scales: {
+                                            y: {
+                                                beginAtZero: true
+                                            }
+                                        }
+                                    }
+                                });
+                            });
+                    }
+                    
+                    function showError(message) {
+                        document.getElementById('loading').innerHTML = `
+                            <div class="alert alert-danger" role="alert">
+                                <i class="bi bi-exclamation-triangle me-2"></i>${message}
+                            </div>
+                        `;
+                    }
+                    "#))
+                }
+            }
+        }
+    )
+}
+
 pub fn index_page(top_venues: &[VenueRanking], top_scholars: &[ScholarRanking], stats: &Stats) -> Markup {
     base_template("Dashboard", html! {
         div class="row mb-4" {
@@ -644,6 +880,7 @@ pub fn search_results_page(query: &str, venues: &[VenueRanking], scholars: &[Sch
     })
 }
 
+#[derive(serde::Serialize)]
 pub struct Stats {
     pub total_papers: usize,
     pub total_venues: usize,

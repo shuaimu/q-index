@@ -49,6 +49,7 @@ pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
             .route("/statistics", web::get().to(statistics_handler))
             
             // API routes
+            .route("/api/homepage", web::get().to(api_homepage))
             .route("/api/venues", web::get().to(api_venues))
             .route("/api/scholars", web::get().to(api_scholars))
             .route("/api/search", web::get().to(api_search))

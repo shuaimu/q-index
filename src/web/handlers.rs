@@ -4,7 +4,7 @@ use maud::{Markup, html};
 
 use crate::web::state::APP_STATE;
 use crate::web::templates::{
-    index_page, venues_page, scholars_page, search_results_page, Stats, base_template,
+    index_page_async, venues_page, scholars_page, search_results_page, Stats, base_template,
     venue_detail_page, scholar_detail_page
 };
 
@@ -37,22 +37,8 @@ pub struct ApiResponse<T> {
 // HTML Handlers
 
 pub async fn index_handler() -> Result<Markup> {
-    let state = APP_STATE.get().ok_or_else(|| 
-        actix_web::error::ErrorInternalServerError("Application state not initialized")
-    )?;
-    
-    let top_venues = state.get_or_calculate_venues(10);
-    let top_scholars = state.get_or_calculate_scholars(10);
-    
-    let graph = state.graph.read().unwrap();
-    let stats = Stats {
-        total_papers: graph.papers.len(),
-        total_venues: graph.venues.len(),
-        total_scholars: graph.scholars.len(),
-        total_citations: graph.edges.len(),
-    };
-    
-    Ok(index_page(&top_venues, &top_scholars, &stats))
+    // Return lightweight HTML that loads data via AJAX
+    Ok(index_page_async())
 }
 
 pub async fn venues_handler(query: web::Query<VenueQuery>) -> Result<Markup> {
@@ -403,6 +389,41 @@ pub async fn statistics_handler() -> Result<Markup> {
 }
 
 // API Handlers
+
+pub async fn api_homepage() -> Result<HttpResponse> {
+    let state = APP_STATE.get().ok_or_else(|| 
+        actix_web::error::ErrorInternalServerError("Application state not initialized")
+    )?;
+    
+    let top_venues = state.get_or_calculate_venues(10);
+    let top_scholars = state.get_or_calculate_scholars(10);
+    
+    let graph = state.graph.read().unwrap();
+    
+    #[derive(Serialize)]
+    struct HomepageData {
+        stats: Stats,
+        top_venues: Vec<crate::models::VenueRanking>,
+        top_scholars: Vec<crate::models::ScholarRanking>,
+    }
+    
+    let data = HomepageData {
+        stats: Stats {
+            total_papers: graph.papers.len(),
+            total_venues: graph.venues.len(),
+            total_scholars: graph.scholars.len(),
+            total_citations: graph.edges.len(),
+        },
+        top_venues,
+        top_scholars,
+    };
+    
+    Ok(HttpResponse::Ok().json(ApiResponse {
+        success: true,
+        data,
+        error: None,
+    }))
+}
 
 pub async fn api_venues() -> Result<HttpResponse> {
     let state = APP_STATE.get().ok_or_else(|| 
