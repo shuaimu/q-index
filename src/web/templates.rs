@@ -1,5 +1,76 @@
 use maud::{html, Markup, DOCTYPE, PreEscaped};
-use crate::models::{VenueRanking, ScholarRanking};
+use crate::models::{VenueRanking, ScholarRanking, Paper};
+
+// Helper functions for generating paper links
+fn get_google_scholar_url(paper: &Paper) -> String {
+    let query = format!("{} {}", 
+        paper.title.replace(" ", "+"),
+        paper.authors.first().map(|a| a.replace(" ", "+")).unwrap_or_default()
+    );
+    format!("https://scholar.google.com/scholar?q={}", query)
+}
+
+fn get_publisher_url(paper: &Paper) -> Option<String> {
+    // If DOI is available, use it
+    if let Some(doi) = &paper.doi {
+        return Some(format!("https://doi.org/{}", doi));
+    }
+    
+    // If URL is available, use it
+    if let Some(url) = &paper.url {
+        return Some(url.clone());
+    }
+    
+    // Otherwise, try to generate based on venue
+    let venue_upper = paper.venue.to_uppercase();
+    let title_slug = paper.title
+        .to_lowercase()
+        .chars()
+        .map(|c| if c.is_alphanumeric() { c } else { '-' })
+        .collect::<String>()
+        .split('-')
+        .filter(|s| !s.is_empty())
+        .collect::<Vec<_>>()
+        .join("-");
+    
+    match venue_upper.as_str() {
+        v if v.contains("SOSP") || v.contains("OSDI") || v.contains("NSDI") || v.contains("ATC") || v.contains("FAST") => {
+            // USENIX conferences
+            paper.year.map(|year| {
+                format!("https://www.usenix.org/conference/{}{}/technical-sessions", 
+                    venue_upper.to_lowercase(), year)
+            })
+        },
+        v if v.contains("SIGMOD") || v.contains("VLDB") || v.contains("ICDE") || v.contains("PODS") => {
+            // ACM database conferences
+            Some(format!("https://dl.acm.org/action/doSearch?AllField={}", 
+                paper.title.replace(" ", "+")))
+        },
+        v if v.contains("PLDI") || v.contains("POPL") || v.contains("OOPSLA") || v.contains("ASPLOS") => {
+            // ACM PL conferences
+            Some(format!("https://dl.acm.org/action/doSearch?AllField={}", 
+                paper.title.replace(" ", "+")))
+        },
+        v if v.contains("ICML") || v.contains("NEURIPS") || v.contains("ICLR") => {
+            // ML conferences
+            match v {
+                _ if v.contains("NEURIPS") => Some("https://papers.nips.cc/".to_string()),
+                _ if v.contains("ICML") => Some("https://proceedings.mlr.press/".to_string()),
+                _ if v.contains("ICLR") => Some("https://openreview.net/group?id=ICLR.cc".to_string()),
+                _ => None
+            }
+        },
+        v if v.contains("CVPR") || v.contains("ICCV") || v.contains("ECCV") => {
+            // Computer Vision conferences (IEEE/CVF)
+            Some("https://openaccess.thecvf.com/".to_string())
+        },
+        _ => {
+            // Default to ACM DL search
+            Some(format!("https://dl.acm.org/action/doSearch?AllField={}", 
+                paper.title.replace(" ", "+")))
+        }
+    }
+}
 
 pub fn base_template(title: &str, content: Markup) -> Markup {
     html! {
@@ -991,14 +1062,14 @@ pub fn venue_detail_page(
                                         @for (i, paper) in papers.iter().enumerate() {
                                             @if i < 50 {  // Show first 50 papers
                                                 .list-group-item {
-                                                    h6.mb-1 { (paper.title) }
+                                                    h6.mb-2 { (paper.title) }
                                                     p.mb-1.text-muted.small {
                                                         @for (j, author) in paper.authors.iter().enumerate() {
                                                             @if j > 0 { ", " }
                                                             (author)
                                                         }
                                                     }
-                                                    .d-flex.justify-content-between {
+                                                    .d-flex.justify-content-between.align-items-center.mb-2 {
                                                         small.text-muted {
                                                             @if let Some(year) = paper.year {
                                                                 "Year: " (year)
@@ -1006,6 +1077,30 @@ pub fn venue_detail_page(
                                                         }
                                                         small.text-muted {
                                                             "Citations: " (paper.cited_by.len())
+                                                        }
+                                                    }
+                                                    // Paper links
+                                                    .btn-group.btn-group-sm {
+                                                        a.btn.btn-outline-primary href=(get_google_scholar_url(paper)) target="_blank" title="Search on Google Scholar" {
+                                                            i.bi.bi-google.me-1 {}
+                                                            "Scholar"
+                                                        }
+                                                        @if let Some(publisher_url) = get_publisher_url(paper) {
+                                                            a.btn.btn-outline-secondary href=(publisher_url) target="_blank" title="Publisher Page" {
+                                                                i.bi.bi-journal-text.me-1 {}
+                                                                @if paper.doi.is_some() {
+                                                                    "DOI"
+                                                                } @else {
+                                                                    "Publisher"
+                                                                }
+                                                            }
+                                                        }
+                                                        @if let Some(doi) = &paper.doi {
+                                                            button.btn.btn-outline-info type="button" 
+                                                                onclick=(format!("navigator.clipboard.writeText('{}')", doi))
+                                                                title="Copy DOI to clipboard" {
+                                                                i.bi.bi-clipboard {}
+                                                            }
                                                         }
                                                     }
                                                 }
@@ -1130,15 +1225,41 @@ pub fn scholar_detail_page(
                                         @for (i, paper) in papers.iter().enumerate() {
                                             @if i < 50 {  // Show first 50 papers
                                                 .list-group-item {
-                                                    h6.mb-1 { (paper.title) }
+                                                    h6.mb-2 { (paper.title) }
                                                     p.mb-1.text-muted.small {
                                                         "Venue: " (paper.venue)
                                                         @if let Some(year) = paper.year {
                                                             " (" (year) ")"
                                                         }
                                                     }
-                                                    small.text-muted {
-                                                        "Citations: " (paper.cited_by.len())
+                                                    .d-flex.justify-content-between.align-items-center.mb-2 {
+                                                        small.text-muted {
+                                                            "Citations: " (paper.cited_by.len())
+                                                        }
+                                                    }
+                                                    // Paper links
+                                                    .btn-group.btn-group-sm {
+                                                        a.btn.btn-outline-primary href=(get_google_scholar_url(paper)) target="_blank" title="Search on Google Scholar" {
+                                                            i.bi.bi-google.me-1 {}
+                                                            "Scholar"
+                                                        }
+                                                        @if let Some(publisher_url) = get_publisher_url(paper) {
+                                                            a.btn.btn-outline-secondary href=(publisher_url) target="_blank" title="Publisher Page" {
+                                                                i.bi.bi-journal-text.me-1 {}
+                                                                @if paper.doi.is_some() {
+                                                                    "DOI"
+                                                                } @else {
+                                                                    "Publisher"
+                                                                }
+                                                            }
+                                                        }
+                                                        @if let Some(doi) = &paper.doi {
+                                                            button.btn.btn-outline-info type="button" 
+                                                                onclick=(format!("navigator.clipboard.writeText('{}')", doi))
+                                                                title="Copy DOI to clipboard" {
+                                                                i.bi.bi-clipboard {}
+                                                            }
+                                                        }
                                                     }
                                                 }
                                             }
