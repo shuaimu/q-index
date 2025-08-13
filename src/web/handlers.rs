@@ -26,6 +26,12 @@ pub struct SearchQuery {
     q: String,
 }
 
+#[derive(Deserialize)]
+pub struct PaginationQuery {
+    page: Option<usize>,
+    per_page: Option<usize>,
+}
+
 #[derive(Serialize)]
 pub struct ApiResponse<T> {
     success: bool,
@@ -92,7 +98,10 @@ pub async fn search_handler(query: web::Query<SearchQuery>) -> Result<Markup> {
     Ok(search_results_page(&query.q, &venues, &scholars))
 }
 
-pub async fn venue_detail_handler(path: web::Path<String>) -> Result<Markup> {
+pub async fn venue_detail_handler(
+    path: web::Path<String>,
+    query: web::Query<PaginationQuery>
+) -> Result<Markup> {
     let venue_id = path.into_inner();
     
     let state = APP_STATE.get().ok_or_else(|| 
@@ -106,11 +115,18 @@ pub async fn venue_detail_handler(path: web::Path<String>) -> Result<Markup> {
         .ok_or_else(|| actix_web::error::ErrorNotFound("Venue not found"))?;
     
     // Get papers for this venue
-    let papers: Vec<_> = venue.papers.iter()
+    let mut papers: Vec<_> = venue.papers.iter()
         .filter_map(|paper_id| graph.papers.get(paper_id))
         .collect();
     
-    // Calculate venue statistics
+    // Sort papers by year (latest first)
+    papers.sort_by(|a, b| {
+        let year_a = a.year.unwrap_or(0);
+        let year_b = b.year.unwrap_or(0);
+        year_b.cmp(&year_a)
+    });
+    
+    // Calculate venue statistics (before pagination)
     let total_citations: usize = papers.iter()
         .map(|p| p.cited_by.len())
         .sum();
@@ -126,10 +142,31 @@ pub async fn venue_detail_handler(path: web::Path<String>) -> Result<Markup> {
     top_authors.sort_by_key(|(_, count)| std::cmp::Reverse(*count));
     top_authors.truncate(10);
     
-    Ok(venue_detail_page(venue, &papers, total_citations, &top_authors))
+    // Pagination
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(20).min(100);
+    let total_papers = papers.len();
+    let total_pages = (total_papers + per_page - 1) / per_page;
+    
+    let start = (page - 1) * per_page;
+    let end = (start + per_page).min(total_papers);
+    let paginated_papers = &papers[start..end];
+    
+    Ok(venue_detail_page(
+        venue, 
+        paginated_papers, 
+        total_citations, 
+        &top_authors,
+        page,
+        total_pages,
+        total_papers
+    ))
 }
 
-pub async fn scholar_detail_handler(path: web::Path<String>) -> Result<Markup> {
+pub async fn scholar_detail_handler(
+    path: web::Path<String>,
+    query: web::Query<PaginationQuery>
+) -> Result<Markup> {
     let scholar_id = path.into_inner();
     let state = APP_STATE.get().ok_or_else(|| 
         actix_web::error::ErrorInternalServerError("Application state not initialized")
@@ -142,22 +179,47 @@ pub async fn scholar_detail_handler(path: web::Path<String>) -> Result<Markup> {
         .ok_or_else(|| actix_web::error::ErrorNotFound("Scholar not found"))?;
     
     // Get papers for this scholar
-    let papers: Vec<_> = scholar.papers.iter()
+    let mut papers: Vec<_> = scholar.papers.iter()
         .filter_map(|paper_id| graph.papers.get(paper_id))
         .collect();
     
-    // Group papers by venue
+    // Sort papers by year (latest first)
+    papers.sort_by(|a, b| {
+        let year_a = a.year.unwrap_or(0);
+        let year_b = b.year.unwrap_or(0);
+        year_b.cmp(&year_a)
+    });
+    
+    // Group papers by venue (using all papers, not paginated)
     let mut papers_by_venue: std::collections::HashMap<String, Vec<&crate::models::Paper>> = std::collections::HashMap::new();
     for paper in &papers {
         papers_by_venue.entry(paper.venue.clone()).or_insert_with(Vec::new).push(*paper);
     }
     
-    // Calculate scholar statistics
+    // Calculate scholar statistics (before pagination)
     let total_citations: usize = papers.iter()
         .map(|p| p.cited_by.len())
         .sum();
     
-    Ok(scholar_detail_page(scholar, &papers, &papers_by_venue, total_citations))
+    // Pagination
+    let page = query.page.unwrap_or(1).max(1);
+    let per_page = query.per_page.unwrap_or(20).min(100);
+    let total_papers = papers.len();
+    let total_pages = (total_papers + per_page - 1) / per_page;
+    
+    let start = (page - 1) * per_page;
+    let end = (start + per_page).min(total_papers);
+    let paginated_papers = &papers[start..end];
+    
+    Ok(scholar_detail_page(
+        scholar, 
+        paginated_papers, 
+        &papers_by_venue, 
+        total_citations,
+        page,
+        total_pages,
+        total_papers
+    ))
 }
 
 pub async fn about_handler() -> Result<Markup> {

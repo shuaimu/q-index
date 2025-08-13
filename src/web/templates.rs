@@ -963,7 +963,10 @@ pub fn venue_detail_page(
     venue: &crate::models::Venue,
     papers: &[&crate::models::Paper],
     total_citations: usize,
-    top_authors: &[(String, usize)]
+    top_authors: &[(String, usize)],
+    current_page: usize,
+    total_pages: usize,
+    total_papers: usize
 ) -> Markup {
     base_template(
         &format!("{} - QIndex", venue.name),
@@ -1011,7 +1014,7 @@ pub fn venue_detail_page(
                             .col-md-3 {
                                 .stat-box.text-center {
                                     h5 { "Papers" }
-                                    .display-6 { (papers.len()) }
+                                    .display-6 { (total_papers) }
                                 }
                             }
                             .col-md-3 {
@@ -1052,15 +1055,21 @@ pub fn venue_detail_page(
                     .col-md-8.mb-4 {
                         .card.h-100.shadow-sm {
                             .card-header.bg-primary.text-white {
-                                h5.mb-0 { "Papers (" (papers.len()) ")" }
+                                .d-flex.justify-content-between.align-items-center {
+                                    h5.mb-0 { 
+                                        "Papers (Page " (current_page) " of " (total_pages) ")" 
+                                    }
+                                    small { 
+                                        "Showing " (papers.len()) " of " (total_papers) " papers"
+                                    }
+                                }
                             }
-                            .card-body.overflow-auto style="max-height: 600px;" {
+                            .card-body {
                                 @if papers.is_empty() {
                                     p.text-muted { "No papers found" }
                                 } @else {
                                     .list-group {
-                                        @for (i, paper) in papers.iter().enumerate() {
-                                            @if i < 50 {  // Show first 50 papers
+                                        @for paper in papers.iter() {
                                                 .list-group-item {
                                                     h6.mb-2 { (paper.title) }
                                                     p.mb-1.text-muted.small {
@@ -1104,11 +1113,39 @@ pub fn venue_detail_page(
                                                         }
                                                     }
                                                 }
-                                            }
                                         }
-                                        @if papers.len() > 50 {
-                                            .list-group-item.text-center.text-muted {
-                                                "... and " (papers.len() - 50) " more papers"
+                                    }
+                                }
+                                
+                                // Pagination controls
+                                @if total_pages > 1 {
+                                    nav.mt-3 {
+                                        ul.pagination.justify-content-center {
+                                            // Previous button
+                                            li class=(if current_page <= 1 { "page-item disabled" } else { "page-item" }) {
+                                                a.page-link href=(if current_page > 1 { format!("?page={}", current_page - 1) } else { "#".to_string() }) {
+                                                    "Previous"
+                                                }
+                                            }
+                                            
+                                            // Page numbers
+                                            @for page in 1..=total_pages {
+                                                @if (page == 1) || (page == total_pages) || ((page >= current_page - 2) && (page <= current_page + 2)) {
+                                                    li class=(if page == current_page { "page-item active" } else { "page-item" }) {
+                                                        a.page-link href=(format!("?page={}", page)) { (page) }
+                                                    }
+                                                } @else if (page == 2 && current_page > 4) || (page == total_pages - 1 && current_page < total_pages - 3) {
+                                                    li.page-item.disabled {
+                                                        span.page-link { "..." }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Next button
+                                            li class=(if current_page >= total_pages { "page-item disabled" } else { "page-item" }) {
+                                                a.page-link href=(if current_page < total_pages { format!("?page={}", current_page + 1) } else { "#".to_string() }) {
+                                                    "Next"
+                                                }
                                             }
                                         }
                                     }
@@ -1126,7 +1163,10 @@ pub fn scholar_detail_page(
     scholar: &crate::models::Scholar,
     papers: &[&crate::models::Paper],
     papers_by_venue: &std::collections::HashMap<String, Vec<&crate::models::Paper>>,
-    total_citations: usize
+    total_citations: usize,
+    current_page: usize,
+    total_pages: usize,
+    total_papers: usize
 ) -> Markup {
     base_template(
         &format!("{} - QIndex", scholar.name),
@@ -1168,7 +1208,7 @@ pub fn scholar_detail_page(
                             .col-md-3 {
                                 .stat-box.text-center {
                                     h5 { "Papers" }
-                                    .display-6 { (papers.len()) }
+                                    .display-6 { (total_papers) }
                                 }
                             }
                             .col-md-3 {
@@ -1215,15 +1255,21 @@ pub fn scholar_detail_page(
                     .col-md-8.mb-4 {
                         .card.h-100.shadow-sm {
                             .card-header.bg-primary.text-white {
-                                h5.mb-0 { "Publications" }
+                                .d-flex.justify-content-between.align-items-center {
+                                    h5.mb-0 { 
+                                        "Publications (Page " (current_page) " of " (total_pages) ")" 
+                                    }
+                                    small { 
+                                        "Showing " (papers.len()) " of " (total_papers) " papers"
+                                    }
+                                }
                             }
-                            .card-body.overflow-auto style="max-height: 600px;" {
+                            .card-body {
                                 @if papers.is_empty() {
                                     p.text-muted { "No publications found" }
                                 } @else {
                                     .list-group {
-                                        @for (i, paper) in papers.iter().enumerate() {
-                                            @if i < 50 {  // Show first 50 papers
+                                        @for paper in papers.iter() {
                                                 .list-group-item {
                                                     h6.mb-2 { (paper.title) }
                                                     p.mb-1.text-muted.small {
@@ -1262,11 +1308,39 @@ pub fn scholar_detail_page(
                                                         }
                                                     }
                                                 }
-                                            }
                                         }
-                                        @if papers.len() > 50 {
-                                            .list-group-item.text-center.text-muted {
-                                                "... and " (papers.len() - 50) " more publications"
+                                    }
+                                }
+                                
+                                // Pagination controls
+                                @if total_pages > 1 {
+                                    nav.mt-3 {
+                                        ul.pagination.justify-content-center {
+                                            // Previous button
+                                            li class=(if current_page <= 1 { "page-item disabled" } else { "page-item" }) {
+                                                a.page-link href=(if current_page > 1 { format!("?page={}", current_page - 1) } else { "#".to_string() }) {
+                                                    "Previous"
+                                                }
+                                            }
+                                            
+                                            // Page numbers
+                                            @for page in 1..=total_pages {
+                                                @if (page == 1) || (page == total_pages) || ((page >= current_page - 2) && (page <= current_page + 2)) {
+                                                    li class=(if page == current_page { "page-item active" } else { "page-item" }) {
+                                                        a.page-link href=(format!("?page={}", page)) { (page) }
+                                                    }
+                                                } @else if (page == 2 && current_page > 4) || (page == total_pages - 1 && current_page < total_pages - 3) {
+                                                    li.page-item.disabled {
+                                                        span.page-link { "..." }
+                                                    }
+                                                }
+                                            }
+                                            
+                                            // Next button
+                                            li class=(if current_page >= total_pages { "page-item disabled" } else { "page-item" }) {
+                                                a.page-link href=(if current_page < total_pages { format!("?page={}", current_page + 1) } else { "#".to_string() }) {
+                                                    "Next"
+                                                }
                                             }
                                         }
                                     }
