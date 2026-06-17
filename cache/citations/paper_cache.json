@@ -1,0 +1,1537 @@
+{
+  "29e550446fd79feb2d974bd81f3e2186": {
+    "title": "Characterizing data usage patterns in a large cellular network.",
+    "authors": [
+      "Yu Jin 0001",
+      "Nick Duffield",
+      "Alexandre Gerber",
+      "Patrick Haffner",
+      "Wen-Ling Hsu",
+      "Guy Jacobson",
+      "Subhabrata Sen",
+      "Shobha Venkataraman",
+      "Zhi-Li Zhang"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342468.2342471",
+    "ss_id": null,
+    "citation_count": 54,
+    "venue": null,
+    "fetched_at": 1755095861.1920378
+  },
+  "d5b6c757cbd81f5dee47078d18b438a4": {
+    "title": "Toward a mobile platform for pervasive games.",
+    "authors": [
+      "Inseok Hwang 0001",
+      "Youngki Lee 0001",
+      "Taiwoo Park",
+      "Junehwa Song"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342480.2342486",
+    "ss_id": null,
+    "citation_count": 12,
+    "venue": null,
+    "fetched_at": 1755095862.062162
+  },
+  "92e49753ecb2f18351118e5f376e67e6": {
+    "title": "Casting doubts on the viability of WiFi offloading.",
+    "authors": [
+      "Shu Liu 0001",
+      "Aaron Striegel"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342468.2342475",
+    "ss_id": null,
+    "citation_count": 18,
+    "venue": null,
+    "fetched_at": 1755095863.2713711
+  },
+  "d754f1cbf6e91fc6f7de1b831a857287": {
+    "title": "Anatomy of a large european {IXP",
+    "authors": [
+      "Bernhard Ager",
+      "Nikolaos Chatzis",
+      "Anja Feldmann",
+      "Nadi Sarrar",
+      "Steve Uhlig",
+      "Walter Willinger"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342393",
+    "ss_id": null,
+    "citation_count": 26,
+    "venue": null,
+    "fetched_at": 1755096685.664686
+  },
+  "6033095f8a4f9585c32d32d84bf844b6": {
+    "title": "Enabling dynamic network processing with clickOS.",
+    "authors": [
+      "Mohamed Ahmed 0001",
+      "Felipe Huici",
+      "Armin Jahanpanah"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342416",
+    "ss_id": null,
+    "citation_count": 9,
+    "venue": null,
+    "fetched_at": 1755096688.348809
+  },
+  "9d9d9bf85a847a6592ea226f0b35b11b": {
+    "title": "Estimating packet loss rate in the access through application-level measurements.",
+    "authors": [
+      "Simone Basso",
+      "Michela Meo",
+      "Antonio Servetti",
+      "Juan Carlos De Martin"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342541.2342545",
+    "ss_id": null,
+    "citation_count": 10,
+    "venue": null,
+    "fetched_at": 1755096690.9704509
+  },
+  "6484421ee56f597a67cd22069dd954b5": {
+    "title": "Resilient Overlay Networks.",
+    "authors": [
+      "David G. Andersen",
+      "Hari Balakrishnan",
+      "M. Frans Kaashoek",
+      "Robert Morris 0005"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502048",
+    "ss_id": null,
+    "citation_count": 36,
+    "venue": null,
+    "fetched_at": 1755096703.108886
+  },
+  "55841178925ae161c5bdc1a79ced9093": {
+    "title": "Information and Control in Gray-Box Systems.",
+    "authors": [
+      "Andrea C. Arpaci-Dusseau",
+      "Remzi H. Arpaci-Dusseau"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502040",
+    "ss_id": null,
+    "citation_count": 3,
+    "venue": null,
+    "fetched_at": 1755096703.798047
+  },
+  "5377bae0b300f37e39d9af04e4058de6": {
+    "title": "Managing Energy and Server Resources in Hosting Centres.",
+    "authors": [
+      "Jeffrey S. Chase",
+      "Darrell C. Anderson",
+      "Prachi N. Thakar",
+      "Amin Vahdat",
+      "Ronald P. Doyle"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502045",
+    "ss_id": null,
+    "citation_count": 19,
+    "venue": null,
+    "fetched_at": 1755096704.780724
+  },
+  "fe30eac22d5ceeff81b1a57c7fc6d15c": {
+    "title": "An Empirical Study of Operating System Errors.",
+    "authors": [
+      "Andy Chou",
+      "Junfeng Yang",
+      "Benjamin Chelf",
+      "Seth Hallem",
+      "Dawson R. Engler"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502042",
+    "ss_id": null,
+    "citation_count": 9,
+    "venue": null,
+    "fetched_at": 1755096705.9449291
+  },
+  "97eddd63d8c2a2859f70e8645b92f60a": {
+    "title": "Wide-Area Cooperative Storage with {CFS",
+    "authors": [
+      "Frank Dabek",
+      "M. Frans Kaashoek",
+      "David R. Karger",
+      "Robert Morris 0005",
+      "Ion Stoica"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502054",
+    "ss_id": null,
+    "citation_count": 394,
+    "venue": null,
+    "fetched_at": 1755096707.0738292
+  },
+  "0b9c426007149585c2b3614fa227f9b0": {
+    "title": "Bugs as Deviant Behavior: A General Approach to Inferring Errors in Systems Code.",
+    "authors": [
+      "Dawson R. Engler",
+      "David Yu Chen",
+      "Andy Chou"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502041",
+    "ss_id": null,
+    "citation_count": 32,
+    "venue": null,
+    "fetched_at": 1755096707.895775
+  },
+  "1dc7470ef092804af7a1457389fdc14b": {
+    "title": "Building Efficient Wireless Sensor Networks with Low-Level Naming.",
+    "authors": [
+      "John S. Heidemann",
+      "Fabio Silva",
+      "Chalermek Intanagonwiwat",
+      "Ramesh Govindan",
+      "Deborah Estrin",
+      "Deepak Ganesan"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502049",
+    "ss_id": null,
+    "citation_count": 56,
+    "venue": null,
+    "fetched_at": 1755096708.9356349
+  },
+  "7fd4a35c650a9834e533cc0681d0f477": {
+    "title": "A Low-Bandwidth Network File System.",
+    "authors": [
+      "Athicha Muthitacharoen",
+      "Benjie Chen",
+      "David Mazières"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502052",
+    "ss_id": null,
+    "citation_count": 16,
+    "venue": null,
+    "fetched_at": 1755096711.711521
+  },
+  "58e8edeca8d8f6dad09a681a4f169710": {
+    "title": "Real-Time Dynamic Voltage Scaling for Low-Power Embedded Operating Systems.",
+    "authors": [
+      "Padmanabhan Pillai",
+      "Kang G. Shin"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502044",
+    "ss_id": null,
+    "citation_count": 22,
+    "venue": null,
+    "fetched_at": 1755096713.867601
+  },
+  "f1af6d5d4f5c327862213dd1dbbb1b9d": {
+    "title": "{BASE",
+    "authors": [
+      "Rodrigo Rodrigues 0001",
+      "Miguel Castro 0001",
+      "Barbara Liskov"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502037",
+    "ss_id": null,
+    "citation_count": 18,
+    "venue": null,
+    "fetched_at": 1755096715.7991428
+  },
+  "2dbb5e7fbf8b052bc54785eb31a83713": {
+    "title": "Building a Robust Software-Based Router Using Network Processors.",
+    "authors": [
+      "Tammo Spalink",
+      "Scott Karlin",
+      "Larry L. Peterson",
+      "Yitzchak M. Gottlieb"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502056",
+    "ss_id": null,
+    "citation_count": 95,
+    "venue": null,
+    "fetched_at": 1755096723.963263
+  },
+  "f4eec698ec6407ecc7f47cf6888aec30": {
+    "title": "{SEDA",
+    "authors": [
+      "Matt Welsh",
+      "David E. Culler",
+      "Eric A. Brewer"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502057",
+    "ss_id": null,
+    "citation_count": 385,
+    "venue": null,
+    "fetched_at": 1755096725.11695
+  },
+  "bb53c3377a35529347c4aa21bf345bf8": {
+    "title": "The Costs and Limits of Availability for Replicated Services.",
+    "authors": [
+      "Haifeng Yu",
+      "Amin Vahdat"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502038",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755096726.17915
+  },
+  "81a935f6332f87b18b26e370b2721090": {
+    "title": "Untrusted Hosts and Confidentiality: Secure Program Partitioning.",
+    "authors": [
+      "Steve Zdancewic",
+      "Lantian Zheng",
+      "Nathaniel Nystrom",
+      "Andrew C. Myers"
+    ],
+    "year": 2001,
+    "doi": "10.1145/502034.502036",
+    "ss_id": null,
+    "citation_count": 4,
+    "venue": null,
+    "fetched_at": 1755096727.023128
+  },
+  "a84fe12870e492f1c3be11ab9d12c874": {
+    "title": "Performance debugging for distributed systems of black boxes.",
+    "authors": [
+      "Marcos Kawazoe Aguilera",
+      "Jeffrey C. Mogul",
+      "Janet L. Wiener",
+      "Patrick Reynolds",
+      "Athicha Muthitacharoen"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945454",
+    "ss_id": null,
+    "citation_count": 323,
+    "venue": null,
+    "fetched_at": 1755096729.785696
+  },
+  "59429f9cc46c9ece6a1016c7837a64a3": {
+    "title": "Transforming policies into mechanisms with infokernel.",
+    "authors": [
+      "Andrea C. Arpaci-Dusseau",
+      "Remzi H. Arpaci-Dusseau",
+      "Nathan C. Burnett",
+      "Timothy E. Denehy",
+      "Thomas J. Engle",
+      "Haryadi S. Gunawi",
+      "James A. Nugent",
+      "Florentina I. Popovici"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945455",
+    "ss_id": null,
+    "citation_count": 19,
+    "venue": null,
+    "fetched_at": 1755096732.340063
+  },
+  "7648fb9efe542f7f69fb24d85c6fa526": {
+    "title": "Xen and the art of virtualization.",
+    "authors": [
+      "Paul Barham 0001",
+      "Boris Dragovic",
+      "Keir Fraser",
+      "Steven Hand 0001",
+      "Tim Harris 0001",
+      "Alex Ho",
+      "Rolf Neugebauer",
+      "Ian Pratt 0001",
+      "Andrew Warfield"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945462",
+    "ss_id": null,
+    "citation_count": 1464,
+    "venue": null,
+    "fetched_at": 1755096733.3088481
+  },
+  "d59e988ce43aae9498cf51d1b16b8e0f": {
+    "title": "SplitStream: high-bandwidth multicast in cooperative environments.",
+    "authors": [
+      "Miguel Castro 0001",
+      "Peter Druschel",
+      "Anne-Marie Kermarrec",
+      "Animesh Nandi",
+      "Antony I. T. Rowstron",
+      "Atul Singh"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945474",
+    "ss_id": null,
+    "citation_count": 86,
+    "venue": null,
+    "fetched_at": 1755096735.5365639
+  },
+  "33405dedd25a2da1d2f9ff8f73737f49": {
+    "title": "{SHARP",
+    "authors": [
+      "Yun Fu",
+      "Jeffrey S. Chase",
+      "Brent N. Chun",
+      "Stephen Schwab",
+      "Amin Vahdat"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945459",
+    "ss_id": null,
+    "citation_count": 24,
+    "venue": null,
+    "fetched_at": 1755096739.994354
+  },
+  "5fca27aa4a6c5a88499051561cc22b86": {
+    "title": "The Google file system.",
+    "authors": [
+      "Sanjay Ghemawat",
+      "Howard Gobioff",
+      "Shun-Tak Leung"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945450",
+    "ss_id": null,
+    "citation_count": 1248,
+    "venue": null,
+    "fetched_at": 1755096741.766762
+  },
+  "69efc32ae21b9fe63276269d6550af99": {
+    "title": "Measurement, modeling, and analysis of a peer-to-peer file-sharing workload.",
+    "authors": [
+      "P. Krishna Gummadi",
+      "Richard J. Dunn",
+      "Stefan Saroiu",
+      "Steven D. Gribble",
+      "Henry M. Levy",
+      "John Zahorjan"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945475",
+    "ss_id": null,
+    "citation_count": 218,
+    "venue": null,
+    "fetched_at": 1755096742.718345
+  },
+  "8d5920661d43b2595a15405e15f6d30a": {
+    "title": "Decentralized user authentication in a global file system.",
+    "authors": [
+      "Michael Kaminsky",
+      "George Savvides",
+      "David Mazières",
+      "M. Frans Kaashoek"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945452",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755096744.735405
+  },
+  "6ee9d3166a7ff234ad1beee6a7b494f1": {
+    "title": "Backtracking intrusions.",
+    "authors": [
+      "Samuel T. King",
+      "Peter M. Chen"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945467",
+    "ss_id": null,
+    "citation_count": 169,
+    "venue": null,
+    "fetched_at": 1755096745.778031
+  },
+  "f8ae91c8d80bd12e996cb2e07fb9b1d4": {
+    "title": "Implementing an untrusted operating system on trusted hardware.",
+    "authors": [
+      "David Lie",
+      "Chandramohan A. Thekkath",
+      "Mark Horowitz"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945463",
+    "ss_id": null,
+    "citation_count": 26,
+    "venue": null,
+    "fetched_at": 1755096748.490446
+  },
+  "7154f0af6b3bb749e248316e71736117": {
+    "title": "User-level internet path diagnosis.",
+    "authors": [
+      "Ratul Mahajan",
+      "Neil T. Spring",
+      "David Wetherall",
+      "Thomas E. Anderson"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945456",
+    "ss_id": null,
+    "citation_count": 2,
+    "venue": null,
+    "fetched_at": 1755096750.237015
+  },
+  "2dd391cecb6ffa9782761c640c079633": {
+    "title": "Preserving peer replicas by rate-limited sampled voting.",
+    "authors": [
+      "Petros Maniatis",
+      "David S. H. Rosenthal",
+      "Mema Roussopoulos",
+      "Mary Baker",
+      "Thomas J. Giuli",
+      "Yanto Muliadi"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945451",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755096751.456765
+  },
+  "5ca17b82fbb9fb8f6352742ab18408d6": {
+    "title": "Upgrading transport protocols using untrusted mobile code.",
+    "authors": [
+      "Parveen Patel",
+      "Andrew Whitaker",
+      "David Wetherall",
+      "Jay Lepreau",
+      "Tim Stack"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945447",
+    "ss_id": null,
+    "citation_count": 2,
+    "venue": null,
+    "fetched_at": 1755096752.405345
+  },
+  "7e49228d5b362136a1d441ad11e7bc58": {
+    "title": "Improving the reliability of commodity operating systems.",
+    "authors": [
+      "Michael M. Swift",
+      "Brian N. Bershad",
+      "Henry M. Levy"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945466",
+    "ss_id": null,
+    "citation_count": 7,
+    "venue": null,
+    "fetched_at": 1755096754.329428
+  },
+  "09e5f4e007b7d37616101c6511ee1005": {
+    "title": "Separating agreement from execution for byzantine fault tolerant services.",
+    "authors": [
+      "Jian Yin 0002",
+      "Jean-Philippe Martin",
+      "Arun Venkataramani",
+      "Lorenzo Alvisi",
+      "Michael Dahlin"
+    ],
+    "year": 2003,
+    "doi": "10.1145/945445.945470",
+    "ss_id": null,
+    "citation_count": 95,
+    "venue": null,
+    "fetched_at": 1755096755.211818
+  },
+  "78fffeeeff2a9c1c51d0dbb1b0e0b0bf": {
+    "title": "Fault-scalable Byzantine fault-tolerant services.",
+    "authors": [
+      "Michael Abd-El-Malek",
+      "Gregory R. Ganger",
+      "Garth R. Goodson",
+      "Michael K. Reiter",
+      "Jay J. Wylie"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095817",
+    "ss_id": null,
+    "citation_count": 126,
+    "venue": null,
+    "fetched_at": 1755096758.505771
+  },
+  "995c031bde86747d5cd61a85dce80229": {
+    "title": "{THINC",
+    "authors": [
+      "Ricardo A. Baratto",
+      "Leonard N. Kim",
+      "Jason Nieh"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095837",
+    "ss_id": null,
+    "citation_count": 28,
+    "venue": null,
+    "fetched_at": 1755096760.748797
+  },
+  "ba415b82a743c0e98965ed81dcf488cc": {
+    "title": "Efficient file storage using content-based indexing.",
+    "authors": [
+      "João Barreto 0001",
+      "Paulo Ferreira 0001"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118597",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755096761.768925
+  },
+  "a66f78614dfce32709641c93b1207313": {
+    "title": "Improving dynamic update for operating systems.",
+    "authors": [
+      "Andrew Baumann",
+      "Jonathan Appavoo"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118622",
+    "ss_id": null,
+    "citation_count": 13,
+    "venue": null,
+    "fetched_at": 1755096762.79427
+  },
+  "8414c8b86e35a2e25d9b74c07453f265": {
+    "title": "Opening remarks.",
+    "authors": [],
+    "year": 2005,
+    "doi": "10.1145/1095810.1105661",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096766.788805
+  },
+  "477d14a6af3c808edaebd4ccaafacf63": {
+    "title": "Recovery oriented programming.",
+    "authors": [
+      "Olga Brukman",
+      "Shlomi Dolev",
+      "Marcelo Sihman"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118594",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755096768.9830241
+  },
+  "4715568e19069c85fb4de372f4546bd8": {
+    "title": "Capturing, indexing, clustering, and retrieving system history.",
+    "authors": [
+      "Ira Cohen",
+      "Steve Zhang",
+      "Moisés Goldszmidt",
+      "Julie Symons",
+      "Terence Kelly",
+      "Armando Fox"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095821",
+    "ss_id": null,
+    "citation_count": 152,
+    "venue": null,
+    "fetched_at": 1755096770.173394
+  },
+  "89465fda8298a97ab2cf19732d23ee7b": {
+    "title": "A need for componentized transport protocols.",
+    "authors": [
+      "Tyson Condie",
+      "Joseph M. Hellerstein",
+      "Petros Maniatis",
+      "Sean C. Rhea",
+      "Timothy Roscoe"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118617",
+    "ss_id": null,
+    "citation_count": 4,
+    "venue": null,
+    "fetched_at": 1755096771.55985
+  },
+  "3afb8882f2e66a7360d0ff7bea3474df": {
+    "title": "Peerlessness is next to godlessness.",
+    "authors": [],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118574",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096775.016908
+  },
+  "1f450c3007bdfbe4909a44431e224d1b": {
+    "title": "Self-stabilizing operating systems.",
+    "authors": [
+      "Shlomi Dolev",
+      "Reuven Yagel"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118590",
+    "ss_id": null,
+    "citation_count": 4,
+    "venue": null,
+    "fetched_at": 1755096776.586592
+  },
+  "340834ce2c02b3306d9d19539f46833a": {
+    "title": "{DDVS",
+    "authors": [
+      "Timothy Durnan",
+      "Christian Poellabauer"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118619",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755096777.791584
+  },
+  "a982f31a31ff914ceac6471ca1574f7d": {
+    "title": "Labels and event processes in the Asbestos operating system.",
+    "authors": [
+      "Petros Efstathopoulos",
+      "Maxwell N. Krohn",
+      "Steve Vandebogart",
+      "Cliff Frey",
+      "David Ziegler",
+      "Eddie Kohler",
+      "David Mazières",
+      "M. Frans Kaashoek",
+      "Robert Morris 0005"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095813",
+    "ss_id": null,
+    "citation_count": 129,
+    "venue": null,
+    "fetched_at": 1755096780.5778072
+  },
+  "6b6c560775a716d4a163d0e6912965e8": {
+    "title": "Idletime scheduling with preemption intervals.",
+    "authors": [
+      "Lars Eggert",
+      "Joseph D. Touch"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095835",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755096782.444128
+  },
+  "5e2e7ca1ba4ce29dd48e9dd5ae70bc61": {
+    "title": "{UIA",
+    "authors": [
+      "Bryan Ford",
+      "Jacob Strauss",
+      "Chris Lesniewski-Laas",
+      "M. Frans Kaashoek",
+      "Robert Morris 0005",
+      "Sean C. Rhea"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118596",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755096784.899112
+  },
+  "b72c3c5528c4686cb5ad55048067dbf0": {
+    "title": "The taser intrusion recovery system.",
+    "authors": [
+      "Ashvin Goel",
+      "Kenneth Po",
+      "Kamran Farhadi",
+      "Zheng Li",
+      "Eyal de Lara"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095826",
+    "ss_id": null,
+    "citation_count": 89,
+    "venue": null,
+    "fetched_at": 1755096787.895589
+  },
+  "0f9d8774f64cf4435c0363a46ed5878d": {
+    "title": "Architecting a secure internet.",
+    "authors": [
+      "Saikat Guha 0002",
+      "Paul Francis"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118614",
+    "ss_id": null,
+    "citation_count": 2,
+    "venue": null,
+    "fetched_at": 1755096791.575358
+  },
+  "7826f4a4fe5f1056f40f1269724b7eee": {
+    "title": "Proactive operating system recovery.",
+    "authors": [
+      "Hiroo Ishikawa",
+      "Tatsuo Nakajima",
+      "Shuichi Oikawa",
+      "Toshio Hirotsu"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118584",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755096801.692681
+  },
+  "f9d81374ed2dbf2bce1ad8a670b27aed": {
+    "title": "{INSIGHT",
+    "authors": [
+      "Navendu Jain",
+      "Praveen Yalagandula",
+      "Mike Dahlin",
+      "Yin Zhang"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118611",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755096802.427128
+  },
+  "b3e9d9780fda0baf92ffef1769b732b1": {
+    "title": "Distributed operating system for resource discovery and allocation in federated clusters.",
+    "authors": [],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118583",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096803.542201
+  },
+  "ad9db81dbd329857172dffb59e515055": {
+    "title": "Detecting past and present intrusions through vulnerability-specific predicates.",
+    "authors": [
+      "Ashlesha Joshi",
+      "Samuel T. King",
+      "George W. Dunlap",
+      "Peter M. Chen"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095820",
+    "ss_id": null,
+    "citation_count": 17,
+    "venue": null,
+    "fetched_at": 1755096804.631215
+  },
+  "8257f906ba98f4c608aa0158de7ca8a4": {
+    "title": "A virtual machine monitor for utilizing non-dedicated clusters.",
+    "authors": [
+      "Kenji Kaneda",
+      "Yoshihiro Oyama",
+      "Akinori Yonezawa"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118618",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755096807.469462
+  },
+  "93b5a000a6612c09e312584238c319f2": {
+    "title": "Towards scalable and simple software-{DSM",
+    "authors": [
+      "Kenji Kise",
+      "Takahiro Katagiri",
+      "Hiroki Honda",
+      "Toshitsugu Yuba"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118586",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096809.479917
+  },
+  "0668ffd65a88321a2176a3cf273f2c1f": {
+    "title": "An infrastructure for the development of kernel network services proof of concept: fast {UDP",
+    "authors": [
+      "Edgar A. León",
+      "Michal Ostrowski"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118582",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755096813.344131
+  },
+  "dd513e2cad41ddb2f2f325b7c6bb6384": {
+    "title": "Operating system construction in Haskell.",
+    "authors": [
+      "Rebekah Leslie",
+      "Mark P. Jones"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118589",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096815.068637
+  },
+  "4834341685f0bd6bbc9fccfc166daab8": {
+    "title": "{MON",
+    "authors": [
+      "Jin Liang",
+      "Steven Y. Ko",
+      "Indranil Gupta",
+      "Klara Nahrstedt"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118585",
+    "ss_id": null,
+    "citation_count": 13,
+    "venue": null,
+    "fetched_at": 1755096816.104726
+  },
+  "bbea40a46b4091b18bea7c4df1519fb5": {
+    "title": "Using model checker and replay facility to debug complex distributed system.",
+    "authors": [
+      "Xuezheng Liu",
+      "Aimin Pan",
+      "Wei Lin",
+      "Zheng Zhang 0001"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118603",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096816.919471
+  },
+  "45365d8da3705d6e36e20ae7e04faa6d": {
+    "title": "Implementing declarative overlays.",
+    "authors": [
+      "Boon Thau Loo",
+      "Tyson Condie",
+      "Joseph M. Hellerstein",
+      "Petros Maniatis",
+      "Timothy Roscoe",
+      "Ion Stoica"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095818",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096817.799129
+  },
+  "be498102dffc6c71018c60b6ae884cbd": {
+    "title": "Model-based validation for dealing with operator mistakes.",
+    "authors": [
+      "Kiran Nagaraja",
+      "Andrew Tjang",
+      "Fábio Oliveira",
+      "Ricardo Bianchini",
+      "Richard P. Martin",
+      "Thu D. Nguyen"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118587",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096819.823825
+  },
+  "586a70389a3e7614273908cf1ddbc054": {
+    "title": "Speculative execution in a distributed file system.",
+    "authors": [
+      "Edmund B. Nightingale",
+      "Peter M. Chen",
+      "Jason Flinn"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095829",
+    "ss_id": null,
+    "citation_count": 26,
+    "venue": null,
+    "fetched_at": 1755096822.985047
+  },
+  "ef2c30998ce210fc5af8d3f2494f11f3": {
+    "title": "Service placement in shared wide-area platforms.",
+    "authors": [
+      "David Oppenheimer",
+      "Brent N. Chun",
+      "David A. Patterson 0001",
+      "Alex C. Snoeren",
+      "Amin Vahdat"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118581",
+    "ss_id": null,
+    "citation_count": 24,
+    "venue": null,
+    "fetched_at": 1755096825.2032099
+  },
+  "9411d35e5f624d5e8f8bcfa90106798d": {
+    "title": "Making enterprise storage more search-friendly.",
+    "authors": [
+      "Shankar Pasupathy",
+      "Garth R. Goodson",
+      "Vijayan Prabhakaran"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118606",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096825.81614
+  },
+  "1e7dc1806f312cc206a70bc1b9080fa3": {
+    "title": "Turning flash crowds into smart mobs with real-time stochastic detection and adaptive cooperative caching.",
+    "authors": [
+      "Jay A. Patel",
+      "Charles M. Yang",
+      "Indranil Gupta"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118623",
+    "ss_id": null,
+    "citation_count": 3,
+    "venue": null,
+    "fetched_at": 1755096828.145049
+  },
+  "3a957ea5f0c24c1cb7c9d7edebeb54ed": {
+    "title": "Scalable querying and tracking of sensor networks from mobile platforms.",
+    "authors": [
+      "Stefan Pleisch",
+      "Ken Birman"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118602",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096829.157869
+  },
+  "42cdc619420df9b457ebf07913c12bf6": {
+    "title": "The case for judicious resource management.",
+    "authors": [
+      "Christian Poellabauer",
+      "Timothy Durnan"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118579",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096829.82047
+  },
+  "4798ccd13f2a5ea45074bcfd584e0190": {
+    "title": "The KudOS architecture for file systems.",
+    "authors": [
+      "Andrew de los Reyes",
+      "Christopher Frost 0001",
+      "Eddie Kohler",
+      "Mike Mammarella",
+      "Lei Zhang"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118624",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096837.481459
+  },
+  "6e1f8ca13df0aa7ff41948d828282672": {
+    "title": "Supporting arbitrary queries in peer-to-peer networks using hybrid routing.",
+    "authors": [
+      "Vivek Sawant",
+      "Jasleen Kaur"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118592",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096840.199699
+  },
+  "791709888eb8a3b97649e70c97c19f17": {
+    "title": "Pioneer: verifying code integrity and enforcing untampered code execution on legacy systems.",
+    "authors": [
+      "Arvind Seshadri",
+      "Mark Luk",
+      "Elaine Shi",
+      "Adrian Perrig",
+      "Leendert van Doorn",
+      "Pradeep K. Khosla"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095812",
+    "ss_id": null,
+    "citation_count": 8,
+    "venue": null,
+    "fetched_at": 1755096841.393086
+  },
+  "e5fc1e1e8af2036534f4a2b5be409ac5": {
+    "title": "Keynote speech.",
+    "authors": [],
+    "year": 2005,
+    "doi": "10.1145/1095810.1105662",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096849.2102249
+  },
+  "0c7117e4d272633c2eda2527f49b7abf": {
+    "title": "Improving the energy efficiency of high-performance server systems.",
+    "authors": [
+      "Matthew E. Tolentino",
+      "Kirk W. Cameron"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118620",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096851.748919
+  },
+  "5d626edebd6dece802674632e0d61210": {
+    "title": "What the protocol stack missed: the transfer service.",
+    "authors": [
+      "Niraj Tolia",
+      "David G. Andersen",
+      "Michael Kaminsky",
+      "Swapnil V. Patil"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118615",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096853.862646
+  },
+  "2b22ebc03bfe2a36ef54831ac795c5c4": {
+    "title": "Scalability, fidelity, and containment in the potemkin virtual honeyfarm.",
+    "authors": [
+      "Michael Vrable",
+      "Justin Ma",
+      "Jay Chen",
+      "David Moore 0001",
+      "Erik Vandekieft",
+      "Alex C. Snoeren",
+      "Geoffrey M. Voelker",
+      "Stefan Savage"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1095825",
+    "ss_id": null,
+    "citation_count": 120,
+    "venue": null,
+    "fetched_at": 1755096855.303929
+  },
+  "df642d50cae45cb6a24b4d4d9803cd34": {
+    "title": "The case for an object-based peer-to-peer reputation system.",
+    "authors": [
+      "Kevin Walsh 0001",
+      "Emin Gün Sirer"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118593",
+    "ss_id": null,
+    "citation_count": 11,
+    "venue": null,
+    "fetched_at": 1755096858.23052
+  },
+  "dc8bbf2b3c0264ed251bf16c23d1a378": {
+    "title": "Analysis of malicious abstract sensor faults in adaptive measurement-based overlay networks.",
+    "authors": [
+      "AAron Walters",
+      "Cristina Nita-Rotaru"
+    ],
+    "year": 2005,
+    "doi": "10.1145/1095810.1118578",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755096860.543351
+  },
+  "29daa524c6d3a946f8d0acd402c94150": {
+    "title": "Scalability of a mobile cloud management system.",
+    "authors": [
+      "Roberto Bifulco",
+      "Marcus Brunner",
+      "Roberto Canonico",
+      "Peer Hasselmeyer",
+      "Faisal Ghias Mir"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342509.2342514",
+    "ss_id": null,
+    "citation_count": 28,
+    "venue": null,
+    "fetched_at": 1755097051.2665658
+  },
+  "157befd9d2544a4eef373ca028e9218a": {
+    "title": "Up, down and around the stack: {ISP",
+    "authors": [
+      "Zachary S. Bischof",
+      "John S. Otto",
+      "Fabián E. Bustamante"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342541.2342546",
+    "ss_id": null,
+    "citation_count": 6,
+    "venue": null,
+    "fetched_at": 1755097052.271873
+  },
+  "4bda1f57d61718853e423767386c32fe": {
+    "title": "Surviving failures in bandwidth-constrained datacenters.",
+    "authors": [
+      "Peter Bodík",
+      "Ishai Menache",
+      "Mosharaf Chowdhury",
+      "Pradeepkumar Mani",
+      "David A. Maltz",
+      "Ion Stoica"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342439",
+    "ss_id": null,
+    "citation_count": 110,
+    "venue": null,
+    "fetched_at": 1755097053.3957398
+  },
+  "de9f31c94328860b5817c40ac418e1ab": {
+    "title": "Fog computing and its role in the internet of things.",
+    "authors": [
+      "Flavio Bonomi",
+      "Rodolfo A. Milito",
+      "Jiang Zhu 0002",
+      "Sateesh Addepalli"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342509.2342513",
+    "ss_id": null,
+    "citation_count": 4504,
+    "venue": null,
+    "fetched_at": 1755097054.255235
+  },
+  "41e1d5b1ad834633e7d614233f52489e": {
+    "title": "Measuring the perceptual quality of Skype sources.",
+    "authors": [
+      "Chien-Nan (Shannon) Chen",
+      "Cing-yu Chu",
+      "Su-Ling Yeh",
+      "Hao-Hua Chu",
+      "Polly Huang"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342541.2342543",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755097058.47486
+  },
+  "1c92c8a76a43f8da9a90a90ddee01c5f": {
+    "title": "Distributed content storage for just-in-time streaming.",
+    "authors": [
+      "Sourav Kumar Dandapat",
+      "Sanyam Jain",
+      "Romit Roy Choudhury",
+      "Niloy Ganguly"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342368",
+    "ss_id": null,
+    "citation_count": 1,
+    "venue": null,
+    "fetched_at": 1755097065.510556
+  },
+  "e4e1320fad4b99d40e5cf1193b7be28e": {
+    "title": "Measuring and fingerprinting click-spam in ad networks.",
+    "authors": [
+      "Vacha Dave",
+      "Saikat Guha 0002",
+      "Yin Zhang 0001"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342394",
+    "ss_id": null,
+    "citation_count": 57,
+    "venue": null,
+    "fetched_at": 1755097066.4215848
+  },
+  "ca0c6dcfe687b6289399ad50f99b8431": {
+    "title": "{SNARF",
+    "authors": [
+      "Heungsik Eom",
+      "Pierre St. Juste",
+      "Renato J. O. Figueiredo",
+      "Omesh Tickoo",
+      "Ramesh Illikkal",
+      "Ravishankar R. Iyer 0001"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342509.2342516",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755097068.674078
+  },
+  "092fcba05bcd35164b845b32b852d7a5": {
+    "title": "An integrated cloud-based framework for mobile phone sensing.",
+    "authors": [
+      "Rasool Fakoor",
+      "Mayank Raj",
+      "Azade Nazi",
+      "Mario Di Francesco",
+      "Sajal K. Das 0001"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342509.2342520",
+    "ss_id": null,
+    "citation_count": 12,
+    "venue": null,
+    "fetched_at": 1755097070.5688949
+  },
+  "d2529eb646511d57ed8ebf0b5478c762": {
+    "title": "A demonstration of ultra-low-latency data center optical circuit switching.",
+    "authors": [
+      "Nathan Farrington",
+      "George Porter",
+      "Pang-Chen Sun",
+      "Alex Forencich",
+      "Joseph E. Ford",
+      "Yeshaiahu Fainman",
+      "George Papen",
+      "Amin Vahdat"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342377",
+    "ss_id": null,
+    "citation_count": 3,
+    "venue": null,
+    "fetched_at": 1755097071.560174
+  },
+  "b375d246c861b34e2e06263424a81e35": {
+    "title": "Hierarchical policies for software defined networks.",
+    "authors": [
+      "Andrew D. Ferguson",
+      "Arjun Guha",
+      "Chen Liang",
+      "Rodrigo Fonseca",
+      "Shriram Krishnamurthi"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342441.2342450",
+    "ss_id": null,
+    "citation_count": 48,
+    "venue": null,
+    "fetched_at": 1755097072.7720919
+  },
+  "2e29561a0d9fbb4904debdd6f749d7df": {
+    "title": "Characterization of the impact of resource availability on opportunistic computing.",
+    "authors": [
+      "Alan Ferrari",
+      "Daniele Puccinelli",
+      "Silvia Giordano"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342509.2342517",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755097073.774414
+  },
+  "ea80cbf6dae23618b8186683f0a65e80": {
+    "title": "A frequency adjustment architecture for energy efficient router.",
+    "authors": [
+      "Wenliang Fu",
+      "Tian Song"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342383",
+    "ss_id": null,
+    "citation_count": 5,
+    "venue": null,
+    "fetched_at": 1755097074.756316
+  },
+  "01ed98a0be18c4776889399e5311cd8d": {
+    "title": "It&apos;s not easy being green.",
+    "authors": [
+      "Peter Xiang Gao",
+      "Andrew R. Curtis",
+      "Bernard Wong 0001",
+      "Srinivasan Keshav"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342398",
+    "ss_id": null,
+    "citation_count": 143,
+    "venue": null,
+    "fetched_at": 1755097075.5520158
+  },
+  "e8f840cdad00067668f88391bd692acd": {
+    "title": "Multi-resource fair queueing for packet processing.",
+    "authors": [
+      "Ali Ghodsi 0002",
+      "Vyas Sekar",
+      "Matei Zaharia",
+      "Ion Stoica"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342358",
+    "ss_id": null,
+    "citation_count": 26,
+    "venue": null,
+    "fetched_at": 1755097077.09374
+  },
+  "1eedc14f914a84c2a401985268b2f957": {
+    "title": "Outsourcing network functionality.",
+    "authors": [
+      "Glen Gibb",
+      "Hongyi Zeng",
+      "Nick McKeown"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342441.2342457",
+    "ss_id": null,
+    "citation_count": 54,
+    "venue": null,
+    "fetched_at": 1755097078.872446
+  },
+  "6d96b2fb1afd9a82e3f5e44077a87c8c": {
+    "title": "Supporting network evolution and incremental deployment with {XIA",
+    "authors": [
+      "Robert Grandl",
+      "Dongsu Han",
+      "Suk-Bok Lee",
+      "Hyeontaek Lim",
+      "Michel Machado",
+      "Matthew K. Mukerjee",
+      "David Naylor"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342410",
+    "ss_id": null,
+    "citation_count": 2,
+    "venue": null,
+    "fetched_at": 1755097080.7418082
+  },
+  "d7b3583561e3a53fa734ea89b60fb509": {
+    "title": "{TUBE",
+    "authors": [
+      "Sangtae Ha",
+      "Soumya Sen",
+      "Carlee Joe-Wong",
+      "Youngbin Im",
+      "Mung Chiang"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342402",
+    "ss_id": null,
+    "citation_count": 148,
+    "venue": null,
+    "fetched_at": 1755097087.947139
+  },
+  "3c5d8d02e4eb2166777353d202845727": {
+    "title": "Where is the debugger for my software-defined network?",
+    "authors": [
+      "Nikhil Handigol",
+      "Brandon Heller",
+      "Vimalkumar Jeyakumar",
+      "David Mazières",
+      "Nick McKeown"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342441.2342453",
+    "ss_id": null,
+    "citation_count": 133,
+    "venue": null,
+    "fetched_at": 1755097089.559607
+  },
+  "4203c5c5cb18836bb599b9c192244033": {
+    "title": "Policy-based network management for generalized vehicle-to-internet connectivity.",
+    "authors": [
+      "Joshua Hare",
+      "Lance Hartung",
+      "Suman Banerjee 0001"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342468.2342477",
+    "ss_id": null,
+    "citation_count": 0,
+    "venue": null,
+    "fetched_at": 1755097090.505721
+  },
+  "7f045aa8d24caa2dc6c462d4f07338c1": {
+    "title": "The controller placement problem.",
+    "authors": [
+      "Brandon Heller",
+      "Rob Sherwood",
+      "Nick McKeown"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342441.2342444",
+    "ss_id": null,
+    "citation_count": 254,
+    "venue": null,
+    "fetched_at": 1755097091.196256
+  },
+  "489434f0f34c42f3bef6b0d7f906978b": {
+    "title": "Finishing flows quickly with preemptive scheduling.",
+    "authors": [
+      "Chi-Yao Hong",
+      "Matthew Caesar 0001",
+      "Brighten Godfrey"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342389",
+    "ss_id": null,
+    "citation_count": 167,
+    "venue": null,
+    "fetched_at": 1755097092.7188108
+  },
+  "3d14ea6fb5a8574574c61de89345ee68": {
+    "title": "An OpenFlow-based energy-efficient data center approach.",
+    "authors": [
+      "Michael Jarschel",
+      "Rastin Pries"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342373",
+    "ss_id": null,
+    "citation_count": 4,
+    "venue": null,
+    "fetched_at": 1755097097.0514328
+  },
+  "6ee6b57f21853c93c2e89e18f1656849": {
+    "title": "Understanding bufferbloat in cellular networks.",
+    "authors": [
+      "Haiqing Jiang",
+      "Zeyu Liu",
+      "Yaogong Wang",
+      "Kyunghan Lee",
+      "Injong Rhee"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342468.2342470",
+    "ss_id": null,
+    "citation_count": 57,
+    "venue": null,
+    "fetched_at": 1755097097.8165681
+  },
+  "cfc831f61d95cbea3c8d9a09f82f5a06": {
+    "title": "Policy transformation in software defined networks.",
+    "authors": [
+      "Nanxi Kang",
+      "Joshua Reich",
+      "Jennifer Rexford",
+      "David Walker 0001"
+    ],
+    "year": 2012,
+    "doi": "10.1145/2342356.2342424",
+    "ss_id": null,
+    "citation_count": 8,
+    "venue": null,
+    "fetched_at": 1755097098.912952
+  }
+}

@@ -47,7 +47,6 @@ pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
             .route("/search", web::get().to(search_handler))
             .route("/about", web::get().to(about_handler))
             .route("/statistics", web::get().to(statistics_handler))
-            
             // API routes
             .route("/api/homepage", web::get().to(api_homepage))
             .route("/api/venues", web::get().to(api_venues))
@@ -55,6 +54,7 @@ pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
             .route("/api/search", web::get().to(api_search))
             .route("/api/stats", web::get().to(api_stats))
             .route("/api/stats/fields", web::get().to(api_stats_fields))
+            .route("/api/citation-status", web::get().to(api_citation_status))
             
             // Static files
             .service(Files::new("/static", "./static").show_files_listing())

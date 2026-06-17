@@ -1,6 +1,11 @@
 use maud::{html, Markup, DOCTYPE, PreEscaped};
 use crate::models::{VenueRanking, ScholarRanking, Paper};
 
+// Helper function to get real citation count
+fn get_real_citations(title: &str) -> usize {
+    crate::s2ag_citations::get_citation_count(title)
+}
+
 // Helper functions for generating paper links
 fn get_google_scholar_url(paper: &Paper) -> String {
     let query = format!("{} {}", 
@@ -1085,7 +1090,12 @@ pub fn venue_detail_page(
                                                             }
                                                         }
                                                         small.text-muted {
-                                                            "Citations: " (paper.cited_by.len())
+                                                            @let real_citations = get_real_citations(&paper.title);
+                                                            @if real_citations > 0 {
+                                                                "Citations: " strong.text-primary { (real_citations) } " (S2AG)"
+                                                            } @else {
+                                                                "Citations: " (paper.cited_by.len()) " (internal)"
+                                                            }
                                                         }
                                                     }
                                                     // Paper links
@@ -1130,11 +1140,11 @@ pub fn venue_detail_page(
                                             
                                             // Page numbers
                                             @for page in 1..=total_pages {
-                                                @if (page == 1) || (page == total_pages) || ((page >= current_page - 2) && (page <= current_page + 2)) {
+                                                @if (page == 1) || (page == total_pages) || ((page >= current_page.saturating_sub(2)) && (page <= current_page + 2)) {
                                                     li class=(if page == current_page { "page-item active" } else { "page-item" }) {
                                                         a.page-link href=(format!("?page={}", page)) { (page) }
                                                     }
-                                                } @else if (page == 2 && current_page > 4) || (page == total_pages - 1 && current_page < total_pages - 3) {
+                                                } @else if (page == 2 && current_page > 4) || (page == total_pages.saturating_sub(1) && current_page < total_pages.saturating_sub(3)) {
                                                     li.page-item.disabled {
                                                         span.page-link { "..." }
                                                     }
@@ -1280,7 +1290,12 @@ pub fn scholar_detail_page(
                                                     }
                                                     .d-flex.justify-content-between.align-items-center.mb-2 {
                                                         small.text-muted {
-                                                            "Citations: " (paper.cited_by.len())
+                                                            @let real_citations = get_real_citations(&paper.title);
+                                                            @if real_citations > 0 {
+                                                                "Citations: " strong.text-primary { (real_citations) } " (S2AG)"
+                                                            } @else {
+                                                                "Citations: " (paper.cited_by.len()) " (internal)"
+                                                            }
                                                         }
                                                     }
                                                     // Paper links
@@ -1325,11 +1340,11 @@ pub fn scholar_detail_page(
                                             
                                             // Page numbers
                                             @for page in 1..=total_pages {
-                                                @if (page == 1) || (page == total_pages) || ((page >= current_page - 2) && (page <= current_page + 2)) {
+                                                @if (page == 1) || (page == total_pages) || ((page >= current_page.saturating_sub(2)) && (page <= current_page + 2)) {
                                                     li class=(if page == current_page { "page-item active" } else { "page-item" }) {
                                                         a.page-link href=(format!("?page={}", page)) { (page) }
                                                     }
-                                                } @else if (page == 2 && current_page > 4) || (page == total_pages - 1 && current_page < total_pages - 3) {
+                                                } @else if (page == 2 && current_page > 4) || (page == total_pages.saturating_sub(1) && current_page < total_pages.saturating_sub(3)) {
                                                     li.page-item.disabled {
                                                         span.page-link { "..." }
                                                     }

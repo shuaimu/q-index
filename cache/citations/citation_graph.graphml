@@ -1,0 +1,627 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<graphml xmlns="http://graphml.graphdrawing.org/xmlns">
+  <key id="title" for="node" attr.name="title" attr.type="string"/>
+  <key id="year" for="node" attr.name="year" attr.type="int"/>
+  <key id="citations" for="node" attr.name="citations" attr.type="int"/>
+  <key id="venue" for="node" attr.name="venue" attr.type="string"/>
+  <graph id="citations" edgedefault="directed">
+    <node id="29e550446fd79feb2d974bd81f3e2186">
+      <data key="title">Characterizing data usage patterns in a large cellular network.</data>
+      <data key="year">2012</data>
+      <data key="citations">54</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="d5b6c757cbd81f5dee47078d18b438a4">
+      <data key="title">Toward a mobile platform for pervasive games.</data>
+      <data key="year">2012</data>
+      <data key="citations">12</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="92e49753ecb2f18351118e5f376e67e6">
+      <data key="title">Casting doubts on the viability of WiFi offloading.</data>
+      <data key="year">2012</data>
+      <data key="citations">18</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="d754f1cbf6e91fc6f7de1b831a857287">
+      <data key="title">Anatomy of a large european {IXP</data>
+      <data key="year">2012</data>
+      <data key="citations">26</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6033095f8a4f9585c32d32d84bf844b6">
+      <data key="title">Enabling dynamic network processing with clickOS.</data>
+      <data key="year">2012</data>
+      <data key="citations">9</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="9d9d9bf85a847a6592ea226f0b35b11b">
+      <data key="title">Estimating packet loss rate in the access through application-level measurements.</data>
+      <data key="year">2012</data>
+      <data key="citations">10</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6484421ee56f597a67cd22069dd954b5">
+      <data key="title">Resilient Overlay Networks.</data>
+      <data key="year">2001</data>
+      <data key="citations">36</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="55841178925ae161c5bdc1a79ced9093">
+      <data key="title">Information and Control in Gray-Box Systems.</data>
+      <data key="year">2001</data>
+      <data key="citations">3</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="5377bae0b300f37e39d9af04e4058de6">
+      <data key="title">Managing Energy and Server Resources in Hosting Centres.</data>
+      <data key="year">2001</data>
+      <data key="citations">19</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="fe30eac22d5ceeff81b1a57c7fc6d15c">
+      <data key="title">An Empirical Study of Operating System Errors.</data>
+      <data key="year">2001</data>
+      <data key="citations">9</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="97eddd63d8c2a2859f70e8645b92f60a">
+      <data key="title">Wide-Area Cooperative Storage with {CFS</data>
+      <data key="year">2001</data>
+      <data key="citations">394</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="0b9c426007149585c2b3614fa227f9b0">
+      <data key="title">Bugs as Deviant Behavior: A General Approach to Inferring Errors in Systems Code.</data>
+      <data key="year">2001</data>
+      <data key="citations">32</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="1dc7470ef092804af7a1457389fdc14b">
+      <data key="title">Building Efficient Wireless Sensor Networks with Low-Level Naming.</data>
+      <data key="year">2001</data>
+      <data key="citations">56</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="7fd4a35c650a9834e533cc0681d0f477">
+      <data key="title">A Low-Bandwidth Network File System.</data>
+      <data key="year">2001</data>
+      <data key="citations">16</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="58e8edeca8d8f6dad09a681a4f169710">
+      <data key="title">Real-Time Dynamic Voltage Scaling for Low-Power Embedded Operating Systems.</data>
+      <data key="year">2001</data>
+      <data key="citations">22</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="f1af6d5d4f5c327862213dd1dbbb1b9d">
+      <data key="title">{BASE</data>
+      <data key="year">2001</data>
+      <data key="citations">18</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="2dbb5e7fbf8b052bc54785eb31a83713">
+      <data key="title">Building a Robust Software-Based Router Using Network Processors.</data>
+      <data key="year">2001</data>
+      <data key="citations">95</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="f4eec698ec6407ecc7f47cf6888aec30">
+      <data key="title">{SEDA</data>
+      <data key="year">2001</data>
+      <data key="citations">385</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="bb53c3377a35529347c4aa21bf345bf8">
+      <data key="title">The Costs and Limits of Availability for Replicated Services.</data>
+      <data key="year">2001</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="81a935f6332f87b18b26e370b2721090">
+      <data key="title">Untrusted Hosts and Confidentiality: Secure Program Partitioning.</data>
+      <data key="year">2001</data>
+      <data key="citations">4</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="a84fe12870e492f1c3be11ab9d12c874">
+      <data key="title">Performance debugging for distributed systems of black boxes.</data>
+      <data key="year">2003</data>
+      <data key="citations">323</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="59429f9cc46c9ece6a1016c7837a64a3">
+      <data key="title">Transforming policies into mechanisms with infokernel.</data>
+      <data key="year">2003</data>
+      <data key="citations">19</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="7648fb9efe542f7f69fb24d85c6fa526">
+      <data key="title">Xen and the art of virtualization.</data>
+      <data key="year">2003</data>
+      <data key="citations">1464</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="d59e988ce43aae9498cf51d1b16b8e0f">
+      <data key="title">SplitStream: high-bandwidth multicast in cooperative environments.</data>
+      <data key="year">2003</data>
+      <data key="citations">86</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="33405dedd25a2da1d2f9ff8f73737f49">
+      <data key="title">{SHARP</data>
+      <data key="year">2003</data>
+      <data key="citations">24</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="5fca27aa4a6c5a88499051561cc22b86">
+      <data key="title">The Google file system.</data>
+      <data key="year">2003</data>
+      <data key="citations">1248</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="69efc32ae21b9fe63276269d6550af99">
+      <data key="title">Measurement, modeling, and analysis of a peer-to-peer file-sharing workload.</data>
+      <data key="year">2003</data>
+      <data key="citations">218</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="8d5920661d43b2595a15405e15f6d30a">
+      <data key="title">Decentralized user authentication in a global file system.</data>
+      <data key="year">2003</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6ee9d3166a7ff234ad1beee6a7b494f1">
+      <data key="title">Backtracking intrusions.</data>
+      <data key="year">2003</data>
+      <data key="citations">169</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="f8ae91c8d80bd12e996cb2e07fb9b1d4">
+      <data key="title">Implementing an untrusted operating system on trusted hardware.</data>
+      <data key="year">2003</data>
+      <data key="citations">26</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="7154f0af6b3bb749e248316e71736117">
+      <data key="title">User-level internet path diagnosis.</data>
+      <data key="year">2003</data>
+      <data key="citations">2</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="2dd391cecb6ffa9782761c640c079633">
+      <data key="title">Preserving peer replicas by rate-limited sampled voting.</data>
+      <data key="year">2003</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="5ca17b82fbb9fb8f6352742ab18408d6">
+      <data key="title">Upgrading transport protocols using untrusted mobile code.</data>
+      <data key="year">2003</data>
+      <data key="citations">2</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="7e49228d5b362136a1d441ad11e7bc58">
+      <data key="title">Improving the reliability of commodity operating systems.</data>
+      <data key="year">2003</data>
+      <data key="citations">7</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="09e5f4e007b7d37616101c6511ee1005">
+      <data key="title">Separating agreement from execution for byzantine fault tolerant services.</data>
+      <data key="year">2003</data>
+      <data key="citations">95</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="78fffeeeff2a9c1c51d0dbb1b0e0b0bf">
+      <data key="title">Fault-scalable Byzantine fault-tolerant services.</data>
+      <data key="year">2005</data>
+      <data key="citations">126</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="995c031bde86747d5cd61a85dce80229">
+      <data key="title">{THINC</data>
+      <data key="year">2005</data>
+      <data key="citations">28</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="ba415b82a743c0e98965ed81dcf488cc">
+      <data key="title">Efficient file storage using content-based indexing.</data>
+      <data key="year">2005</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="a66f78614dfce32709641c93b1207313">
+      <data key="title">Improving dynamic update for operating systems.</data>
+      <data key="year">2005</data>
+      <data key="citations">13</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="8414c8b86e35a2e25d9b74c07453f265">
+      <data key="title">Opening remarks.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="477d14a6af3c808edaebd4ccaafacf63">
+      <data key="title">Recovery oriented programming.</data>
+      <data key="year">2005</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="4715568e19069c85fb4de372f4546bd8">
+      <data key="title">Capturing, indexing, clustering, and retrieving system history.</data>
+      <data key="year">2005</data>
+      <data key="citations">152</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="89465fda8298a97ab2cf19732d23ee7b">
+      <data key="title">A need for componentized transport protocols.</data>
+      <data key="year">2005</data>
+      <data key="citations">4</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="3afb8882f2e66a7360d0ff7bea3474df">
+      <data key="title">Peerlessness is next to godlessness.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="1f450c3007bdfbe4909a44431e224d1b">
+      <data key="title">Self-stabilizing operating systems.</data>
+      <data key="year">2005</data>
+      <data key="citations">4</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="340834ce2c02b3306d9d19539f46833a">
+      <data key="title">{DDVS</data>
+      <data key="year">2005</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="a982f31a31ff914ceac6471ca1574f7d">
+      <data key="title">Labels and event processes in the Asbestos operating system.</data>
+      <data key="year">2005</data>
+      <data key="citations">129</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6b6c560775a716d4a163d0e6912965e8">
+      <data key="title">Idletime scheduling with preemption intervals.</data>
+      <data key="year">2005</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="5e2e7ca1ba4ce29dd48e9dd5ae70bc61">
+      <data key="title">{UIA</data>
+      <data key="year">2005</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="b72c3c5528c4686cb5ad55048067dbf0">
+      <data key="title">The taser intrusion recovery system.</data>
+      <data key="year">2005</data>
+      <data key="citations">89</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="0f9d8774f64cf4435c0363a46ed5878d">
+      <data key="title">Architecting a secure internet.</data>
+      <data key="year">2005</data>
+      <data key="citations">2</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="7826f4a4fe5f1056f40f1269724b7eee">
+      <data key="title">Proactive operating system recovery.</data>
+      <data key="year">2005</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="f9d81374ed2dbf2bce1ad8a670b27aed">
+      <data key="title">{INSIGHT</data>
+      <data key="year">2005</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="b3e9d9780fda0baf92ffef1769b732b1">
+      <data key="title">Distributed operating system for resource discovery and allocation in federated clusters.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="ad9db81dbd329857172dffb59e515055">
+      <data key="title">Detecting past and present intrusions through vulnerability-specific predicates.</data>
+      <data key="year">2005</data>
+      <data key="citations">17</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="8257f906ba98f4c608aa0158de7ca8a4">
+      <data key="title">A virtual machine monitor for utilizing non-dedicated clusters.</data>
+      <data key="year">2005</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="93b5a000a6612c09e312584238c319f2">
+      <data key="title">Towards scalable and simple software-{DSM</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="0668ffd65a88321a2176a3cf273f2c1f">
+      <data key="title">An infrastructure for the development of kernel network services proof of concept: fast {UDP</data>
+      <data key="year">2005</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="dd513e2cad41ddb2f2f325b7c6bb6384">
+      <data key="title">Operating system construction in Haskell.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="4834341685f0bd6bbc9fccfc166daab8">
+      <data key="title">{MON</data>
+      <data key="year">2005</data>
+      <data key="citations">13</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="bbea40a46b4091b18bea7c4df1519fb5">
+      <data key="title">Using model checker and replay facility to debug complex distributed system.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="45365d8da3705d6e36e20ae7e04faa6d">
+      <data key="title">Implementing declarative overlays.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="be498102dffc6c71018c60b6ae884cbd">
+      <data key="title">Model-based validation for dealing with operator mistakes.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="586a70389a3e7614273908cf1ddbc054">
+      <data key="title">Speculative execution in a distributed file system.</data>
+      <data key="year">2005</data>
+      <data key="citations">26</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="ef2c30998ce210fc5af8d3f2494f11f3">
+      <data key="title">Service placement in shared wide-area platforms.</data>
+      <data key="year">2005</data>
+      <data key="citations">24</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="9411d35e5f624d5e8f8bcfa90106798d">
+      <data key="title">Making enterprise storage more search-friendly.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="1e7dc1806f312cc206a70bc1b9080fa3">
+      <data key="title">Turning flash crowds into smart mobs with real-time stochastic detection and adaptive cooperative ca</data>
+      <data key="year">2005</data>
+      <data key="citations">3</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="3a957ea5f0c24c1cb7c9d7edebeb54ed">
+      <data key="title">Scalable querying and tracking of sensor networks from mobile platforms.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="42cdc619420df9b457ebf07913c12bf6">
+      <data key="title">The case for judicious resource management.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="4798ccd13f2a5ea45074bcfd584e0190">
+      <data key="title">The KudOS architecture for file systems.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6e1f8ca13df0aa7ff41948d828282672">
+      <data key="title">Supporting arbitrary queries in peer-to-peer networks using hybrid routing.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="791709888eb8a3b97649e70c97c19f17">
+      <data key="title">Pioneer: verifying code integrity and enforcing untampered code execution on legacy systems.</data>
+      <data key="year">2005</data>
+      <data key="citations">8</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="e5fc1e1e8af2036534f4a2b5be409ac5">
+      <data key="title">Keynote speech.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="0c7117e4d272633c2eda2527f49b7abf">
+      <data key="title">Improving the energy efficiency of high-performance server systems.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="5d626edebd6dece802674632e0d61210">
+      <data key="title">What the protocol stack missed: the transfer service.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="2b22ebc03bfe2a36ef54831ac795c5c4">
+      <data key="title">Scalability, fidelity, and containment in the potemkin virtual honeyfarm.</data>
+      <data key="year">2005</data>
+      <data key="citations">120</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="df642d50cae45cb6a24b4d4d9803cd34">
+      <data key="title">The case for an object-based peer-to-peer reputation system.</data>
+      <data key="year">2005</data>
+      <data key="citations">11</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="dc8bbf2b3c0264ed251bf16c23d1a378">
+      <data key="title">Analysis of malicious abstract sensor faults in adaptive measurement-based overlay networks.</data>
+      <data key="year">2005</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="29daa524c6d3a946f8d0acd402c94150">
+      <data key="title">Scalability of a mobile cloud management system.</data>
+      <data key="year">2012</data>
+      <data key="citations">28</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="157befd9d2544a4eef373ca028e9218a">
+      <data key="title">Up, down and around the stack: {ISP</data>
+      <data key="year">2012</data>
+      <data key="citations">6</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="4bda1f57d61718853e423767386c32fe">
+      <data key="title">Surviving failures in bandwidth-constrained datacenters.</data>
+      <data key="year">2012</data>
+      <data key="citations">110</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="de9f31c94328860b5817c40ac418e1ab">
+      <data key="title">Fog computing and its role in the internet of things.</data>
+      <data key="year">2012</data>
+      <data key="citations">4504</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="41e1d5b1ad834633e7d614233f52489e">
+      <data key="title">Measuring the perceptual quality of Skype sources.</data>
+      <data key="year">2012</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="1c92c8a76a43f8da9a90a90ddee01c5f">
+      <data key="title">Distributed content storage for just-in-time streaming.</data>
+      <data key="year">2012</data>
+      <data key="citations">1</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="e4e1320fad4b99d40e5cf1193b7be28e">
+      <data key="title">Measuring and fingerprinting click-spam in ad networks.</data>
+      <data key="year">2012</data>
+      <data key="citations">57</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="ca0c6dcfe687b6289399ad50f99b8431">
+      <data key="title">{SNARF</data>
+      <data key="year">2012</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="092fcba05bcd35164b845b32b852d7a5">
+      <data key="title">An integrated cloud-based framework for mobile phone sensing.</data>
+      <data key="year">2012</data>
+      <data key="citations">12</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="d2529eb646511d57ed8ebf0b5478c762">
+      <data key="title">A demonstration of ultra-low-latency data center optical circuit switching.</data>
+      <data key="year">2012</data>
+      <data key="citations">3</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="b375d246c861b34e2e06263424a81e35">
+      <data key="title">Hierarchical policies for software defined networks.</data>
+      <data key="year">2012</data>
+      <data key="citations">48</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="2e29561a0d9fbb4904debdd6f749d7df">
+      <data key="title">Characterization of the impact of resource availability on opportunistic computing.</data>
+      <data key="year">2012</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="ea80cbf6dae23618b8186683f0a65e80">
+      <data key="title">A frequency adjustment architecture for energy efficient router.</data>
+      <data key="year">2012</data>
+      <data key="citations">5</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="01ed98a0be18c4776889399e5311cd8d">
+      <data key="title">It&apos;s not easy being green.</data>
+      <data key="year">2012</data>
+      <data key="citations">143</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="e8f840cdad00067668f88391bd692acd">
+      <data key="title">Multi-resource fair queueing for packet processing.</data>
+      <data key="year">2012</data>
+      <data key="citations">26</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="1eedc14f914a84c2a401985268b2f957">
+      <data key="title">Outsourcing network functionality.</data>
+      <data key="year">2012</data>
+      <data key="citations">54</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6d96b2fb1afd9a82e3f5e44077a87c8c">
+      <data key="title">Supporting network evolution and incremental deployment with {XIA</data>
+      <data key="year">2012</data>
+      <data key="citations">2</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="d7b3583561e3a53fa734ea89b60fb509">
+      <data key="title">{TUBE</data>
+      <data key="year">2012</data>
+      <data key="citations">148</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="3c5d8d02e4eb2166777353d202845727">
+      <data key="title">Where is the debugger for my software-defined network?</data>
+      <data key="year">2012</data>
+      <data key="citations">133</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="4203c5c5cb18836bb599b9c192244033">
+      <data key="title">Policy-based network management for generalized vehicle-to-internet connectivity.</data>
+      <data key="year">2012</data>
+      <data key="citations">0</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="7f045aa8d24caa2dc6c462d4f07338c1">
+      <data key="title">The controller placement problem.</data>
+      <data key="year">2012</data>
+      <data key="citations">254</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="489434f0f34c42f3bef6b0d7f906978b">
+      <data key="title">Finishing flows quickly with preemptive scheduling.</data>
+      <data key="year">2012</data>
+      <data key="citations">167</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="3d14ea6fb5a8574574c61de89345ee68">
+      <data key="title">An OpenFlow-based energy-efficient data center approach.</data>
+      <data key="year">2012</data>
+      <data key="citations">4</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="6ee6b57f21853c93c2e89e18f1656849">
+      <data key="title">Understanding bufferbloat in cellular networks.</data>
+      <data key="year">2012</data>
+      <data key="citations">57</data>
+      <data key="venue">None</data>
+    </node>
+    <node id="cfc831f61d95cbea3c8d9a09f82f5a06">
+      <data key="title">Policy transformation in software defined networks.</data>
+      <data key="year">2012</data>
+      <data key="citations">8</data>
+      <data key="venue">None</data>
+    </node>
+  </graph>
+</graphml>

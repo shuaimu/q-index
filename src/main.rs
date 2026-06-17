@@ -6,6 +6,7 @@ mod cli;
 mod utils;
 mod web;
 mod citations;
+mod s2ag_citations;
 mod paper_extractor;
 mod paper_finder;
 

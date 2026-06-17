@@ -619,3 +619,202 @@ pub async fn api_stats_fields() -> Result<HttpResponse> {
     
     Ok(HttpResponse::Ok().json(data))
 }
+
+pub async fn api_citation_status() -> Result<HttpResponse> {
+    use std::collections::HashMap;
+    use std::path::Path;
+    use std::process::Command;
+    
+    #[derive(Serialize)]
+    struct CitationStatus {
+        total_papers: usize,
+        total_citations: usize,
+        success_rate: f64,
+        papers_per_minute: f64,
+        active_sources: Vec<String>,
+        current_conference: Option<String>,
+        successful: usize,
+        total_attempts: usize,
+        conferences: Vec<ConferenceStatus>,
+        citation_distribution: HashMap<String, usize>,
+        recent_papers: Vec<RecentPaper>,
+        is_running: bool,
+        last_update_seconds_ago: u64,
+        process_info: ProcessInfo,
+    }
+    
+    #[derive(Serialize)]
+    struct ProcessInfo {
+        running: bool,
+        pid: Option<u32>,
+        process_name: Option<String>,
+    }
+    
+    #[derive(Serialize)]
+    struct ConferenceStatus {
+        name: String,
+        status: String,
+        papers_fetched: usize,
+        total_papers: usize,
+        citations: usize,
+    }
+    
+    #[derive(Serialize)]
+    struct RecentPaper {
+        title: String,
+        citations: usize,
+    }
+    
+    // Read cache files
+    let cache_path = Path::new("cache/citations/combined_cache.json");
+    let dblp_cache_path = Path::new("cache/citations/dblp_cache.json");
+    let paper_cache_path = Path::new("cache/citations/paper_cache.json");
+    
+    let mut total_papers = 0;
+    let mut total_citations = 0;
+    let mut citation_dist = HashMap::new();
+    let mut recent_papers = Vec::new();
+    
+    // Try combined cache first
+    if cache_path.exists() {
+        if let Ok(content) = std::fs::read_to_string(cache_path) {
+            if let Ok(cache) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) {
+                total_papers = cache.len();
+                
+                for (_, paper) in cache.iter() {
+                    if let Some(count) = paper.get("citation_count").and_then(|c| c.as_u64()) {
+                        total_citations += count as usize;
+                        
+                        // Update distribution
+                        let bucket = match count {
+                            0..=10 => "0-10",
+                            11..=50 => "11-50",
+                            51..=100 => "51-100",
+                            101..=500 => "101-500",
+                            _ => "500+",
+                        };
+                        *citation_dist.entry(bucket.to_string()).or_insert(0) += 1;
+                    }
+                    
+                    // Add to recent papers (last 5)
+                    if recent_papers.len() < 5 {
+                        if let Some(title) = paper.get("title").and_then(|t| t.as_str()) {
+                            recent_papers.push(RecentPaper {
+                                title: title.to_string(),
+                                citations: paper.get("citation_count").and_then(|c| c.as_u64()).unwrap_or(0) as usize,
+                            });
+                        }
+                    }
+                }
+            }
+        }
+    } else if paper_cache_path.exists() {
+        // Fallback to paper_cache.json
+        if let Ok(content) = std::fs::read_to_string(paper_cache_path) {
+            if let Ok(cache) = serde_json::from_str::<HashMap<String, serde_json::Value>>(&content) {
+                total_papers = cache.len();
+                
+                for (_, paper) in cache.iter() {
+                    if let Some(count) = paper.get("citation_count").and_then(|c| c.as_u64()) {
+                        total_citations += count as usize;
+                    }
+                }
+            }
+        }
+    }
+    
+    // Calculate conference status (simplified for now)
+    let mut conferences = Vec::new();
+    let bib_dir = Path::new("bib");
+    if bib_dir.exists() {
+        for entry in std::fs::read_dir(bib_dir).unwrap() {
+            if let Ok(entry) = entry {
+                let path = entry.path();
+                if path.extension().and_then(|s| s.to_str()) == Some("bib") {
+                    let name = path.file_stem().and_then(|s| s.to_str()).unwrap_or("unknown");
+                    
+                    // Count papers in this bib file
+                    let total_in_conf = if let Ok(content) = std::fs::read_to_string(&path) {
+                        content.matches("@inproceedings").count() + content.matches("@article").count()
+                    } else {
+                        0
+                    };
+                    
+                    conferences.push(ConferenceStatus {
+                        name: name.to_uppercase(),
+                        status: if total_papers > 0 { "processing" } else { "pending" }.to_string(),
+                        papers_fetched: 0, // Would need to track per-conference
+                        total_papers: total_in_conf,
+                        citations: 0,
+                    });
+                }
+            }
+        }
+    }
+    
+    // Sort conferences by name
+    conferences.sort_by(|a, b| a.name.cmp(&b.name));
+    
+    // Check if fetch process is running
+    let mut process_info = ProcessInfo {
+        running: false,
+        pid: None,
+        process_name: None,
+    };
+    
+    // Try to check if Python fetch process is running
+    if let Ok(output) = Command::new("sh")
+        .arg("-c")
+        .arg("ps aux | grep -E 'python.*fetch_citations' | grep -v grep | head -1")
+        .output()
+    {
+        let output_str = String::from_utf8_lossy(&output.stdout);
+        if !output_str.trim().is_empty() {
+            process_info.running = true;
+            // Try to extract PID (second field in ps aux output)
+            let parts: Vec<&str> = output_str.split_whitespace().collect();
+            if parts.len() > 1 {
+                if let Ok(pid) = parts[1].parse::<u32>() {
+                    process_info.pid = Some(pid);
+                }
+            }
+            // Extract process name
+            if parts.len() > 10 {
+                process_info.process_name = Some(parts[10..].join(" "));
+            }
+        }
+    }
+    
+    // Calculate last update time
+    let mut last_update_seconds_ago = 999999;
+    if let Ok(metadata) = std::fs::metadata(&cache_path) {
+        if let Ok(modified) = metadata.modified() {
+            if let Ok(elapsed) = modified.elapsed() {
+                last_update_seconds_ago = elapsed.as_secs();
+            }
+        }
+    }
+    
+    // Determine if really running based on recent updates
+    let is_running = process_info.running || last_update_seconds_ago < 60;
+    
+    let status = CitationStatus {
+        total_papers,
+        total_citations,
+        success_rate: if total_papers > 0 { 100.0 } else { 0.0 },
+        papers_per_minute: 2.0, // Estimated rate
+        active_sources: vec!["DBLP".to_string(), "OpenAlex".to_string()],
+        current_conference: None,
+        successful: total_papers,
+        total_attempts: total_papers,
+        conferences,
+        citation_distribution: citation_dist,
+        recent_papers,
+        is_running,
+        last_update_seconds_ago,
+        process_info,
+    };
+    
+    Ok(HttpResponse::Ok().json(status))
+}
+

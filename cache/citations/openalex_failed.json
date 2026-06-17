@@ -1,0 +1,714 @@
+{
+  "85a944a457359f75abb46a01b27c3d95": {
+    "title": "Virtual memory primitives for user programs",
+    "timestamp": 1755108202.637324
+  },
+  "68743189c7181e223e382e25a8c8f55c": {
+    "title": "Oceanstore: An architecture for global-scale persistent storage",
+    "timestamp": 1755108203.306279
+  },
+  "d0cb5931ad8ecac5831784ad8b12c515": {
+    "title": "FAB: building distributed enterprise disk arrays from commodity components",
+    "timestamp": 1755108204.4742951
+  },
+  "2b5cf9a4d6e32f70a45739b32072c242": {
+    "title": "Tarazu: optimizing MapReduce on heterogeneous clusters.",
+    "timestamp": 1755108205.249367
+  },
+  "8d82b141d694d18d4e6104f430123f0f": {
+    "title": "Providing safe, user space access to fast, solid state disks.",
+    "timestamp": 1755108205.722889
+  },
+  "d4d924a7f2de6bd6bd9b52d365bac447": {
+    "title": "Totally green: evaluating and designing servers for lifecycle environmental impact.",
+    "timestamp": 1755108206.2994611
+  },
+  "e08e31b8eb4bc63278c20a1af2a8bd7a": {
+    "title": "Iterative optimization for the data center.",
+    "timestamp": 1755108206.9310699
+  },
+  "67731cb8b0a6a5d3f7124ef2fdb4f5be": {
+    "title": "HICAMP",
+    "timestamp": 1755108207.345942
+  },
+  "869180c8944241173086c0902dec6115": {
+    "title": "Reducing off-chip memory traffic by selective cache management scheme in GPGPUs.",
+    "timestamp": 1755108207.8221388
+  },
+  "bce8c16d2dac03e3f5a18cfb3db10c9b": {
+    "title": "Scalable address spaces using {RCU",
+    "timestamp": 1755108208.3143308
+  },
+  "a7d38ad94bb9c705af27a1aaff44763a": {
+    "title": "Execution migration in a heterogeneous-{ISA",
+    "timestamp": 1755108208.731793
+  },
+  "68495dd6ebcf98b4d1bde8610c7a655e": {
+    "title": "Architecture support for disciplined approximate programming.",
+    "timestamp": 1755108209.241806
+  },
+  "1a51b966fbd1b33f53ed742e9bdce301": {
+    "title": "Comprehensive kernel instrumentation via dynamic binary translation.",
+    "timestamp": 1755108209.7617679
+  },
+  "a36e580b0783318690efa1339aa00b87": {
+    "title": "Clearing the clouds: a study of emerging scale-out workloads on modern hardware.",
+    "timestamp": 1755108210.245343
+  },
+  "e336e811fe5328a47419af1c12335f4b": {
+    "title": "Auto-tuning interactive ray tracing using an analytical {GPU",
+    "timestamp": 1755108210.7513468
+  },
+  "28bb774a7d9ca67497a5e9336839fc46": {
+    "title": "High-performance sparse matrix-vector multiplication on GPUs for structured grid computations.",
+    "timestamp": 1755108211.300117
+  },
+  "b61081ce3d4f20a480d26831d05183e7": {
+    "title": "ELI",
+    "timestamp": 1755108211.839082
+  },
+  "b545936653f3dec1ac112a67c6619940": {
+    "title": "Leveraging stored energy for handling power emergencies in aggressively provisioned datacenters.",
+    "timestamp": 1755108212.382505
+  },
+  "e5be90361a5ca1f7b8d0c804f82210a8": {
+    "title": "A case for unlimited watchpoints.",
+    "timestamp": 1755108212.867004
+  },
+  "bf5e51e11b0a23fa65d008debbec4b66": {
+    "title": "Relyzer: exploiting application-level fault equivalence to analyze application resiliency to transient faults.",
+    "timestamp": 1755108213.313791
+  },
+  "a19fefa50f8055cef964959ddb5da9b3": {
+    "title": "Green-Marl: a {DSL",
+    "timestamp": 1755108213.8082392
+  },
+  "730d2b16f18a32b58e739ad500fb6006": {
+    "title": "Cosmic rays don&apos;t strike twice: understanding the nature of {DRAM",
+    "timestamp": 1755108214.260465
+  },
+  "6162733350f6f11782ffe837f264de5a": {
+    "title": "CRUISE",
+    "timestamp": 1755108214.678585
+  },
+  "5c22708ce2bc53a0b24efe65a4002998": {
+    "title": "Bottleneck identification and scheduling in multithreaded applications.",
+    "timestamp": 1755108215.2879832
+  },
+  "fa547d97ee57ed5adec79887591f3693": {
+    "title": "Understanding modern device drivers.",
+    "timestamp": 1755108215.681943
+  },
+  "1b57ff45107d57fdb01670eab1c6411f": {
+    "title": "Data races vs. data race bugs: telling the difference with portend.",
+    "timestamp": 1755108216.3858922
+  },
+  "dc4836933a02f44198f3abc12bda922d": {
+    "title": "Dynamic particle system for mesh extraction on the {GPU",
+    "timestamp": 1755108216.956594
+  },
+  "8662a1ea81fb4369d56f45fb5e5da0b0": {
+    "title": "Automatic generation of hardware/software interfaces.",
+    "timestamp": 1755108217.521306
+  },
+  "8bd3c64c1bf6b72d6a6140b4a58852a7": {
+    "title": "Region scheduling: efficiently using the cache architectures via page-level affinity.",
+    "timestamp": 1755108217.933117
+  },
+  "b451339a979efab610f398bafb17698d": {
+    "title": "Efficient sequential consistency via conflict ordering.",
+    "timestamp": 1755108218.405429
+  },
+  "edcc4ba467b37895377da1e6af19dfbc": {
+    "title": "Reflex: using low-power processors in smartphones without knowing them.",
+    "timestamp": 1755108218.906838
+  },
+  "b3c9a2d726be2747a1f050926fc2d1bd": {
+    "title": "PocketWeb: instant web browsing for mobile devices.",
+    "timestamp": 1755108219.364598
+  },
+  "0ae61561cf71e503b7fbe8a8d7c531d2": {
+    "title": "Path-exploration lifting: hi-fi tests for lo-fi emulators.",
+    "timestamp": 1755108220.129969
+  },
+  "1348125400fb677a61d710d54f11b516": {
+    "title": "DreamWeaver: architectural support for deep sleep.",
+    "timestamp": 1755108220.742089
+  },
+  "4f2dd04c9fda82e560faaf13472ac6b6": {
+    "title": "A distributed data-parallel framework for analysis and visualization algorithm development.",
+    "timestamp": 1755108221.189961
+  },
+  "66f3cf469320332bb9a1b6db63c861b8": {
+    "title": "FLAT",
+    "timestamp": 1755108221.6102662
+  },
+  "7e50b8da0bfed7c30021c84d2e4b77c3": {
+    "title": "Whole-system persistence.",
+    "timestamp": 1755108222.048736
+  },
+  "249525f04d31969a8c7d78d1c06054e5": {
+    "title": "Introducing &apos;Bones&apos;: a parallelizing source-to-source compiler based on algorithmic skeletons.",
+    "timestamp": 1755108222.670014
+  },
+  "9087b0ba217144f48310e85b77651246": {
+    "title": "High performance 3-D {FFT",
+    "timestamp": 1755108223.1532779
+  },
+  "508d6967e8ed766c805e4f59483b7d6e": {
+    "title": "Continuous object access profiling and optimizations to overcome the memory wall and bloat.",
+    "timestamp": 1755108223.799788
+  },
+  "89fc5bbd919e8e6573f54302079c74ee": {
+    "title": "Aikido: accelerating shared data dynamic analyses.",
+    "timestamp": 1755108224.2874072
+  },
+  "49998cc8824c4cb0a5702d95d9378ac4": {
+    "title": "Chameleon: operating system support for dynamic processors.",
+    "timestamp": 1755108224.856547
+  },
+  "8fcdcec0c510d1b17916a101859d0411": {
+    "title": "SIMD",
+    "timestamp": 1755108225.434011
+  },
+  "2361831cab239d9b6abed18c2dd941b2": {
+    "title": "Optimal task assignment in multithreaded processors: a statistical approach.",
+    "timestamp": 1755108225.869205
+  },
+  "bb85aa0a241bb56ddd4c31f6cceff154": {
+    "title": "Full system simulation of many-core heterogeneous SoCs using {GPU",
+    "timestamp": 1755108226.3245828
+  },
+  "2a993c3693b1fd1d87c94702d97fda32": {
+    "title": "Paragon: collaborative speculative loop execution on {GPU",
+    "timestamp": 1755108226.9039621
+  },
+  "7b2b3eeafd50c120fa041aa765219b4f": {
+    "title": "An update-aware storage system for low-locality update-intensive workloads.",
+    "timestamp": 1755108227.354563
+  },
+  "067a9b7d562972bee7586413c68edb48": {
+    "title": "Enabling task-level scheduling on heterogeneous platforms.",
+    "timestamp": 1755108227.8501031
+  },
+  "fbc24ea26b5e41be75c2e111fe460f6e": {
+    "title": "Architectural support for hypervisor-secure virtualization.",
+    "timestamp": 1755108228.697597
+  },
+  "f117a1dbeac6d5e76400176ce2935a56": {
+    "title": "DejaVu: accelerating resource allocation in virtualized environments.",
+    "timestamp": 1755108229.160222
+  },
+  "b2c0bb75390a6b7ec4a1a75f7a99cd1c": {
+    "title": "Applying transactional memory to concurrency bugs.",
+    "timestamp": 1755108229.7082171
+  },
+  "1343e75ca35aafae06ae66dff53cba6c": {
+    "title": "JaBEE: framework for object-oriented Java bytecode compilation and execution on graphics processor units.",
+    "timestamp": 1755108230.128181
+  },
+  "6429c33f294de66b2de80422291da7e3": {
+    "title": "A {GPU",
+    "timestamp": 1755108230.668322
+  },
+  "11aae1e7542992e64bd07e8e9b4e2850": {
+    "title": "Proceedings of the 17th International Conference on Architectural Support for Programming Languages and Operating Systems, {ASPLOS",
+    "timestamp": 1755108231.2108438
+  },
+  "24d3e217d0119e02080d4f46c10b5a61": {
+    "title": "The 5th Annual Workshop on General Purpose Processing with Graphics Processing Units, {GPGPU",
+    "timestamp": 1755108231.858423
+  },
+  "45bf7f29983f26a71b4444e03c2abdab": {
+    "title": "DeAliaser: alias speculation using atomic region support.",
+    "timestamp": 1755108232.259349
+  },
+  "6f16c9280c2299c70046ba18f294d5be": {
+    "title": "Production-run software failure diagnosis via hardware performance counters.",
+    "timestamp": 1755108232.943676
+  },
+  "7cca0ddf52a41a056a925e299e2cb94f": {
+    "title": "Iago attacks: why the system call {API",
+    "timestamp": 1755108233.465096
+  },
+  "2ce0e765addd57aa2e3219b85f5b12a1": {
+    "title": "Verifying systems rules using rule-directed symbolic execution.",
+    "timestamp": 1755108234.013364
+  },
+  "45d8539ca208515bebd47cbf017d1c3d": {
+    "title": "Cumulus: Filesystem backup to the cloud",
+    "timestamp": 1755108250.729722
+  },
+  "82573a320662f9349f7dc16fbf84cfb8": {
+    "title": "BASIL",
+    "timestamp": 1755108252.820629
+  },
+  "f16c671208daad1205fc10e77d1d5ebe": {
+    "title": "Tracking Back References in a Write-Anywhere File System.",
+    "timestamp": 1755108256.962804
+  },
+  "abcc44e0aa2312f4fbcf965d7639a65c": {
+    "title": "A Clean-Slate Look at Disk Scrubbing.",
+    "timestamp": 1755108258.337227
+  },
+  "989c1114f5098f8e5bdc9ba967bebe7b": {
+    "title": "Efficient Object Storage Journaling in a Distributed Parallel File System.",
+    "timestamp": 1755108259.620748
+  },
+  "40a3e82234cf03a8db42fcc40ca78c29": {
+    "title": "Extending {SSD",
+    "timestamp": 1755108262.4478788
+  },
+  "77dafeb378fc03da7ab1b004c8cd1b05": {
+    "title": "8th {USENIX",
+    "timestamp": 1755108269.329498
+  },
+  "d417637229d1c9fe3161e6d5bb3330e4": {
+    "title": "CAFTL",
+    "timestamp": 1755108271.568461
+  },
+  "16b8786f965a0530645eb69e6964e26f": {
+    "title": "Exploiting Memory Device Wear-Out Dynamics to Improve {NAND",
+    "timestamp": 1755108276.919751
+  },
+  "107afc2cec7dca2054e95f66eecc4c7e": {
+    "title": "Scale and Concurrency of {GIGA",
+    "timestamp": 1755108277.8631911
+  },
+  "a8518d187672f411fcd6f30e9cbc1030": {
+    "title": "AONT",
+    "timestamp": 1755108278.565523
+  },
+  "cbc891e4a1a12c5d2071d5b58087b459": {
+    "title": "The {SCADS",
+    "timestamp": 1755108282.916034
+  },
+  "4fdec9adc54c28dc50e3ceb7be232a30": {
+    "title": "FastScale: Accelerate {RAID",
+    "timestamp": 1755108287.232246
+  },
+  "1965dde8668c6bcd71bfd1fc9cd5c464": {
+    "title": "9th {USENIX",
+    "timestamp": 1755108288.05499
+  },
+  "7928c1ddff19d66a6f66c989ee638f02": {
+    "title": "Rethinking erasure codes for cloud file systems: Minimizing I/O for recovery and degraded reads",
+    "timestamp": 1755108289.220084
+  },
+  "d38fa427a898d4a055460cbc96fdae00": {
+    "title": "Shredder: {GPU",
+    "timestamp": 1755108292.54776
+  },
+  "0e4b087930fa2f112d75761e34077408": {
+    "title": "The bleak future of {NAND",
+    "timestamp": 1755108295.1420648
+  },
+  "5f397e9d8b78fcb347199a113dfb0763": {
+    "title": "Rethinking erasure codes for cloud file systems: minimizing I/O for recovery and degraded reads.",
+    "timestamp": 1755108297.221618
+  },
+  "d33947551abd470b08cf565d95715e6c": {
+    "title": "Lifetime management of flash-based SSDs using recovery-aware dynamic throttling.",
+    "timestamp": 1755108300.1715991
+  },
+  "b76a8ac7d1e9f04b7f6899f2b618a3d2": {
+    "title": "Optimizing {NAND",
+    "timestamp": 1755108301.823423
+  },
+  "3d448f830711d8b068523d073b7a0618": {
+    "title": "scc: cluster storage provisioning informed by application characteristics and SLAs.",
+    "timestamp": 1755108302.549492
+  },
+  "652e6fd86b4a945eed4fcf57933d70ef": {
+    "title": "ZZFS",
+    "timestamp": 1755108303.123776
+  },
+  "67103d46ff243156c58baac46f877b42": {
+    "title": "SFS",
+    "timestamp": 1755108303.890249
+  },
+  "8228ff5a60dc9487cdfd0000efec8e42": {
+    "title": "FIOS",
+    "timestamp": 1755108305.651485
+  },
+  "dde00b043b1282184c87200c678a8129": {
+    "title": "WAN",
+    "timestamp": 1755108306.255863
+  },
+  "a22fe010ceb05d7120f2e9a0a0a79afe": {
+    "title": "Reducing {SSD",
+    "timestamp": 1755108311.580267
+  },
+  "fee4188c80ca4d8122a5c07c454050b4": {
+    "title": "Proceedings of the 10th {USENIX",
+    "timestamp": 1755108314.0257778
+  },
+  "8f253e7e2b6a70fdd544d05c1770baaf": {
+    "title": "HARDFS",
+    "timestamp": 1755108315.388337
+  },
+  "2cbf55926c4c5cc0f06950da20b8651b": {
+    "title": "Write policies for host-side flash caches.",
+    "timestamp": 1755108317.04201
+  },
+  "41e7601581e2ef0c03236aa8748cf6c8": {
+    "title": "SD",
+    "timestamp": 1755108325.8579829
+  },
+  "85c51e278eeff89bdbea0b14931b98ea": {
+    "title": "Screaming fast Galois field arithmetic using intel {SIMD",
+    "timestamp": 1755108326.85133
+  },
+  "89fceff2de3f24bc3ce2a70fd5e2de56": {
+    "title": "Building workload-independent storage with {VT",
+    "timestamp": 1755108328.463336
+  },
+  "a062287c20f31860740a51d23c269d8e": {
+    "title": "LDPC",
+    "timestamp": 1755108333.830548
+  },
+  "bd0b33616373cf7d26e26a02cdeda25e": {
+    "title": "Understanding the robustness of {SSDS",
+    "timestamp": 1755108334.988169
+  },
+  "e6162b3f19632ecfb6e5582f2ce75cc6": {
+    "title": "Proceedings of the 11th {USENIX",
+    "timestamp": 1755108335.59375
+  },
+  "f627060e0b26aaa45f648a5927c65086": {
+    "title": "(Big)data in a virtualized world: volume, velocity, and variety in cloud datacenters.",
+    "timestamp": 1755108336.6819332
+  },
+  "7a469d573adf4560fa7b7502b611faf6": {
+    "title": "Analysis of {HDFS",
+    "timestamp": 1755108341.534079
+  },
+  "d3b5aebd48c11d1b1508b73a95f71346": {
+    "title": "Lifetime improvement of {NAND",
+    "timestamp": 1755108342.332155
+  },
+  "dff83b4304e931f6fc41275d88aecc45": {
+    "title": "Wear unleveling: improving {NAND",
+    "timestamp": 1755108343.1885262
+  },
+  "bef5c5d88f334979c7ba6a7095b7836a": {
+    "title": "MultiLanes: providing virtualized storage for {OS",
+    "timestamp": 1755108345.475273
+  },
+  "7becf69bb555ff04387d9bf887c9b82d": {
+    "title": "On the energy overhead of mobile storage systems.",
+    "timestamp": 1755108349.226217
+  },
+  "186fe68e61318d503efc076e954813fb": {
+    "title": "STAIR",
+    "timestamp": 1755108349.745758
+  },
+  "aac38a321f4a1f71d2eec8ab85200659": {
+    "title": "CRAID",
+    "timestamp": 1755108354.868085
+  },
+  "b9b59eafbf3d654e7e755aacf54e17b6": {
+    "title": "Log-structured memory for {DRAM",
+    "timestamp": 1755108355.965373
+  },
+  "a6d62beb9800da458eb8290304b7e480": {
+    "title": "DC",
+    "timestamp": 1755108357.342004
+  },
+  "a4d5ba0c51de9d55fb0fe63fcaa760cc": {
+    "title": "Proceedings of the 12th {USENIX",
+    "timestamp": 1755108361.5542989
+  },
+  "f3717059f6e28ea6f3551f3f48b6fc3e": {
+    "title": "Calvinfs: Consistent {WAN",
+    "timestamp": 1755108362.1519492
+  },
+  "58ef96d401c8737090df2d5f4465da0e": {
+    "title": "RIPQ",
+    "timestamp": 1755108436.399235
+  },
+  "c5f02f8db80f2a40dc91d0c68d5c1819": {
+    "title": "Skylight-A Window on Shingled Disk Operation.",
+    "timestamp": 1755108436.742939
+  },
+  "4ac335d68f8ae3431ce1ce9123a0908f": {
+    "title": "Reliable, Consistent, and Efficient Data Sync for Mobile Apps.",
+    "timestamp": 1755108439.368937
+  },
+  "821a97ba346da9fb8c27d76e5817167a": {
+    "title": "Analysis of the {ECMWF",
+    "timestamp": 1755108440.228554
+  },
+  "4a057556392627494acdccc90fcf64e8": {
+    "title": "Chronicle: Capture and Analysis of {NFS",
+    "timestamp": 1755108444.328426
+  },
+  "52f12f1ee469ab6892139cfb20a9ec18": {
+    "title": "LADS",
+    "timestamp": 1755108444.805147
+  },
+  "7d244b0dbfad20adcd5a6699b71dd833": {
+    "title": "Towards {SLO",
+    "timestamp": 1755108445.4556851
+  },
+  "39aefaf860788cff3918b3078ec84529": {
+    "title": "RIPQ",
+    "timestamp": 1755108450.463145
+  },
+  "9dfcd5447d4885737be1321dc863d444": {
+    "title": "CalvinFS: Consistent {WAN",
+    "timestamp": 1755108451.047112
+  },
+  "f1a6be2934ea20abeff323e5e0096d7c": {
+    "title": "Efficient {MRC",
+    "timestamp": 1755108453.118509
+  },
+  "89054c9f6d5fc8880514bc7f1c9bf8ea": {
+    "title": "Write Once, Get 50% Free: Saving {SSD",
+    "timestamp": 1755108455.67112
+  },
+  "5e20de3bd05a5a2046d100342fdaf835": {
+    "title": "NV",
+    "timestamp": 1755108456.159096
+  },
+  "406df1000c2ae126425fdf8ecdfba46c": {
+    "title": "Proceedings of the 13th {USENIX",
+    "timestamp": 1755108457.677357
+  },
+  "98c5f8e6244b498151f2496b69fa4ab8": {
+    "title": "CloudCache: On-demand Flash Cache Management for Cloud Computing.",
+    "timestamp": 1755108461.3565068
+  },
+  "b0413e0a16c170845147804ff2495275": {
+    "title": "Estimating Unseen Deduplication - from Theory to Practice.",
+    "timestamp": 1755108465.915255
+  },
+  "7b5b952b82e1d3296455a5531dcdc9c1": {
+    "title": "Slacker: Fast Distribution with Lazy Docker Containers.",
+    "timestamp": 1755108466.750785
+  },
+  "2e81e1f38a4b63aebaaac70c6da0ddd6": {
+    "title": "PCAP",
+    "timestamp": 1755108467.269171
+  },
+  "12c4347e4f93ebd9a8d506a2f2d443bd": {
+    "title": "Flamingo: Enabling Evolvable {HDD",
+    "timestamp": 1755108468.72286
+  },
+  "c841fa97beec582c19c44e9097e60a97": {
+    "title": "WiscKey: Separating Keys from Values in {SSD",
+    "timestamp": 1755108472.3408031
+  },
+  "72280d2817a47e6d6052dc0655787fe9": {
+    "title": "The Devil Is in the Details: Implementing Flash Page Reuse with {WOM",
+    "timestamp": 1755108474.9898171
+  },
+  "4ab9a81e2e0d8381b89ef1f6093bdfca": {
+    "title": "Opening the Chrysalis: On the Real Repair Performance of {MSR",
+    "timestamp": 1755108475.9234061
+  },
+  "90d6a15cccac685a912d326109d5ca47": {
+    "title": "NOVA",
+    "timestamp": 1755108479.2030568
+  },
+  "30161e1b64259f7ab21a4c15530d5980": {
+    "title": "Efficient and Available In-memory {KV",
+    "timestamp": 1755108481.9862201
+  },
+  "53165d6085f1d8634afe07122ecec3d2": {
+    "title": "14th {USENIX",
+    "timestamp": 1755108483.720242
+  },
+  "49a71a273b6bfae17a4af63ca625ecb7": {
+    "title": "Omid, Reloaded: Scalable and Highly-Available Transaction Processing.",
+    "timestamp": 1755108485.706959
+  },
+  "26691faecd18d6df3fe73c786ec00b64": {
+    "title": "vNFS: Maximizing {NFS",
+    "timestamp": 1755108487.2998369
+  },
+  "b2bea372f108b828f2773a0b86764254": {
+    "title": "The Logic of Physical Garbage Collection in Deduplicating Storage.",
+    "timestamp": 1755108490.2144399
+  },
+  "abdb62f6ee32b4c1f44096536d034270": {
+    "title": "On the Accuracy and Scalability of Intensive I/O Workload Replay.",
+    "timestamp": 1755108491.969579
+  },
+  "27ac9b7228770c1fe1b295be5c47d419": {
+    "title": "SMaRT: An Approach to Shingled Magnetic Recording Translation.",
+    "timestamp": 1755108493.008781
+  },
+  "9adc15e8ff84866cece019fb3b3358b9": {
+    "title": "Memory-Driven Computing.",
+    "timestamp": 1755108494.4106739
+  },
+  "246ef8f44acca3cb043c2522ab811ea5": {
+    "title": "Algorithms and Data Structures for Efficient Free Space Reclamation in {WAFL",
+    "timestamp": 1755108495.4944289
+  },
+  "90db6c5127529e94c66300cb884c0b83": {
+    "title": "SHRD",
+    "timestamp": 1755108497.235595
+  },
+  "d0556dc73c20c59fff8a2f43ff5a882e": {
+    "title": "High Performance Metadata Integrity Protection in the {WAFL",
+    "timestamp": 1755108498.238337
+  },
+  "de97bdee6af870db8907a9c0a398f1f2": {
+    "title": "Chronix: Long Term Storage and Retrieval Technology for Anomaly Detection in Operational Data.",
+    "timestamp": 1755108499.055698
+  },
+  "aafecf7fd6bc0a3b9ef07d2385b9f808": {
+    "title": "WORT",
+    "timestamp": 1755108499.5653162
+  },
+  "8bd7ff57c7d7b14eb3c8d3986b4de6f4": {
+    "title": "Facilitating Magnetic Recording Technology Scaling for Data Center Hard Disk Drives through Filesystem-Level Transparent Local Erasure Coding.",
+    "timestamp": 1755108501.129729
+  },
+  "148657a7a83219ab68823388223857ad": {
+    "title": "Graphene: Fine-Grained {IO",
+    "timestamp": 1755108501.831022
+  },
+  "da6d2eb0a23451f4e68d7ee44d6d35d6": {
+    "title": "HopsFS: Scaling Hierarchical File System Metadata Using NewSQL Databases.",
+    "timestamp": 1755108502.762238
+  },
+  "2473719ed22c141c98b91a5c05aa81ca": {
+    "title": "To {FUSE",
+    "timestamp": 1755108506.283338
+  },
+  "df31ed89a6a88e4727fa01b4b56624e6": {
+    "title": "Tiny-Tail Flash: Near-Perfect Elimination of Garbage Collection Tail Latencies in {NAND",
+    "timestamp": 1755108508.146446
+  },
+  "c173892ac5a3a43387231c1da5d60e97": {
+    "title": "15th {USENIX",
+    "timestamp": 1755108509.060607
+  },
+  "bdea897cb970013abf1169fe5b4913c3": {
+    "title": "Fail-Slow at Scale: Evidence of Hardware Performance Faults in Large Production Systems",
+    "timestamp": 1755108509.987028
+  },
+  "110265a4620d9d7c7a34538f2a28557b": {
+    "title": "ALACC",
+    "timestamp": 1755108512.75551
+  },
+  "05baafb4984173cbf1035397d704715f": {
+    "title": "Fail-Slow at Scale: Evidence of Hardware Performance Faults in Large Production Systems.",
+    "timestamp": 1755108516.037007
+  },
+  "6f7e030d64b183ac91947de10378c970": {
+    "title": "Designing a True Direct-Access File System with DevFS.",
+    "timestamp": 1755108517.88876
+  },
+  "f268c65af2b7381598df57cbf324e416": {
+    "title": "WAFL",
+    "timestamp": 1755108518.4394019
+  },
+  "649db3ea7d541468b2c2c7741d367d3f": {
+    "title": "The {CASE",
+    "timestamp": 1755108519.090892
+  },
+  "1ff3c5500f417066d3046507514528f3": {
+    "title": "PEN",
+    "timestamp": 1755108519.7592802
+  },
+  "82a71632437258b5ad229ffd9bb7c136": {
+    "title": "FStream: Managing Flash Streams in the File System.",
+    "timestamp": 1755108520.674677
+  },
+  "e4ce2b39d98a97cbea89ac3b6270265a": {
+    "title": "MQSim: A Framework for Enabling Realistic Studies of Modern Multi-Queue {SSD",
+    "timestamp": 1755108523.422933
+  },
+  "f24efe1c765d240827c50ddb6c38c85d": {
+    "title": "Clay Codes: Moulding {MDS",
+    "timestamp": 1755108524.160877
+  },
+  "806a65125f607c630f1b83245a474ecf": {
+    "title": "Barrier-Enabled {IO",
+    "timestamp": 1755108524.942636
+  },
+  "4911e47e3763f32b34bf4552cb76df1e": {
+    "title": "UKSM",
+    "timestamp": 1755108525.640626
+  },
+  "e2d02dce45cd522afcacf514d4c8a71e": {
+    "title": "Towards Web-based Delta Synchronization for Cloud Storage Services.",
+    "timestamp": 1755108526.6281972
+  },
+  "df51c2ed83acd5d040f4e9acbae28c30": {
+    "title": "RFLUSH",
+    "timestamp": 1755108527.125628
+  },
+  "cc0e8ac464d84ad939794aa31cf1112e": {
+    "title": "The Full Path to Full-Path Indexing.",
+    "timestamp": 1755108527.917996
+  },
+  "3106a2ac3384cb81d7bd89f03ffa4b0b": {
+    "title": "RAID",
+    "timestamp": 1755108528.590867
+  },
+  "5c34e64f7c0477b6261aff11ef23749e": {
+    "title": "Stash in a Flash.",
+    "timestamp": 1755108529.212377
+  },
+  "7dd26db7e611f6d720cd51d947910ef9": {
+    "title": "16th {USENIX",
+    "timestamp": 1755108529.7928262
+  },
+  "2be478adc0c900f29401d26cb3c13a06": {
+    "title": "SPEICHER",
+    "timestamp": 1755108530.440994
+  },
+  "859f23548723a6d98e800aa39f4cd1fb": {
+    "title": "Optimizing Systems for Byte-Addressable {NVM",
+    "timestamp": 1755108531.2234318
+  },
+  "ad7f77fb381268e9929c0b2558f6088d": {
+    "title": "Sliding Look-Back Window Assisted Data Chunk Rewriting for Improving Deduplication Restore Performance.",
+    "timestamp": 1755108532.676688
+  },
+  "e21d3fe88a82791d92a7d42d220909ad": {
+    "title": "Speculative Encryption on {GPU",
+    "timestamp": 1755108533.281844
+  },
+  "7bbcac4e6c481ce6b4e43d10f9bf8d19": {
+    "title": "Pay Migration Tax to Homeland: Anchor-based Scalable Reference Counting for Multicores.",
+    "timestamp": 1755108538.0526478
+  },
+  "e4c9759aa9dc8f7d6126e42a47922d36": {
+    "title": "SLM",
+    "timestamp": 1755108539.512519
+  },
+  "909ff7c2c15a15ba4322fa94b3ed82f7": {
+    "title": "Design Tradeoffs for {SSD",
+    "timestamp": 1755108541.1011882
+  },
+  "a6a997a737f13df4fa7ae547f6ff7c3e": {
+    "title": "Reaping the performance of fast {NVM",
+    "timestamp": 1755108542.997416
+  },
+  "46620ebab9ab6a21436c2f3f044eb3ea": {
+    "title": "Write-Optimized Dynamic Hashing for Persistent Memory.",
+    "timestamp": 1755108546.392162
+  },
+  "dd39ea941545400fe1ca8c331f12cbd7": {
+    "title": "ScaleCheck: A Single-Machine Approach for Discovering Scalability Bugs in Large Distributed Systems.",
+    "timestamp": 1755108548.4653718
+  },
+  "9db340f87a7658d570bd84718d67a664": {
+    "title": "Orion: A Distributed File System for Non-Volatile Main Memory and {RDMA",
+    "timestamp": 1755108549.482859
+  },
+  "8304b644440950ef8b876435d9231943": {
+    "title": "GearDB: A {GC",
+    "timestamp": 1755108550.287047
+  },
+  "ae179f6326858c63f5dae7a738436452": {
+    "title": "Ziggurat: A Tiered File System for Non-Volatile Main Memories and Disks.",
+    "timestamp": 1755108552.26761
+  }
+}

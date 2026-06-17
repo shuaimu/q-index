@@ -1,0 +1,184 @@
+{
+  "total_papers_matched": 731,
+  "total_citations": 41468,
+  "papers_by_venue": {
+    "eurosys": 56,
+    "atc": 30,
+    "icde": 61,
+    "vldb": 27,
+    "sosp": 17,
+    "sigcomm": 54,
+    "ccs": 122,
+    "asplos": 48,
+    "sigmod": 34,
+    "podc": 45,
+    "fast": 8,
+    "nsdi": 20,
+    "stoc": 67,
+    "icml": 34,
+    "neurips": 35,
+    "pldi": 26,
+    "osdi": 18,
+    "tkde": 1,
+    "cacm": 1,
+    "popl": 20,
+    "dsn": 1,
+    "iclr": 1,
+    "socc": 1,
+    "tods": 1,
+    "infocom": 1,
+    "toplas": 1,
+    "tr": 1
+  },
+  "citations_by_venue": {
+    "eurosys": 2509,
+    "atc": 1352,
+    "icde": 686,
+    "vldb": 365,
+    "sosp": 1929,
+    "sigcomm": 4170,
+    "ccs": 7183,
+    "asplos": 2121,
+    "sigmod": 499,
+    "podc": 1311,
+    "fast": 885,
+    "nsdi": 990,
+    "stoc": 3248,
+    "icml": 3015,
+    "neurips": 1733,
+    "pldi": 980,
+    "osdi": 2075,
+    "tkde": 369,
+    "cacm": 349,
+    "popl": 1319,
+    "dsn": 40,
+    "iclr": 1456,
+    "socc": 245,
+    "tods": 389,
+    "infocom": 135,
+    "toplas": 1966,
+    "tr": 149
+  },
+  "top_cited_papers": [
+    {
+      "title": "Wait-free synchronization",
+      "venue": "toplas",
+      "year": "1991",
+      "citations": 1966
+    },
+    {
+      "title": "FlashAttention-2: Faster Attention with Better Parallelism and Work Partitioning",
+      "venue": "iclr",
+      "year": "2024",
+      "citations": 1456
+    },
+    {
+      "title": "Terra: a virtual machine-based platform for trusted computing.",
+      "venue": "sosp",
+      "year": "2003",
+      "citations": 1164
+    },
+    {
+      "title": "Where is the energy spent inside my app?: fine grained energy accounting on smartphones with Eprof.",
+      "venue": "eurosys",
+      "year": "2012",
+      "citations": 722
+    },
+    {
+      "title": "Scaling Vision Transformers to 22 Billion Parameters.",
+      "venue": "icml",
+      "year": "2023",
+      "citations": 642
+    },
+    {
+      "title": "Return-oriented programming without returns.",
+      "venue": "ccs",
+      "year": "2010",
+      "citations": 627
+    },
+    {
+      "title": "Checking System Rules Using System-Specific, Programmer-Written Compiler Extensions.",
+      "venue": "osdi",
+      "year": "2000",
+      "citations": 614
+    },
+    {
+      "title": "Double-spending fast payments in bitcoin.",
+      "venue": "ccs",
+      "year": "2012",
+      "citations": 545
+    },
+    {
+      "title": "Multi-parameter mechanism design and sequential posted pricing.",
+      "venue": "stoc",
+      "year": "2010",
+      "citations": 514
+    },
+    {
+      "title": "Secure Untrusted Data Repository ({SUNDR",
+      "venue": "osdi",
+      "year": "2004",
+      "citations": 496
+    },
+    {
+      "title": "Blockstack: A Global Naming and Storage System Secured by Blockchains.",
+      "venue": "atc",
+      "year": "2016",
+      "citations": 490
+    },
+    {
+      "title": "SilkRoad: Making Stateful Layer-4 Load Balancing Fast and Cheap Using Switching ASICs.",
+      "venue": "sigcomm",
+      "year": "2017",
+      "citations": 453
+    },
+    {
+      "title": "DeTail: reducing the flow completion time tail in datacenter networks.",
+      "venue": "sigcomm",
+      "year": "2012",
+      "citations": 437
+    },
+    {
+      "title": "Developing a predictive model of quality of experience for internet video.",
+      "venue": "sigcomm",
+      "year": "2013",
+      "citations": 430
+    },
+    {
+      "title": "Cormorant: Covariant Molecular Neural Networks.",
+      "venue": "neurips",
+      "year": "2019",
+      "citations": 429
+    },
+    {
+      "title": "Edit Distance Cannot Be Computed in Strongly Subquadratic Time (unless {SETH",
+      "venue": "stoc",
+      "year": "2015",
+      "citations": 411
+    },
+    {
+      "title": "Practical constructions and new proof methods for large universe attribute-based encryption.",
+      "venue": "ccs",
+      "year": "2013",
+      "citations": 410
+    },
+    {
+      "title": "Consistent and Durable Data Structures for Non-Volatile Byte-Addressable Memory.",
+      "venue": "fast",
+      "year": "2011",
+      "citations": 407
+    },
+    {
+      "title": "Viewstamped replication: A new primary copy method to support highly-available distributed systems",
+      "venue": "podc",
+      "year": "1988",
+      "citations": 406
+    },
+    {
+      "title": "Migrating server storage to SSDs: analysis of tradeoffs.",
+      "venue": "eurosys",
+      "year": "2009",
+      "citations": 405
+    }
+  ]
+}

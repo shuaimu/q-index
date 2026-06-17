@@ -1,0 +1,19 @@
+{
+  "2935c5b50cc3e78696d11e5cc59ea7bc": {
+    "title": "MapReduce: Simplified Data Processing on Large Clusters.",
+    "authors": [
+      "Jeffrey Dean",
+      "Sanjay Ghemawat"
+    ],
+    "year": "2004",
+    "venue": "OSDI",
+    "type": "Conference and Workshop Papers",
+    "key": "conf/osdi/DeanG04",
+    "url": "https://dblp.org/rec/conf/osdi/DeanG04",
+    "ee": "http://www.usenix.org/events/osdi04/tech/dean.html",
+    "source": "dblp",
+    "citation_count": null,
+    "dblp_url": "https://dblp.org/rec/conf/osdi/DeanG04",
+    "note": "DBLP found, use CrossRef/OpenAlex for citation count"
+  }
+}
