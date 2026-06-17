@@ -1,0 +1,639 @@
+% Removed workshop/demo/poster papers
+
+@inproceedings{suresh12demoprogramming95,
+  title = {Demo: programming enterprise WLANs with odin.},
+  author = {P. Lalith Suresh and Julius Schulz-Zander and Ruben Merz and Anja Feldmann},
+  booktitle = {SIGCOMM},
+  year = {2012},
+  url = {https://doi.org/10.1145/2342356.2342409},
+  doi = {10.1145/2342356.2342409},
+}
+
+@inproceedings{zhang12demoruntime117,
+  title = {Demo: runtime {MAC} reconfiguration using a meta-compiler assisted toolchain.},
+  author = {Xi Zhang 0001 and Junaid Ansari and Petri Mähönen},
+  booktitle = {SIGCOMM},
+  year = {2012},
+  url = {https://doi.org/10.1145/2342356.2342408},
+  doi = {10.1145/2342356.2342408},
+}
+
+@inproceedings{mauthe13outrageousopinion75,
+  title = {Outrageous opinion panel: do we really have to consider the human factor in networking?},
+  author = {Andreas Mauthe and Edmundo Monteiro},
+  booktitle = {SIGCOMM},
+  year = {2013},
+  url = {https://doi.org/10.1145/2491172.2491175},
+  doi = {10.1145/2491172.2491175},
+}
+
+@inproceedings{loch14demowarp79,
+  title = {Demo: {WARP} drive - accelerating wireless multi-hop cross-layer experimentation on SDRs.},
+  author = {Adrian Loch and Matthias Schulz 0001 and Matthias Hollick},
+  booktitle = {SIGCOMM},
+  year = {2014},
+  url = {https://doi.org/10.1145/2627788.2627800},
+  doi = {10.1145/2627788.2627800},
+}
+
+@inproceedings{schmidt14demoa112,
+  title = {Demo: a virtualized lab testbed with physical network outlets for hands-on computer networking education.},
+  author = {Mark Schmidt 0002 and Florian Heimgaertner and Michael Menth},
+  booktitle = {SIGCOMM},
+  year = {2014},
+  url = {https://doi.org/10.1145/2619239.2631429},
+  doi = {10.1145/2619239.2631429},
+}
+
+@inproceedings{stewart14demo802121,
+  title = {Demo: 802.11 a/g {PHY} implementation in ziria, domain-specific language for wireless programming.},
+  author = {Gordon Stewart 0001 and Mahanth Gowda and Geoffrey Mainland and Bozidar Radunovic and Dimitrios Vytiniotis},
+  booktitle = {SIGCOMM},
+  year = {2014},
+  url = {https://doi.org/10.1145/2627788.2627799},
+  doi = {10.1145/2627788.2627799},
+}
+
+@inproceedings{unknown14keynotelife129,
+  title = {Keynote: life in the fast lane.},
+  booktitle = {SIGCOMM},
+  year = {2014},
+  url = {https://doi.org/10.1145/2619239.2626337},
+  doi = {10.1145/2619239.2626337},
+}
+
+@inproceedings{wang14democogmac132,
+  title = {Demo: CogMAC+ - a decentralized multichannel {MAC} protocol for cognitive wireless networks.},
+  author = {Peng Wang 0087 and Junaid Ansari and Marina Petrova and Petri Mähönen},
+  booktitle = {SIGCOMM},
+  year = {2014},
+  url = {https://doi.org/10.1145/2627788.2627802},
+  doi = {10.1145/2627788.2627802},
+}
+
+@inproceedings{demoulin17ademonstration23,
+  title = {A Demonstration of the DeDoS Platform for Defusing Asymmetric DDoS Attacks in Data Centers.},
+  author = {Henri Maxime Demoulin and Tavish Vaidya and Isaac Pedisich and Nik Sultana and Bowen Wang and Jingyu Qian and Yuankai Zhang 0001 and Ang Chen 0001 and Andreas Haeberlen and Boon Thau Loo and Linh Thi Xuan Phan and Micah Sherr and Clay Shields and Wenchao Zhou},
+  booktitle = {SIGCOMM},
+  year = {2017},
+  url = {https://doi.org/10.1145/3123878.3131990},
+  doi = {10.1145/3123878.3131990},
+}
+
+@inproceedings{nathan17demonstrationof79,
+  title = {Demonstration of the Marple System for Network Performance Monitoring.},
+  author = {Vikram Nathan and Srinivas Narayana and Anirudh Sivaraman and Prateesh Goyal and Venkat Arun and Mohammad Alizadeh and Vimalkumar Jeyakumar and Changhoon Kim},
+  booktitle = {SIGCOMM},
+  year = {2017},
+  url = {https://doi.org/10.1145/3123878.3131985},
+  doi = {10.1145/3123878.3131985},
+}
+
+@inproceedings{ardi18postertowards16,
+  title = {Poster: Towards a Collaborative and Retrospective Understanding of Security Events with Retro-Future.},
+  author = {Calvin Ardi and John S. Heidemann and Gina Fisk and Mike Fisk and Christos Papadopoulos},
+  booktitle = {SIGCOMM},
+  year = {2018},
+  url = {https://doi.org/10.1145/3234200.3234249},
+  doi = {10.1145/3234200.3234249},
+}
+
+@inproceedings{sakic19p4bfta89,
+  title = {P4BFT: A Demonstration of Hardware-Accelerated {BFT} in Fault-Tolerant Network Control Plane.},
+  author = {Ermin Sakic and Cristian Bermudez Serna and Endri Goshi and Nemanja Deric and Wolfgang Kellerer},
+  booktitle = {SIGCOMM},
+  year = {2019},
+  url = {https://doi.org/10.1145/3342280.3342289},
+  doi = {10.1145/3342280.3342289},
+}
+
+@inproceedings{rodriguez22p4programmable81,
+  title = {P4 programmable patch panel (P7): an instant 100g emulated network on your tofino-based pizza box.},
+  author = {Fabricio Rodriguez and Francisco Germano Vogt and Ariel Góes de Castro and Marcos Felipe Schwarz and Christian Esteve Rothenberg},
+  booktitle = {SIGCOMM},
+  year = {2022},
+  url = {https://doi.org/10.1145/3546037.3546046},
+  doi = {10.1145/3546037.3546046},
+}
+
+@inproceedings{allam23demounderwater15,
+  title = {Demo: Underwater Backscatter Link Budget Tool.},
+  author = {Ahmed Allam and Waleed Akbar and Fadel Adib},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610836},
+  doi = {10.1145/3603269.3610836},
+}
+
+@inproceedings{amado23posterin16,
+  title = {Poster: In-Network {ML} Feature Computation for Malicious Traffic Detection.},
+  author = {João Romeiras Amado and Francisco Chamiça Pereira and Salvatore Signorello and Miguel Correia 0001 and Fernando M. V. Ramos},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610866},
+  doi = {10.1145/3603269.3610866},
+}
+
+@inproceedings{amir23posterscalability17,
+  title = {Poster: Scalability and Congestion Control in Oblivious Reconfigurable Networks.},
+  author = {Daniel Amir and Tegan Wilson and Vishal Shrivastav and Hakim Weatherspoon and Robert Kleinberg},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610862},
+  doi = {10.1145/3603269.3610862},
+}
+
+@inproceedings{anwar23demostructural18,
+  title = {Demo: Structural Network Minimization: A Case of Reflective Networking.},
+  author = {Mubashir Anwar and Anduo Wang and Fangping Lan and Matthew Caesar 0001},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610847},
+  doi = {10.1145/3603269.3610847},
+}
+
+@inproceedings{boroushaki23demoreal20,
+  title = {Demo: Real-time X-Ray Vision via Augmented Reality with {RF} Sensing.},
+  author = {Tara Boroushaki and Maisy Lam and Weitung Chen and Laura Dodds and Aline Eid and Fadel Adib},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610838},
+  doi = {10.1145/3603269.3610838},
+}
+
+@inproceedings{chen23posterchameleon28,
+  title = {Poster: Chameleon: Automatic and Adaptive Tuning for {DCQCN} Parameters in {RDMA} Networks.},
+  author = {Ziteng Chen and Menghao Zhang 0001 and Guanyu Li and Mingwei Xu},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610865},
+  doi = {10.1145/3603269.3610865},
+}
+
+@inproceedings{cicco23postercontinual29,
+  title = {Poster: Continual Network Learning.},
+  author = {Nicola Di Cicco and Amir Al Sadi and Chiara Grasselli and Andrea Melis 0001 and Gianni Antichi and Massimo Tornatore},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610855},
+  doi = {10.1145/3603269.3610855},
+}
+
+@inproceedings{das23posternear32,
+  title = {Poster: Near Non-blocking Performance with All-optical Circuit-switched Core.},
+  author = {Sushovan Das and Arlei Silva and T. S. Eugene Ng},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610868},
+  doi = {10.1145/3603269.3610868},
+}
+
+@inproceedings{dietmller23posterlearning36,
+  title = {Poster: Learning distributions to detect anomalies using all the network traffic.},
+  author = {Alexander Dietmüller and Georgia Fragkouli and Laurent Vanbever},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610837},
+  doi = {10.1145/3603269.3610837},
+}
+
+@inproceedings{du23postertaking38,
+  title = {Poster: Taking the Low Road: How {RPKI} Invalids Propagate.},
+  author = {Ben Du and Cecilia Testart and Romain Fontugne and Alex C. Snoeren and K. C. Claffy},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610843},
+  doi = {10.1145/3603269.3610843},
+}
+
+@inproceedings{gao23demonetvision41,
+  title = {Demo: NetVision: Efficient Visualization Front-End for Packet-level Discrete-Event Network Simulation.},
+  author = {Kaihui Gao and Li Chen 0008 and Dan Li 0001 and Vincent Liu 0001 and Xizheng Wang and Ran Zhang and Lu Lu 0016},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610851},
+  doi = {10.1145/3603269.3610851},
+}
+
+@inproceedings{grtner23demoflexibility44,
+  title = {Demo: Flexibility-aware Network Management of Time-Sensitive Flows.},
+  author = {Christoph Gärtner and Amr Rizk and Boris Koldehofe and René Guillaume and Ralf Kundel and Ralf Steinmetz},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610869},
+  doi = {10.1145/3603269.3610869},
+}
+
+@inproceedings{guo23posterscaling48,
+  title = {Poster: Scaling Data Plane Verification with Throughput-Optimized Atomic Predicates.},
+  author = {Dong Guo and Jian Luo and Kai Gao 0001 and Y. Richard Yang},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610845},
+  doi = {10.1145/3603269.3610845},
+}
+
+@inproceedings{han23posterconnectivity55,
+  title = {Poster: Connectivity topology generation with degree limitation for {UOWN}.},
+  author = {Bin Han and Lei Wang 0005 and Jie Meng and Yu Tian and Chi Lin 0001 and Zhenquan Qin and Bingxian Lu},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610857},
+  doi = {10.1145/3603269.3610857},
+}
+
+@inproceedings{heftrig23posteroff58,
+  title = {Poster: Off-Path {DNSSEC} Downgrade Attacks.},
+  author = {Elias Heftrig and Haya Schulmann and Michael Waidner},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610840},
+  doi = {10.1145/3603269.3610840},
+}
+
+@inproceedings{huang23posterprogrammable61,
+  title = {Poster: Programmable Cycle-Specified Queue for Deterministic Networking.},
+  author = {Yudong Huang and Shuo Wang 0006 and Shiyin Zhu and Guoyu Peng and Xinyuan Zhang and Tian Pan 0001 and Tao Huang 0005 and Lei Zhou and Zuopin Cheng and Daorong Guo and Hui Lin and Lianqing Zhang and Juyan Lei and Liangzhang Xu and Wei Wang 0494 and Xinmin Liu and Xuejun You and Yunjie Liu 0001},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610848},
+  doi = {10.1145/3603269.3610848},
+}
+
+@inproceedings{jiang23posterp464,
+  title = {Poster: P4-{DPLL}: Accelerating {SAT} Solving Using Switching ASICs.},
+  author = {Jinghui Jiang and Zhenpei Huang and Qiao Xiang and Lu Tang 0004 and Jiwu Shu},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610863},
+  doi = {10.1145/3603269.3610863},
+}
+
+@inproceedings{khooi23postertowards68,
+  title = {Poster: Towards Accelerating the 5G Centralized Unit with Programmable Switches.},
+  author = {Xin Zhe Khooi and Archit Bhatnagar and Satis Kumar Permal and Nishant Budhdev and Cha Hwan Song and Mun Choon Chan},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610839},
+  doi = {10.1145/3603269.3610839},
+}
+
+@inproceedings{ko23demoedgeric70,
+  title = {Demo: EdgeRIC: Delivering Realtime {RAN} Intelligence.},
+  author = {Woo-Hyun Ko and Ushasi Ghosh and Ujwal Dinesha and Raini Wu and Srinivas Shakkottai and Dinesh Bharadia},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610867},
+  doi = {10.1145/3603269.3610867},
+}
+
+@inproceedings{levin23demoexperimentation76,
+  title = {Demo: Experimentation with Wideband Real-Time Adaptive Full-Duplex Radios.},
+  author = {Alon Simon Levin and Igor Kadota and Sasank Garikapati and Bo Zhang 0105 and Aditya Jolly and Manav Kohli and Mingoo Seok and Harish Krishnaswamy and Gil Zussman},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610853},
+  doi = {10.1145/3603269.3610853},
+}
+
+@inproceedings{li23postertriton79,
+  title = {Poster: Triton: Accelerating vSwitch with Flexibility through Hardware Assisting not Bypassing Software.},
+  author = {Xing Li and Xiaochong Jiang and Ye Yang and Lilong Chen and Tianyu Xu and Chao Xu and Longbiao Xiao and Fengmin Shi and Yi Wang 0004 and Taotao Wu and Yilong Lv and Hangfeng Gao and Zikang Chen and Yisong Qiao and Hongwei Ding and Yijian Dong and Chengkun Wei and Zihui Zhang and Shunmin Zhu and Wenzhi Chen},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610849},
+  doi = {10.1145/3603269.3610849},
+}
+
+@inproceedings{liu23postertraffic81,
+  title = {Poster: Traffic Shaping and YouTube Performance Interaction in {GEO} Satellite Networks.},
+  author = {Jiamo Liu and David Lerner and Jae Chung and Udit Paul and Arpit Gupta and Elizabeth M. Belding},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610835},
+  doi = {10.1145/3603269.3610835},
+}
+
+@inproceedings{ma23posterpipellm88,
+  title = {Poster: PipeLLM: Pipeline {LLM} Inference on Heterogeneous Devices with Sequence Slicing.},
+  author = {Ruilong Ma and Jingyu Wang 0001 and Qi Qi 0001 and Xiang Yang and Haifeng Sun 0001 and Zirui Zhuang and Jianxin Liao},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610856},
+  doi = {10.1145/3603269.3610856},
+}
+
+@inproceedings{seehofer23demoenabling107,
+  title = {Demo: Enabling Autonomic Network Infrastructures with {KIRA}.},
+  author = {Paul Seehofer and Hendrik Mahrt and Roland Bless and Martina Zitterbart},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610864},
+  doi = {10.1145/3603269.3610864},
+}
+
+@inproceedings{schulmann23posterlemon110,
+  title = {Poster: LeMon: Global Route Leak Monitoring Service.},
+  author = {Haya Schulmann and Shujie Zhao},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610852},
+  doi = {10.1145/3603269.3610852},
+}
+
+@inproceedings{stuhr23posterunderstanding114,
+  title = {Poster: Understanding Interactions between Overload Control Core Allocation in Low-Latency Network Stacks.},
+  author = {Eric Stuhr and Ahmed Saeed 0001},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610844},
+  doi = {10.1145/3603269.3610844},
+}
+
+@inproceedings{su23postermeili115,
+  title = {Poster: Meili: Towards SmartNIC as a Service.},
+  author = {Qiang Su and Shaofeng Wu and Zhixiong Niu and Ran Shu 0001 and Peng Cheng 0005 and Yongqiang Xiong and Chun Jason Xue and Zaoxing Liu and Hong Xu 0001},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610859},
+  doi = {10.1145/3603269.3610859},
+}
+
+@inproceedings{thiagarajan23postera120,
+  title = {Poster: A Peek Backstage: Organizations in {DNS} Resolver Hierarchies.},
+  author = {Kedar Thiagarajan and Rashna Kumar and Fabián E. Bustamante},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610870},
+  doi = {10.1145/3603269.3610870},
+}
+
+@inproceedings{wang23demoev125,
+  title = {Demo: {EV}-{DMD}: a high-speed {VLC} system.},
+  author = {Yanxiang Wang and Guangrong Zhao and Kenuo Xu and Yiran Shen 0001 and Chenren Xu and Mahbub Hassan and Wen Hu 0001},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610861},
+  doi = {10.1145/3603269.3610861},
+}
+
+@inproceedings{xiao23demopdns134,
+  title = {Demo: {PDNS}: A Fully Privacy-Preserving {DNS}.},
+  author = {Yunming Xiao and Chenkai Weng and Ruijie Yu and Peizhi Liu and Matteo Varvello and Aleksandar Kuzmanovic},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610860},
+  doi = {10.1145/3603269.3610860},
+}
+
+@inproceedings{yamamoto23posterevaluation138,
+  title = {Poster: Evaluation of IPv6-only-Capable Iterative Resolvers.},
+  author = {Momoka Yamamoto and Jin Nakazato and Romain Fontugne and Manabu Tsukada and Hiroshi Esaki},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610850},
+  doi = {10.1145/3603269.3610850},
+}
+
+@inproceedings{yan23postertoo139,
+  title = {Poster: {TOO}: Accelerating Loss Recovery by Taming On-Off Traffic Patterns.},
+  author = {Xu Yan and Tong Li 0014 and Bo Wu 0002 and Cheng Luo and Fuyu Wang and Haiyang Wang and Ke Xu 0002},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610841},
+  doi = {10.1145/3603269.3610841},
+}
+
+@inproceedings{yan23posterq140,
+  title = {Poster: Q-Scanner: A Fast Scanning Tool for Large-Scale {SSL}/{TLS} Configurations Measurement.},
+  author = {Rui Yan and Shuai Wang 0028 and Dan Li 0001},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610858},
+  doi = {10.1145/3603269.3610858},
+}
+
+@inproceedings{yoon23posterdesigning145,
+  title = {Poster: Designing a Memory Disaggregation System for Cloud.},
+  author = {Wonsup Yoon and Jisu Ok and Sue Moon and Youngjin Kwon},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610854},
+  doi = {10.1145/3603269.3610854},
+}
+
+@inproceedings{zhong23demofirst154,
+  title = {Demo: First Demonstration of Real-Time Photonic-Electronic {DNN} Acceleration on SmartNICs.},
+  author = {Zhizhen Zhong and Mingran Yang and Jay Lang and Dirk R. Englund and Manya Ghobadi},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610842},
+  doi = {10.1145/3603269.3610842},
+}
+
+@inproceedings{zhu23posterpolycc158,
+  title = {Poster: PolyCC: Poly-Algorithmic Congestion Control.},
+  author = {Shuaipeng Zhu and Tong Li 0014 and Xinyu Ma and Yinfeng Zhu 0002 and Taotao Zhang and Senzhen Liu and Haiyang Wang and Ke Xu 0002},
+  booktitle = {SIGCOMM},
+  year = {2023},
+  url = {https://doi.org/10.1145/3603269.3610846},
+  doi = {10.1145/3603269.3610846},
+}
+
+@inproceedings{wu24demoenabling37,
+  title = {Demo: Enabling Efficient Perception Sharing via Infrastructure-to-Road Beamforming.},
+  author = {Chenhao Wu 0006 and Youdong Wang and Jun Huang 0001 and Guoliang Xing},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673713},
+  doi = {10.1145/3672202.3673713},
+}
+
+@inproceedings{zhao24postercombine39,
+  title = {Poster: Combine Topology and Traffic to Calibrate P2P Botnet Identification in Large-Scale Network.},
+  author = {Ziming Zhao 0008 and Zhaoxuan Li and Fan Zhang 0010 and Tingting Li 0004 and Jianwei Yin},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673720},
+  doi = {10.1145/3672202.3673720},
+}
+
+@inproceedings{asim24demoenabling47,
+  title = {Demo: Enabling High Bandwidth Applications over 5G Environments.},
+  author = {Rohail Asim and Ankit Bhardwaj and Lakshmi Subramanian and Yasir Zaki},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673754},
+  doi = {10.1145/3672202.3673754},
+}
+
+@inproceedings{azizi24posterunderstanding48,
+  title = {Poster: Understanding and Managing Changes in IoT Device Behaviors for Reliable Network Traffic Inference.},
+  author = {Shayan Azizi and Norihiro Okui and Masataka Nakahara and Ayumu Kubota and Gustavo Batista and Hassan Habibi Gharakheili},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673723},
+  doi = {10.1145/3672202.3673723},
+}
+
+@inproceedings{carisimo24posterbeyond55,
+  title = {Poster: Beyond Proximity: Exploring Remote Cloud Peering.},
+  author = {Esteban Carisimo and Mia Weaver and Fabián E. Bustamante and Paul Barford},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673715},
+  doi = {10.1145/3672202.3673715},
+}
+
+@inproceedings{ding24posterautomating62,
+  title = {Poster: Automating Network Configuration with Natural Language Intents.},
+  author = {Wenlong Ding and Jianqiang Li and Zhixiong Niu and Huangxun Chen and Hong Xu 0001},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673721},
+  doi = {10.1145/3672202.3673721},
+}
+
+@inproceedings{gong24demoklonet68,
+  title = {Demo: Klonet-sat: A Comprehensive Platform for Satellite Network Education.},
+  author = {Kecheng Gong and Yichen He and Yifan Feng and Hongfang Yu and Jingshan Duan and Jian Sun 0019 and Long Luo},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3675356},
+  doi = {10.1145/3672202.3675356},
+}
+
+@inproceedings{guo24postera71,
+  title = {Poster: A Hybrid Virtual-Real Emulation Platform for Computer Network Education.},
+  author = {Jiahao Guo and Dongxu Wu and Chongxi Ma and Hongfang Yu and Gang Sun 0001 and Long Luo and Yanwei Xu and Nicholas Zhang},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673736},
+  doi = {10.1145/3672202.3673736},
+}
+
+@inproceedings{li24postercontent81,
+  title = {Poster: Content-aware Retransmission for Ultra-low-latency Video Streaming.},
+  author = {Wei Li and Zili Meng},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673746},
+  doi = {10.1145/3672202.3673746},
+}
+
+@inproceedings{liu24posterscalable89,
+  title = {Poster: Scalable and Interpretable Multilayer Overlay Network Checking via Ensemble Verification.},
+  author = {Xinzhe Liu and Yahui Li and Han Zhang 0009 and Xia Yin 0001 and Xingang Shi and Zhiliang Wang and Gang Ren 0003 and Jiangyuan Yao},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673722},
+  doi = {10.1145/3672202.3673722},
+}
+
+@inproceedings{madarasingha24demop4xtnd91,
+  title = {Demo: P4Xtnd: P4 Programmability on Resource Constrained Environments with Extended Network Functionalities.},
+  author = {Chamara Madarasingha and Thilini Dahanayaka and Kanchana Thilakarathna and Suranga Seneviratne and Young Choon Lee and Salil S. Kanhere and Aruna Seneviratne and Phil Ridley},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673731},
+  doi = {10.1145/3672202.3673731},
+}
+
+@inproceedings{mukta24posterzero101,
+  title = {Poster: Zero Trust Driven Architecture for Blockchain-Based Access Control Delegation.},
+  author = {Rahma Mukta and Shantanu Pal and Michael Hitchens and Hye-Young Paik and Salil S. Kanhere},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673737},
+  doi = {10.1145/3672202.3673737},
+}
+
+@inproceedings{nguyen24demosynthesizing103,
+  title = {Demo: Synthesizing Realistic Enterprise Active Directory Attack Graphs with ADSynth.},
+  author = {Nhu Long Nguyen and Nickolas J. G. Falkner and Hung Nguyen 0004},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673732},
+  doi = {10.1145/3672202.3673732},
+}
+
+@inproceedings{pandey24demotowards105,
+  title = {Demo: Towards Faster Web in Developing Regions.},
+  author = {Ayush Pandey and Rohail Asim and Matteo Varvello and Lakshmi Subramanian and Yasir Zaki},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673751},
+  doi = {10.1145/3672202.3673751},
+}
+
+@inproceedings{pandey24democonnecting106,
+  title = {Demo: Connecting the Unconnected Using {FM} Radio.},
+  author = {Ayush Pandey and Rohail Asim and Matteo Varvello and Yasir Zaki},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673750},
+  doi = {10.1145/3672202.3673750},
+}
+
+@inproceedings{park24postercontrolling108,
+  title = {Poster: Controlling {TCP} Socket Queueing Delay.},
+  author = {Hyun Hu Park and Zili Meng},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673745},
+  doi = {10.1145/3672202.3673745},
+}
+
+@inproceedings{unknown24posterorbital111,
+  title = {Poster: Orbital {ZTA}! Secure Satellite Communication Networks with Zero Trust Architecture.},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673727},
+  doi = {10.1145/3672202.3673727},
+}
+
+@inproceedings{routray24posterfine114,
+  title = {Poster: Fine-Grained Access Control with Efficient Range Comparison for Outsourced Data.},
+  author = {Kasturi Routray and Padmalochan Bera},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673748},
+  doi = {10.1145/3672202.3673748},
+}
+
+@inproceedings{srivastava24postercirca117,
+  title = {Poster: Circa: Re-imagining Network Telemetry from an Approximation-First Perspective.},
+  author = {Milind Srivastava and Vyas Sekar},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673742},
+  doi = {10.1145/3672202.3673742},
+}
+
+@inproceedings{wang24posterflexible124,
+  title = {Poster: Flexible Scheduling of Network and Computing Resources for Distributed {AI} Tasks.},
+  author = {Ruikun Wang and Jiawei Zhang 0004 and Qiaolun Zhang and Bojun Zhang and Zhiqun Gu and Aryanaz Attarpour and Yuefeng Ji and Massimo Tornatore},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673744},
+  doi = {10.1145/3672202.3673744},
+}
+
+@inproceedings{wang24demoan125,
+  title = {Demo: An {SDN}-driven Active Queue Management Architecture for Assisting Mission-Critical Traffic Flows in Industrial Automation Systems.},
+  author = {Shuo Wang and Jonathan Kua and Jiong Jin and Jason But and Prem Prakash Jayaraman and Suresh Palanisamy},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3672202.3673741},
+  doi = {10.1145/3672202.3673741},
+}
+
+@inproceedings{wu24mccsa130,
+  title = {{MCCS}: A Service-based Approach to Collective Communication for Multi-Tenant Cloud.},
+  author = {Yongji Wu and Yechen Xu and Jingrong Chen 0002 and Zhaodong Wang and Ying Zhang 0022 and Matthew Lentz and Danyang Zhuo},
+  booktitle = {SIGCOMM},
+  year = {2024},
+  url = {https://doi.org/10.1145/3651890.3672252},
+  doi = {10.1145/3651890.3672252},
+}
+
