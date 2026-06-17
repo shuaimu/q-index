@@ -37,3 +37,10 @@ vendor/
 # Development scripts that may change
 dev.sh
 run.sh
+
+# Raw S2AG / S2ORC bulk datasets (hundreds of GB; not committed)
+# The parsed/derived results live in cache/citations/ and ARE committed.
+/data/
+
+# Local secrets (use .env.example as a template; never commit the real key)
+.env
