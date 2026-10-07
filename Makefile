@@ -1,4 +1,4 @@
-.PHONY: all build release run test bench clean install fmt clippy check help
+.PHONY: all build release run test bench clean install fmt clippy check help site serve site-check
 
 # Default target
 all: build
@@ -78,27 +78,18 @@ watch:
 		echo "cargo-watch not installed. Install with: cargo install cargo-watch"; \
 	fi
 
-# Run web server in development mode with auto-reload
-web-dev:
-	@if command -v cargo-watch >/dev/null 2>&1; then \
-		echo "🚀 Starting development web server with auto-reload..."; \
-		echo "🌐 Server will be at: http://localhost:8080"; \
-		echo "📝 Watching for changes in src/, bib/, and static/..."; \
-		cargo watch -c -w src -w bib -w static -x "run -- web --port 8080"; \
-	else \
-		echo "cargo-watch not installed. Install with: cargo install cargo-watch"; \
-		echo "Falling back to regular web server..."; \
-		cargo run -- web --port 8080; \
-	fi
+# Generate the static website into site/ (served from the site root)
+site: release
+	cargo run --release -- build-site
 
-# Run web server in production mode
-web:
-	cargo run --release -- web --port 8080
+# Build the site and preview it at http://localhost:8080
+serve: site
+	@echo "🌐 Serving site/ at http://localhost:8080 (Ctrl-C to stop)"
+	python3 -m http.server -d site 8080
 
-# Run web server with custom port
-web-custom:
-	@read -p "Enter port number: " port; \
-	cargo run -- web --port $$port
+# Check that every internal link in the built site resolves
+site-check:
+	python3 scripts/check_site_links.py site /
 
 # Generate documentation
 doc:

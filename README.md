@@ -40,21 +40,27 @@ cargo install --path .
 
 ## 🎯 Usage
 
-### Web Interface (NEW!)
+### Website
 
-Start the interactive web server:
+The web interface is a static site generated from the BibTeX data, so it can be
+hosted on GitHub Pages (or any static host) without running a server. It is
+published at **https://shuaimu.github.io/q-index/** on every push to `main`.
+
+Build and preview it locally:
 
 ```bash
-qindex web --port 8080
+qindex build-site                      # writes ./site (base URL "/")
+python3 -m http.server -d site 8080    # then open http://localhost:8080
 ```
 
-Then open your browser to `http://localhost:8080` to access:
-- 📊 Interactive dashboard with real-time metrics
-- 🔍 Search functionality with autocomplete
-- 📈 Data visualizations using Chart.js
-- 🎨 Beautiful, responsive UI with Bootstrap
-- 📥 Export data in JSON/CSV formats
-- 🚀 Fast, cached responses
+`--base-url /q-index/` builds for a sub-path (that's what CI uses for GitHub
+Pages); `mdbook build docs` first to include the design book under `/book/`.
+The site includes:
+- 📊 Dashboard with rankings and a field distribution chart
+- 🏛️ Venue rankings (filter by field and tier) and per-venue paper listings
+- 👩‍🔬 Scholar rankings and profiles
+- 🔍 In-browser search with autocomplete
+- 📥 Rankings as JSON files under `/data/`
 
 ### Command Line Interface
 
@@ -148,39 +154,34 @@ Author position weights:
 - Last author: 0.8
 - Middle authors: 0.6/(n-2)
 
-## 🌐 Web Interface Features
+## 🌐 Website Features
 
-The web interface provides a modern, interactive way to explore academic quality metrics:
+The site is pre-rendered by `qindex build-site`; the few interactive parts run in
+the browser against JSON files, so no server is needed:
 
 ### Dashboard
-- Real-time statistics cards
+- Statistics cards
 - Top venues and scholars tables
-- Interactive field distribution chart
-- Quick search functionality
+- Field distribution chart
 
-### Venues Page
+### Venues
 - Filterable by field and tier
-- Sortable columns
 - Color-coded tier badges
-- Direct links to venue details
+- A page per venue with its papers (newest first), top authors and links
 
-### Scholars Page
-- QIndex and H-index display
-- Top venue associations
-- Citation counts
-- Export capabilities
+### Scholars
+- Top 100 scholars by QIndex with H-index and top venues
+- A profile page for every scholar, loaded from `data/scholars/*.json`
 
 ### Search
-- Real-time autocomplete
-- Combined venue and scholar results
-- Relevance-based ranking
+- Searches every venue and scholar in the browser (`data/search-index.json`)
+- Autocomplete in the navigation bar
 
-### API Endpoints
-- `GET /api/venues` - Get all venues with scores
-- `GET /api/scholars` - Get all scholars with metrics
-- `GET /api/search?q=query` - Search venues and scholars
-- `GET /api/stats` - Get comprehensive statistics
-- `GET /api/stats/fields` - Get field distribution data
+### Data Files
+- `data/venues.json` - All ranked venues with scores
+- `data/scholars.json` - Top scholars with metrics
+- `data/stats.json` - Dataset statistics
+- `data/search-index.json` - Every venue and scholar with scores
 
 ## 🏗️ Architecture
 
@@ -193,12 +194,13 @@ src/
 ├── algorithm.rs     # PageRank implementation
 ├── export.rs        # JSON/CSV export functionality
 ├── utils.rs         # Helper functions and utilities
-└── web/             # Web server components
-    ├── mod.rs       # Web module definition
-    ├── server.rs    # Actix-Web server setup
-    ├── handlers.rs  # Request handlers
-    ├── templates.rs # Maud HTML templates
-    └── state.rs     # Application state and caching
+└── site/            # Static site generator (`qindex build-site`)
+    ├── mod.rs       # Builds pages, JSON data files and assets
+    └── templates.rs # Maud HTML templates
+
+static/app.js        # Browser-side search, filters and scholar profiles
+scripts/check_site_links.py   # Verifies every internal link in a built site
+.github/workflows/pages.yml   # Builds and deploys the site to GitHub Pages
 ```
 
 ## 🧪 Testing
