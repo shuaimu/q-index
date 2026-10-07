@@ -7,8 +7,8 @@ mod paper_extractor;
 mod paper_finder;
 mod parser;
 mod s2ag_citations;
+mod site;
 mod utils;
-mod web;
 
 use anyhow::Result;
 use clap::Parser;
@@ -57,14 +57,14 @@ fn main() -> Result<()> {
         Commands::Stats { bib_dir } => {
             run_stats(&bib_dir)?;
         }
-        Commands::Web {
+        Commands::BuildSite {
             bib_dir,
-            host,
-            port,
+            out_dir,
+            base_url,
+            static_dir,
+            book_dir,
         } => {
-            // Use tokio runtime for web server
-            let runtime = tokio::runtime::Runtime::new()?;
-            runtime.block_on(async { run_web_server(&bib_dir, &host, port).await })?;
+            run_build_site(&bib_dir, &out_dir, &base_url, &static_dir, &book_dir)?;
         }
         Commands::FetchCitations {
             bib_dir,
@@ -395,13 +395,40 @@ async fn run_fetch_citations(
     Ok(())
 }
 
-async fn run_web_server(bib_dir: &str, host: &str, port: u16) -> Result<()> {
-    println!("🌐 Starting QIndex Web Server");
-    println!("📚 Loading data from: {}", bib_dir);
-    println!("🚀 Server will be available at: http://{}:{}", host, port);
-    println!();
+fn run_build_site(
+    bib_dir: &str,
+    out_dir: &str,
+    base_url: &str,
+    static_dir: &str,
+    book_dir: &str,
+) -> Result<()> {
+    println!("🏗️  Building static site");
+    let report = crate::site::build_site(&crate::site::SiteOptions {
+        bib_dir: bib_dir.into(),
+        out_dir: out_dir.into(),
+        base_url: base_url.to_string(),
+        static_dir: static_dir.into(),
+        book_dir: Some(book_dir.into()),
+    })?;
 
-    crate::web::server::start_server(bib_dir, host, port).await?;
+    println!(
+        "✅ Wrote {} HTML pages, {} JSON files and {} other files ({:.1} MB) to {}",
+        report.html_files,
+        report.json_files,
+        report.other_files,
+        report.bytes as f64 / 1_048_576.0,
+        out_dir
+    );
+    if !report.book_included {
+        println!(
+            "⚠️  No rendered book found at {} — run `mdbook build docs` to include it",
+            book_dir
+        );
+    }
+    println!(
+        "👀 Preview locally: python3 -m http.server -d {} 8080",
+        out_dir
+    );
     Ok(())
 }
 

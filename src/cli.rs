@@ -86,19 +86,27 @@ pub enum Commands {
         bib_dir: String,
     },
 
-    /// Start web server
-    Web {
+    /// Generate the static website (for GitHub Pages or any static host)
+    BuildSite {
         /// Directory containing BibTeX files
         #[arg(short, long, default_value = "./bib")]
         bib_dir: String,
 
-        /// Host/interface to bind to (use 0.0.0.0 to allow access over the network)
-        #[arg(long, default_value = "127.0.0.1")]
-        host: String,
+        /// Output directory (replaced on every build)
+        #[arg(short, long, default_value = "./site")]
+        out_dir: String,
 
-        /// Port to listen on
-        #[arg(short, long, default_value = "8080")]
-        port: u16,
+        /// URL path the site is served under, e.g. /q-index/ for a GitHub Pages project site
+        #[arg(long, default_value = "/")]
+        base_url: String,
+
+        /// Directory with static assets (style.css, app.js)
+        #[arg(long, default_value = "./static")]
+        static_dir: String,
+
+        /// Rendered mdBook to publish under book/ (skipped if missing; build it with `mdbook build docs`)
+        #[arg(long, default_value = "./docs/book")]
+        book_dir: String,
     },
 
     /// Fetch citation data from Semantic Scholar

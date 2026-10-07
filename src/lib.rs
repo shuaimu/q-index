@@ -7,5 +7,5 @@ pub mod paper_extractor;
 pub mod paper_finder;
 pub mod parser;
 pub mod s2ag_citations;
+pub mod site;
 pub mod utils;
-pub mod web;
