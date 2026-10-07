@@ -1,8 +1,8 @@
 # 9. The Command-Line Interface
 
 QIndex is, first and foremost, a command-line program. The same binary that
-serves the web interface (Chapter 8, *The Web Interface and HTTP API*) also
-exposes a set of subcommands for computing rankings, exporting them, inspecting
+generates the static website (Chapter 8, *The Static Website and Its Data Files*)
+also exposes a set of subcommands for computing rankings, exporting them, inspecting
 the corpus, and driving the (mostly experimental) citation- and
 paper-extraction pipelines. This chapter documents every subcommand, its flags,
 its defaults, and — importantly — what each one actually does today versus what
@@ -19,7 +19,7 @@ Algorithm*; here we only describe how the CLI surfaces it.
 The CLI is built with `clap` 4.4 (derive plus `env` features). The root parser
 is a single `Cli` struct holding one `#[command(subcommand)]` field
 (`src/cli.rs:3-15`); the program is named `qindex` and reports version
-`0.1.0`. There are eight subcommands (`src/cli.rs:17-141`):
+`0.1.0`. There are eight subcommands (`src/cli.rs:18-149`):
 
 | Subcommand        | Purpose                                              | State today                |
 |-------------------|-----------------------------------------------------|----------------------------|
@@ -28,23 +28,23 @@ is a single `Cli` struct holding one `#[command(subcommand)]` field
 | `scholars`        | Print top scholars, with a minimum-papers filter    | Functional                 |
 | `search`          | Substring search over venues and scholars           | Functional                 |
 | `stats`           | Print dataset statistics                            | Functional                 |
-| `web`             | Start the HTTP server                              | Functional                 |
+| `build-site`      | Generate the static website                        | Functional                 |
 | `fetch-citations` | Call live Semantic Scholar API for citation counts  | Functional but slow / live |
 | `extract-papers`  | Find PDFs and extract references                    | Largely stubbed            |
 
 Every subcommand accepts `-b`/`--bib-dir`, defaulting to `./bib`
 (for example `src/cli.rs:22-23`). All file and cache paths are resolved
 relative to the process working directory, so QIndex is intended to be run from
-the repository root; running it elsewhere will silently fail to find `./bib`,
-`./cache`, and `./static`.
+the repository root; running it elsewhere will fail to find `./bib` and `./static`
+and will silently miss the citation caches under `./cache`.
 
 `main()` initializes `env_logger` with a default filter of `info`
-(`src/main.rs:25`) and then matches on `cli.command` (`src/main.rs:30-67`). The
-five synchronous subcommands (`calculate`, `venues`, `scholars`, `search`,
-`stats`) run directly. The three async ones (`web`, `fetch-citations`,
+(`src/main.rs:25`) and then matches on `cli.command` (`src/main.rs:30-93`). The
+six synchronous subcommands (`calculate`, `venues`, `scholars`, `search`,
+`stats`, `build-site`) run directly. The two async ones (`fetch-citations`,
 `extract-papers`) each construct their own
 `tokio::runtime::Runtime::new()?` and `block_on` the work
-(`src/main.rs:48,55,62`); there is no top-level `#[tokio::main]` and no shared
+(`src/main.rs:76,88`); there is no top-level `#[tokio::main]` and no shared
 executor.
 
 ### Logging with `RUST_LOG`
@@ -74,7 +74,7 @@ The four read-only ranking subcommands (`calculate`, `venues`, `scholars`,
 `search`) share a common prologue: parse `bib_dir` into a `CitationGraph`,
 construct a `PageRankCalculator`, attempt to load a citation cache from the
 hardcoded path `./cache/citations.json`, then call `calculate()`
-(`src/main.rs:88-92,118-121,136-139,154-157`).
+(`src/main.rs:116-120,145-149,163-167,181-185`).
 
 A critical caveat applies to all of them. That cache file does not exist in the
 repository — only the `cache/citations/` *directory* is present — so
@@ -85,8 +85,8 @@ power iteration is dead code. What actually runs is the prestige fallback
 described in Chapter 5: venue scores derive from a log of paper counts, a
 CSRankings 2x multiplier, a small name-hash perturbation, and the tier bonus.
 The numbers printed by these subcommands are this fallback score, not a true
-citation-based PageRank. They also differ from the web UI, which never calls
-`load_citation_cache` at all.
+citation-based PageRank. They can also differ from the website, whose build never calls
+`load_citation_cache` at all (Section 9.7).
 
 ### `calculate`
 
@@ -170,9 +170,13 @@ qindex search [-b ./bib] <query>
 
 `query` is a required positional argument (`src/cli.rs:73-80`). The handler runs
 `graph.search_venues(query)` and `graph.search_scholars(query)`, prints up to 10
-matches of each (`src/main.rs:159-177`), and falls back to a "No results found"
+matches of each (`src/main.rs:189-207`), and falls back to a "No results found"
 message when both are empty. Search is a substring match over names; it does not
-rank by relevance.
+rank by relevance. Although the handler runs `calculate()` first, the two search
+methods copy PageRank, QIndex, and h-index from the graph's own score fields,
+which the calculator never fills in (Chapter 3), so the scores printed here are 0.
+The website's search (Chapter 8) uses the same matching rules over an index built
+from the computed rankings, so it shows the real scores.
 
 ```bash
 qindex search "distributed systems"
@@ -300,17 +304,17 @@ qindex calculate -n 100 -o rankings.txt -e
 qindex fetch-citations [-b ./bib] [-c ./cache] [-m <max>] [-v <venue>]
 ```
 
-Flags (`src/cli.rs:105-121`): `-c`/`--cache-dir` (default `./cache`),
+Flags (`src/cli.rs:113-129`): `-c`/`--cache-dir` (default `./cache`),
 `-m`/`--max-papers` (`Option<usize>`), `-v`/`--venue` (`Option<String>`).
 
 This subcommand makes **live network calls** to the Semantic Scholar API. It
 parses the corpus, optionally restricts to a venue (a case-insensitive substring
 match on `Paper.venue`, applied by `retain` over `graph.papers`,
-`src/main.rs:288-300`), creates the cache directory, then calls
+`src/main.rs:333-351`), creates the cache directory, then calls
 `citations::fetch_all_citations(&graph, cache_dir, max_papers)`
-(`src/main.rs:310`). It prints progress, then a summary of fetched papers, total
+(`src/main.rs:361`). It prints progress, then a summary of fetched papers, total
 citations, total references, and the top 10 most-cited papers
-(`src/main.rs:312-336`). The legacy fetcher rate-limits at roughly one request
+(`src/main.rs:363-395`). The legacy fetcher rate-limits at roughly one request
 per second and caches results, so a full run over the corpus is slow; `-m` is
 provided to cap the number of papers for testing, and `-v` to scope to one
 venue.
@@ -319,7 +323,7 @@ Two caveats. First, the path inconsistency: the read-only ranking subcommands
 read the single file `./cache/citations.json`, whereas `fetch-citations` writes
 into the `--cache-dir` *directory* via the legacy `citations::CitationFetcher`
 path. The relationship between the two is not guaranteed; the data actually
-consumed by the web UI comes from a separate S2AG pipeline writing
+consumed by the website comes from a separate S2AG pipeline writing
 `cache/citations/s2ag_citations.json` (Chapter 6, *Citation Data Integration*).
 Second, the API key: the Semantic Scholar key is read from the `S2_API_KEY`
 environment variable (a template lives in `.env.example`); there is no committed
@@ -333,7 +337,7 @@ RUST_LOG=info qindex fetch-citations -c ./cache -m 50
 
 The bulk S2AG dataset and the Python pipelines that produced the committed
 `cache/citations/*.json` artifacts are described in Chapter 6; this subcommand
-is the in-binary alternative and is not what populates the web UI's per-paper
+is the in-binary alternative and is not what populates the website's per-paper
 citation counts.
 
 ## 9.6 `extract-papers` (experimental, largely stubbed)
@@ -342,13 +346,13 @@ citation counts.
 qindex extract-papers [-b ./bib] [-d ./paper_db] [-m <max>] [-v <venue>]
 ```
 
-Flags (`src/cli.rs:124-140`): `-d`/`--db-dir` (default `./paper_db`),
+Flags (`src/cli.rs:132-148`): `-d`/`--db-dir` (default `./paper_db`),
 `-m`/`--max-papers`, `-v`/`--venue` (same substring-filter semantics as
 `fetch-citations`). The handler parses the corpus, optionally filters by venue,
 creates the database directory, calls
-`paper_extractor::extract_all_papers(...)` (`src/main.rs:383`), and then prints
+`paper_extractor::extract_all_papers(...)` (`src/main.rs:477`), and then prints
 counts of papers with PDF URLs, DOIs, ArXiv IDs, total references extracted, and
-the five papers with the most references (`src/main.rs:385-419`).
+the five papers with the most references (`src/main.rs:479-517`).
 
 This subcommand is the least complete in the tool and should be treated as
 experimental. The PDF reference extractor is a stub:
@@ -367,32 +371,41 @@ counts this subcommand reports will be near zero.
 qindex extract-papers -d ./paper_db -m 50 -v osdi
 ```
 
-## 9.7 `web`
+## 9.7 `build-site`
 
 ```
-qindex web [-b ./bib] [--host 127.0.0.1] [-p 8080]
+qindex build-site [-b ./bib] [-o ./site] [--base-url /]
+                  [--static-dir ./static] [--book-dir ./docs/book]
 ```
 
-Flags (`src/cli.rs:90-102`): `--host` (long-only, default `127.0.0.1`),
-`-p`/`--port` (u16, default `8080`). The host is threaded through
-`run_web_server` (`src/main.rs:341-349`) to
-`web::server::start_server(bib_dir, host, port)`, which binds with
-`.bind((host, port))` (`src/web/server.rs:62`). The default binding to
-`127.0.0.1` keeps the server local; pass `--host 0.0.0.0` to expose it on the
-network. There is no authentication, so do this only on trusted networks.
+Flags (`src/cli.rs:90-110`): `-o`/`--out-dir` (default `./site`; the directory is
+deleted and rewritten on every build), `--base-url` (long-only, default `/`; the
+URL path the site will be served under, such as `/q-index/` for the GitHub Pages
+project site), `--static-dir` (long-only, default `./static`; copied to `static/`
+in the output), and `--book-dir` (long-only, default `./docs/book`; the rendered
+mdBook, copied to `book/` when it contains an `index.html` and skipped with a
+warning otherwise). The handler `run_build_site` (`src/main.rs:398-433`) calls
+`site::build_site` and prints a summary of HTML, JSON, and other files written
+with their total size, plus a suggested preview command.
 
 ```bash
-qindex web                       # http://127.0.0.1:8080, local only
-qindex web --host 0.0.0.0 -p 8080  # reachable over the LAN, no auth
-RUST_ENV=development qindex web    # injects live-reload.js (see Chapter 8)
+qindex build-site                              # ./site for a local preview at /
+qindex build-site --base-url /q-index/         # what CI publishes to GitHub Pages
+python3 -m http.server -d site 8080            # preview http://localhost:8080/
+python3 scripts/check_site_links.py site /     # verify every internal link
 ```
 
-The behavior of the server itself — routes, caching, the divergence between CLI
-rankings and web rankings, and the S2AG per-paper citation display — is covered
-in Chapter 8, *The Web Interface and HTTP API*. The relevant CLI fact is that
-the web path deliberately does not call `load_citation_cache`, so the rankings
-shown in the browser can differ from those printed by `calculate`/`venues`/
-`scholars`.
+This subcommand replaced the old `web` subcommand, which started an actix-web
+server on `--host`/`--port`. There is no server any more: `build-site` writes the
+whole website — pre-rendered pages, a search index, scholar profile shards, and
+public JSON data files — and any static host serves the result. The generated
+site, its URL scheme, and its data files are covered in Chapter 8, *The Static
+Website and Its Data Files*; building, previewing, and the GitHub Pages
+deployment are in Chapter 10. The relevant CLI fact is that `build-site`, like
+the old web path, does not call `load_citation_cache`, so the rankings on the
+website can differ from those printed by `calculate`/`venues`/`scholars` once a
+`./cache/citations.json` file exists. (Today the file is absent, so both paths run
+the same prestige fallback.)
 
 ## 9.8 Running from source vs. the release binary
 
@@ -402,14 +415,15 @@ which compiles quickly:
 ```bash
 cargo run -- stats
 cargo run -- calculate -n 20 -o out.json -e
-cargo run -- web --host 0.0.0.0 -p 8080
+cargo run --release -- build-site
 ```
 
-For deployment, `cargo build --release` produces `target/release/qindex`
-(roughly a 10.5 MB binary). The release profile sets `lto = true`,
-`codegen-units = 1`, and `opt-level = 3` (`Cargo.toml:87-91`), which maximizes
-runtime performance at the cost of slow link times over the project's large
-dependency set. Build, packaging, and the workspace-isolation fix (the empty
+For full site builds, `cargo build --release` produces `target/release/qindex`
+(roughly a 6 MB binary). The release profile sets `lto = true`,
+`codegen-units = 1`, and `opt-level = 3` (`Cargo.toml:80-83`), which maximizes
+runtime performance at the cost of slow link times. `build-site` is the one
+subcommand where the optimized build matters in practice: it runs the S2AG fuzzy
+title lookup for every paper in the corpus (Chapter 8). Build, packaging, and the workspace-isolation fix (the empty
 `[workspace]` table in `Cargo.toml`) are detailed in Chapter 10, *Building,
 Running, and Deployment*; for fast iteration, prefer the debug `cargo run` form
 above.

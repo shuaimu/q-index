@@ -63,10 +63,10 @@ incomplete; it is a working corpus, not a comprehensive census. Detailed
 limitations are tracked in
 [Chapter 11, Limitations, Known Issues, and Roadmap](11-limitations-and-roadmap.md).
 
-When the running server parses this corpus it reports, via `GET /api/stats`,
+When this corpus is parsed, `qindex stats` and the site's `data/stats.json` report
 roughly 19,954 papers, 44 venues, and 43,942 scholars. The gap between 49 files
 and 44 venues, and between ~21,000 entries and ~19,954 papers, is explained in
-Sections 4.4 and 4.5. The same endpoint reports `total_citations = 0`, because
+Sections 4.4 and 4.5. The same statistics report `total_citations = 0`, because
 the in-memory citation graph is essentially empty — `CitationGraph.edges` is
 initialized empty and never populated by the parser path
 (`src/models.rs:174-192`). Citation *counts* shown per paper come from a separate
@@ -161,7 +161,8 @@ A full add-a-conference workflow therefore looks like:
 python3 scripts/fetch_main_conference.py icse 2024
 python3 scripts/deep_clean_sigcomm.py      # only for SIGCOMM cleanup
 python3 scripts/sort_papers_by_year.py     # fix its hardcoded path first
-cargo build --release && cargo run --release -- web
+cargo build --release && cargo run --release -- build-site
+python3 scripts/check_site_links.py site /
 ```
 
 Build and run details are covered in
@@ -169,7 +170,7 @@ Build and run details are covered in
 
 ## 4.4 From files to venues: keying and grouping
 
-The number of files (49) and the number of venues the server reports (44) differ
+The number of files (49) and the number of venues the parser produces (44) differ
 because venues are not keyed by filename. During parsing, each paper's venue
 display name is derived from its `booktitle`/`journal` field through
 `expand_string` (which consults `strings.bib` macros and a hardcoded
@@ -232,7 +233,7 @@ normalization to a scholar key happens only when building the scholar map, via
 `normalize_author_name` then `generate_scholar_id` (e.g. `Smith, John A.` ->
 `John A Smith` -> `john_a_smith`). This is a string heuristic, not an authority
 file: it does not disambiguate distinct researchers who share a name, nor merge
-the same researcher across name variants. The ~43,942 scholars the server reports
+the same researcher across name variants. The ~43,942 scholars the parser produces
 are therefore name-derived identities, not verified individuals.
 
 **Citation data is not in the corpus.** BibTeX entries here carry no citation
@@ -241,9 +242,9 @@ field, so `Paper.cited_by` also stays empty through the parser path, and the
 `CitationGraph.edges` vector is never populated. Any citation information must
 come from an external source. The committed S2AG cache
 (`cache/citations/s2ag_citations.json`) supplies per-paper *counts* for about
-731 matched papers (~41,468 citations total), and these are shown in the web UI;
+731 matched papers (~41,468 citations total), and these are shown on the website;
 but the corresponding citation *graph* is effectively empty, so it feeds counts,
-not edges. That integration — including why the web rankings fall back to a
+not edges. That integration — including why the rankings fall back to a
 prestige score rather than true PageRank — is the subject of Chapter 6.
 
 ## 4.6 Summary

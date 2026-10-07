@@ -2,7 +2,7 @@
 
 QIndex is two things at once: the project (a static bibliographic analytics tool) and the *QIndex score*, a per-scholar prestige metric described in Chapter 5, "The Ranking Algorithm." This chapter is about neither the score nor the user interface. It describes the *data model* — the in-memory structures the entire system reads and writes, how a raw BibTeX entry becomes a `Paper`, and the identity and classification rules that decide how papers, venues, and scholars are grouped.
 
-The model is defined in `src/models.rs` (467 lines) and populated by `src/parser.rs` (502 lines). Everything downstream — the ranking pipeline (`src/algorithm.rs`), the web handlers (`src/web/`), and the export module (`src/export.rs`) — operates on the `CitationGraph` produced here. There is no database: the corpus is re-parsed from disk into memory at every process start (see Chapter 7, "System Architecture").
+The model is defined in `src/models.rs` (467 lines) and populated by `src/parser.rs` (502 lines). Everything downstream — the ranking pipeline (`src/algorithm.rs`), the static site generator (`src/site/`), and the export module (`src/export.rs`) — operates on the `CitationGraph` produced here. There is no database: the corpus is re-parsed from disk into memory at every process start (see Chapter 7, "System Architecture").
 
 ## 3.1 The in-memory graph
 
@@ -22,7 +22,7 @@ Three `IndexMap`s (from the `indexmap` crate) hold the entities; a fourth field 
 
 `CitationGraph` is the one struct in `models.rs` that does **not** derive `Serialize`/`Deserialize`; it derives only `Clone` and provides a hand-written `Debug` impl (`src/models.rs:69-78`) that prints only the four counts to avoid dumping the whole corpus. The graph is therefore not serializable as a single blob; persistence happens at a coarser granularity through the export module (Chapter 9, "The Command-Line Interface").
 
-A live parse of the corpus in this session produced roughly **19,954 papers, 44 venues, and 43,942 scholars** (observed via `GET /api/stats`). Chapter 4, "The Bibliographic Database," covers the on-disk corpus behind these counts.
+A live parse of the corpus in this session produced roughly **19,954 papers, 44 venues, and 43,942 scholars** (observed via `qindex stats` and the site's `data/stats.json`). Chapter 4, "The Bibliographic Database," covers the on-disk corpus behind these counts.
 
 ### Keys
 
@@ -48,7 +48,7 @@ pub struct CitationEdge {
 }
 ```
 
-`CitationGraph.edges` is initialized empty in `CitationGraph::new()` (`src/models.rs:151-156`) and **is never populated** anywhere in `models.rs` or `parser.rs`; the `weight`, `year`, and `cross_venue` fields are consequently dead on the parser path. Several statistics endpoints report `total_citations = graph.edges.len()`, which is why `GET /api/stats` reports `total_citations = 0` against a 20k-paper corpus. Real citation *counts* enter the system through a separate module (`src/s2ag_citations.rs`), covered in Chapter 6, "Citation Data Integration"; they do not become edges in this graph.
+`CitationGraph.edges` is initialized empty in `CitationGraph::new()` (`src/models.rs:151-156`) and **is never populated** anywhere in `models.rs` or `parser.rs`; the `weight`, `year`, and `cross_venue` fields are consequently dead on the parser path. The dashboard, the statistics page, and the site's `data/stats.json` report `total_citations = graph.edges.len()`, which is why they show `total_citations = 0` against a 20k-paper corpus. Real citation *counts* enter the system through a separate module (`src/s2ag_citations.rs`), covered in Chapter 6, "Citation Data Integration"; they do not become edges in this graph.
 
 ## 3.2 The entity structs
 
@@ -131,7 +131,7 @@ pub struct Scholar {
 }
 ```
 
-(`src/models.rs:46-58`.) At creation (`src/parser.rs:356-368`) `qindex`, `h_index`, and `citation_count` are zero and must be filled by the ranking step (Chapter 5). `name` is the *first* raw display string seen for that scholar key, so a scholar who appears as both "J. Smith" and "John Smith" keeps whichever was parsed first. `affiliations` is declared but **never populated** by the parser — it is always an empty `Vec`. `publications_by_venue` groups the scholar's papers by venue ID, and `coauthors` accumulates collaboration counts (3.4).
+(`src/models.rs:46-58`.) At creation (`src/parser.rs:356-368`) `qindex`, `h_index`, and `citation_count` are zero, and they stay zero: the ranking step (Chapter 5) returns its results in separate `ScholarRanking` structs and never writes them back into the graph. `name` is the *first* raw display string seen for that scholar key, so a scholar who appears as both "J. Smith" and "John Smith" keeps whichever was parsed first. `affiliations` is declared but **never populated** by the parser — it is always an empty `Vec`. `publications_by_venue` groups the scholar's papers by venue ID, and `coauthors` accumulates collaboration counts (3.4).
 
 ## 3.3 Parameters and ranking output structs
 
@@ -148,7 +148,7 @@ pub struct Scholar {
 
 The semantics and the (partly dead) code paths that consume these values are Chapter 5's subject. `QIndexMetrics` (`src/models.rs:89-96`) is a snapshot container (`venue_scores`, `scholar_scores`, `timestamp`, `algorithm`, `parameters`).
 
-Two flattened "ranking" structs are the API and CLI surface of the model. `VenueRanking` (`src/models.rs:127-136`: `id`, `name`, `tier`, `field`, `pagerank`, `impact_factor`, `paper_count`) and `ScholarRanking` (`src/models.rs:138-147`: `id`, `name`, `qindex`, `h_index`, `paper_count`, `citation_count`, `top_venues`) are produced by `search_venues`/`search_scholars` (3.6).
+Two flattened "ranking" structs are the CLI and website surface of the model. `VenueRanking` (`src/models.rs:127-136`: `id`, `name`, `tier`, `field`, `pagerank`, `impact_factor`, `paper_count`) and `ScholarRanking` (`src/models.rs:138-147`: `id`, `name`, `qindex`, `h_index`, `paper_count`, `citation_count`, `top_venues`) are produced by `PageRankCalculator::get_top_venues`/`get_top_scholars` (Chapter 5) with computed scores, and by `search_venues`/`search_scholars` (3.6) with the graph's never-filled score fields.
 
 ## 3.4 Identity, normalization, and classification
 
@@ -247,7 +247,7 @@ After a paper is built, `add_to_venue` (`src/parser.rs:327-349`) and `add_schola
 
 `build_citation_network` (`src/models.rs:174-192`) runs at the end of `parse_directory`. For each `cited_id` in each paper's `citations` that resolves to an existing paper, it pushes the citing paper's ID into the cited paper's `cited_by`. Because `citations` is always empty after BibTeX parsing, this loop traverses nothing and `cited_by` stays empty. Citation data must therefore be injected from outside the parser; today that is the S2AG per-paper *count* path of Chapter 6, which does not feed this graph.
 
-`search_venues` (`src/models.rs:194-216`) filters venues by a query substring and emits `VenueRanking`s sorted descending by `pagerank` via `partial_cmp().unwrap()` — safe while all values are real numbers, but a latent panic on NaN. `search_scholars` (`src/models.rs:218-251`) does the analogous thing for scholars, sorted by `qindex`. Its `top_venues` field is built by iterating `scholar.publications_by_venue` — a `HashMap`, hence unordered — and breaking after three entries that resolve in `self.venues`. Despite the name, these are *arbitrary* venues, not the scholar's most-published or highest-ranked ones (`src/models.rs:225-235`).
+`search_venues` (`src/models.rs:194-216`) filters venues by a query substring and emits `VenueRanking`s sorted descending by `pagerank` via `partial_cmp().unwrap()` — safe while all values are real numbers, but a latent panic on NaN. `search_scholars` (`src/models.rs:218-251`) does the analogous thing for scholars, sorted by `qindex`. Its `top_venues` field is built by iterating `scholar.publications_by_venue` — a `HashMap`, hence unordered — and breaking after three entries that resolve in `self.venues`. Despite the name, these are *arbitrary* venues, not the scholar's most-published or highest-ranked ones (`src/models.rs:225-235`). Both methods copy `pagerank`, `qindex`, and `h_index` from the graph, where they are always zero (3.2), so their scores are zero too. Today only the CLI `search` subcommand calls them; the website's search (Chapter 8) runs in the browser over an index built from the computed rankings instead.
 
 ## 3.7 On-disk corpus versus runtime graph
 
@@ -258,6 +258,6 @@ bib/*.bib  --(BibParser::parse_directory)-->  CitationGraph (in memory)
    ~21k entries                                  ~19,954 papers / 44 venues / 43,942 scholars
 ```
 
-The `bib/` directory holds roughly 21,000 `@inproceedings`/`@article`/`@techreport` entries across ~44 venue files (Chapter 4 details the layout and per-venue counts). Parsing is performed fresh at every CLI invocation and at web-server startup; the `CitationGraph` is never written back to disk. The gap between on-disk entries and in-memory papers is explained by the `title`-and-`authors`-required filter in `parse_entry` (3.5) plus the `title`/`strings` filename filter in `parse_directory`.
+The `bib/` directory holds roughly 21,000 `@inproceedings`/`@article`/`@techreport` entries across ~44 venue files (Chapter 4 details the layout and per-venue counts). Parsing is performed fresh at every CLI invocation and every site build; the `CitationGraph` is never written back to disk. The gap between on-disk entries and in-memory papers is explained by the `title`-and-`authors`-required filter in `parse_entry` (3.5) plus the `title`/`strings` filename filter in `parse_directory`.
 
-External citation artifacts in `cache/citations/*.json` are a *separate* concern, loaded by other modules at different points (Chapters 5 and 6), and are not part of the `CitationGraph` produced here. The score fields on `Venue` and `Scholar` (`pagerank`, `impact_factor`, `qindex`, `h_index`, `citation_count`) are the seams where the ranking step (Chapter 5) writes its results into this model after parsing completes.
+External citation artifacts in `cache/citations/*.json` are a *separate* concern, loaded by other modules at different points (Chapters 5 and 6), and are not part of the `CitationGraph` produced here. The score fields on `Venue` and `Scholar` (`pagerank`, `impact_factor`, `qindex`, `h_index`, `citation_count`) look like the seams where the ranking step (Chapter 5) would write its results back into this model, but nothing writes them: computed scores live only in the `VenueRanking`/`ScholarRanking` values the calculator returns.

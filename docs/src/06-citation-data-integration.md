@@ -11,7 +11,7 @@ and is not, populated into those fields.
 The short version: the BibTeX corpus (Chapter 4, *The Bibliographic Database*)
 contains no `cites`/`reference` fields, so the parser leaves every paper's
 citation lists empty. Citation *counts* are instead injected from an external
-Semantic Scholar dataset (S2AG) at the rendering layer of the web interface. The
+Semantic Scholar dataset (S2AG) when the static website is generated. The
 citation *graph* extraction failed, so no edges flow into PageRank. Several
 parallel, partly redundant fetch pipelines exist; they disagree on totals because
 they are computed over different paper sets. The rest of this chapter substantiates
@@ -30,9 +30,10 @@ list, so with that list always empty, `cited_by` stays empty too.
 (`src/models.rs:151-156`) and is never appended to anywhere in `models.rs` or
 `parser.rs`.
 
-The runtime consequence is observable on the live server: `GET /api/stats` reports
-`total_citations = 0` because that field is computed as `graph.edges.len()`
-(`src/web/handlers.rs:543`). The corpus parses to roughly 19,954 papers, 44
+The runtime consequence is observable in every build: the site's `data/stats.json`
+(and the dashboard and statistics pages) report `total_citations = 0` because that
+field is computed as `graph.edges.len()` (`stats_json` and `statistics_data` in
+`src/site/mod.rs`). The corpus parses to roughly 19,954 papers, 44
 venues, and 43,942 scholars, but zero internal citation edges.
 
 Citation information therefore must come from *outside* the BibTeX path. As
@@ -44,7 +45,7 @@ that PageRank traverses. The two are wired separately, and only one of them work
 ## 6.2 The S2AG bulk pipeline
 
 S2AG integration is an offline, three-stage pipeline that ends in a committed JSON
-file consumed by the Rust server.
+file consumed by the Rust site generator.
 
 ```
 download_s2ag.py   ->  data/s2ag/*.jsonl.gz   (raw bulk dataset, gitignored)
@@ -55,7 +56,8 @@ parse_s2ag.py      ->  cache/citations/s2ag_citations.json   (committed)
        |
 src/s2ag_citations.rs  ->  loads s2ag_citations.json at first access (Lazy)
        |
-src/web/templates.rs   ->  get_real_citations(title) per paper, on detail pages
+src/site/mod.rs        ->  paper_citations(): get_citation_count(title) once per paper,
+                           at build time; shown on venue pages and scholar profiles
 ```
 
 ### 6.2.1 Download
@@ -70,7 +72,7 @@ api_key = args.api_key or os.environ.get("S2_API_KEY")
 
 `CLAUDE.md` records that the raw download was approximately 138 GB across the
 `papers` (~48 GB) and `citations` (~90 GB) releases. That raw data lives under
-`data/` and is gitignored; it is not committed and not required to run the server.
+`data/` and is gitignored; it is not committed and not required to build the site.
 A caveat worth recording for anyone re-running the pipeline: the only S2AG raw
 artifacts actually present in the working tree are sample files (`papers-sample.jsonl.gz`,
 `citations-sample.jsonl.gz`) plus empty `papers/`/`citations/` subdirectories, so
@@ -88,7 +90,7 @@ to the Rust normalizer described in §6.3.
 
 The parser writes three committed artifacts (and only these three):
 
-- `s2ag_citations.json` — the data the Rust server reads.
+- `s2ag_citations.json` — the data the Rust site generator reads.
 - `s2ag_id_mapping.json` — normalized title -> S2AG corpus id.
 - `s2ag_summary.json` — aggregate statistics.
 
@@ -164,18 +166,18 @@ pub static S2AG_CITATIONS: Lazy<RwLock<S2AGCitationIndex>> = Lazy::new(|| {
 ```
 
 The path is a hardcoded *relative* path. The index loads on first access of
-`S2AG_CITATIONS`, which happens lazily the first time a detail page is rendered,
-not at server startup. `reload_s2ag_citations` (`src/s2ag_citations.rs:162`) re-reads
+`S2AG_CITATIONS`, which happens lazily when the site build first looks up a
+paper's citation count (`paper_citations` in `src/site/mod.rs`). `reload_s2ag_citations` (`src/s2ag_citations.rs:162`) re-reads
 the same hardcoded path and swaps the `RwLock` contents in place. The public free
 function `get_citation_count` (`src/s2ag_citations.rs:173`) takes the read lock and
 delegates to `get_citation_count_for_paper`.
 
-Because the path is relative, S2AG counts only load when the server is launched
-from the repository root. Launched from any other directory, the file is "not
-found", the loader silently returns an empty index, and every paper shows the
-internal fallback (zero) instead of a real count. This same CWD dependency applies
-to the static-file directory and the other cache reads described in Chapter 8,
-*The Web Interface and HTTP API*.
+Because the path is relative, S2AG counts only load when `qindex build-site` runs
+from the repository root. Run from any other directory, the file is "not found",
+the loader silently returns an empty index, and every paper on the generated site
+shows the internal fallback (zero) instead of a real count, without failing the
+build. Chapter 10, *Building, Running, and Deployment*, lists this among the
+build's CWD-relative inputs.
 
 ### 6.3.2 Title matching
 
@@ -206,27 +208,35 @@ other must exceed 0.7.
 $$\text{match}(t_1, t_2) = \big(t_1 \supseteq t_2 \;\lor\; t_2 \supseteq t_1\big) \;\lor\; \frac{|\{w \in t_1 : |w| > 3 \land w \in t_2\}|}{|\{w \in t_1 : |w| > 3\}|} > 0.7$$
 
 Two costs follow. First, performance: on any title that misses the exact map, the
-lookup is an O(N) scan of all 731 entries, executed per paper on every detail page
-render — detail pages paginate up to 100 papers, so a page can do up to roughly
-100 x 731 normalizations. Second, correctness: the substring rule can false-match
-short or generic titles that share a prefix or suffix, attributing the wrong
-citation count to a paper. Neither is a problem at the current 731-entry scale, but
-both bound how far this design extends.
+lookup is an O(N) scan of all 731 entries. The removed web server paid this per
+paper on every detail-page render; the site generator pays it once per paper per
+build (about 20,000 lookups, spread over threads with rayon), which keeps it
+affordable at the current scale. Second, correctness: the substring rule can
+false-match short or generic titles that share a prefix or suffix, attributing the
+wrong citation count to a paper. The generated site shows this is not
+hypothetical: in the reference build about 23,900 of the 92,400 paper entries in
+the scholar shards (each paper appears once per author) carry an S2AG count — far
+more distinct papers than the index's 731 entries could legitimately match. Both
+costs bound how far this design extends.
 
 ### 6.3.3 Where counts are displayed
 
-The web rendering layer calls into the loader through a one-line helper:
+The site generator calls into the loader once per paper, at build time:
 
 ```rust
-// src/web/templates.rs:5-7
-fn get_real_citations(title: &str) -> usize {
-    crate::s2ag_citations::get_citation_count(title)
-}
+// src/site/mod.rs, paper_citations()
+let s2ag = crate::s2ag_citations::get_citation_count(&paper.title);
+let citations = if s2ag > 0 {
+    PaperCitations { count: s2ag, s2ag: true }
+} else {
+    PaperCitations { count: paper.cited_by.len(), s2ag: false }
+};
 ```
 
-On the venue detail page (`src/web/templates.rs:1093-1098`) and the scholar detail
-page (around `src/web/templates.rs:1293`), each paper computes `real_citations`. If
-it is positive, the page renders `Citations: N (S2AG)`; otherwise it falls back to
+Venue pages render the result in Rust (`paper_item` in `src/site/templates.rs`);
+scholar profiles store it in their JSON shard as `citations` plus an `s2ag` flag and
+`static/app.js` renders it the same way (Chapter 8). A paper with an S2AG match shows
+`Citations: N (S2AG)`; otherwise it shows
 `Citations: <paper.cited_by.len()> (internal)`. Since `cited_by` is always empty
 (§6.1), the "internal" branch always shows zero. In effect, a paper either has an
 S2AG match (real count) or shows zero.
@@ -265,44 +275,31 @@ exists today.
 ## 6.5 The competing pipelines
 
 Four pipelines fetch or derive citation data. They were built at different times
-and overlap; only the first two feed the running UI, and they feed *different*
-parts of it.
+and overlap; today only the first feeds the website. The second fed the removed web
+server's citation-status endpoint and is now read by no Rust code.
 
 | # | Pipeline | Scripts | Output cache | Consumed by |
 | --- | --- | --- | --- | --- |
-| 1 | S2AG bulk | `download_s2ag.py`, `parse_s2ag.py` | `s2ag_citations.json` | per-paper counts (`templates.rs`) |
-| 2 | DBLP + OpenAlex | `fetch_citations_combined.py` | `combined_cache.json` | homepage / citation-status (`handlers.rs`) |
-| 3 | Legacy SS / CrossRef | `fetch_citations.py`, `src/citations.rs` | `paper_cache.json` | fallback only; effectively unused |
+| 1 | S2AG bulk | `download_s2ag.py`, `parse_s2ag.py` | `s2ag_citations.json` | per-paper counts (`src/site/mod.rs`) |
+| 2 | DBLP + OpenAlex | `fetch_citations_combined.py` | `combined_cache.json` | nothing since the server's removal (formerly citation-status) |
+| 3 | Legacy SS / CrossRef | `fetch_citations.py`, `src/citations.rs` | `paper_cache.json` | nothing (formerly a citation-status fallback) |
 | 4 | S2ORC (dead) | `download_s2orc.py`, `parse_s2orc.py` | none usable | nothing |
 
-### 6.5.1 DBLP + OpenAlex (homepage stats)
+### 6.5.1 DBLP + OpenAlex (formerly the citation-status panel)
 
 `scripts/fetch_citations_combined.py` queries DBLP and OpenAlex and writes
 `combined_cache.json` (599 papers; per-paper records of
 `{title, year, venue, dblp_key, doi, source, citation_count, openalex_id,
-fetched_at}`; source distribution dblp:597, openalex_only:2). The web handler
-`api_citation_status` (`src/web/handlers.rs:623`) reads this file first
-(`src/web/handlers.rs:669,679`): it sets `total_papers = cache.len()`, sums
-`citation_count`, builds a bucketed distribution, and collects the first five
-papers as a "recent" sample.
-
-```rust
-// citation distribution buckets (src/web/handlers.rs:689-696)
-let bucket = match count {
-    0..=10    => "0-10",
-    11..=50   => "11-50",
-    51..=100  => "51-100",
-    101..=500 => "101-500",
-    _         => "500+",
-};
-```
-
-If `combined_cache.json` is absent, the handler falls back to `paper_cache.json`
-(`src/web/handlers.rs:711`). The `dblp_cache.json` path is declared at
-`src/web/handlers.rs:670` but never used. Note that `api_citation_status` returns a
-*raw* struct, not the standard `ApiResponse` envelope, and hardcodes most of its
-"live progress" fields (success rate, papers-per-minute, active sources); see
-Chapter 8 for that endpoint's placeholder behavior.
+fetched_at}`; source distribution dblp:597, openalex_only:2). Its only consumer
+was the removed web server's `/api/citation-status` endpoint, which read this file
+(falling back to `paper_cache.json`), summed `citation_count` into a total, bucketed
+the counts into a `0-10` / `11-50` / `51-100` / `101-500` / `500+` histogram, and
+padded the result with hardcoded "live progress" fields (success rate,
+papers-per-minute, active sources) and a `ps aux` check for a running fetch
+process. A static site has no fetch process to observe, so the endpoint was
+dropped rather than ported, and no Rust code reads `combined_cache.json`,
+`paper_cache.json`, or `dblp_cache.json` today. The files remain committed under
+`cache/citations/` as pipeline outputs.
 
 ### 6.5.2 Legacy SemanticScholar / CrossRef
 
@@ -312,9 +309,9 @@ Chapter 8 for that endpoint's placeholder behavior.
 second, caches for 30 days, and only fetches a few major venues
 (OSDI/SOSP/SIGMOD/VLDB/NSDI/PLDI/POPL). Critically, it reads and writes
 `cache_dir.join("citations.json")` — a singular file that does not exist in
-`cache/citations/`. The web handlers and templates never invoke it. For display
-purposes it is dead code; its companion `paper_cache.json` (103 papers) survives
-only as the homepage fallback noted above.
+`cache/citations/`. The site generator and its templates never invoke it. For
+display purposes it is dead code; its companion `paper_cache.json` (103 papers) was
+read only as the citation-status fallback noted above, and is now read by nothing.
 
 ### 6.5.3 The dead S2ORC path
 
@@ -325,20 +322,19 @@ placeholder. No Rust code reads any S2ORC output.
 
 ## 6.6 Source-of-truth inconsistencies
 
-Three different "citation total" numbers surface in the running system, computed by
-three independent pipelines over three different paper sets. They are not meant to
-agree, and they do not.
+Two different kinds of citation number surface on the website, computed by
+independent pipelines over different paper sets. They are not meant to agree, and
+they do not. (The removed web server had a third, the citation-status total.)
 
 | Surface | Source | Formula | Approx. value |
 | --- | --- | --- | --- |
-| `/api/stats`, `/statistics`, `/api/homepage` | internal graph | `graph.edges.len()` | 0 |
-| `/api/citation-status` | `combined_cache.json` | sum of `citation_count` over 599 papers | ~4,145 |
-| Per-paper detail pages | `s2ag_citations.json` | S2AG `citation_count` per matched title | ~41,468 total across 731 papers |
+| dashboard, `statistics/`, `data/stats.json` | internal graph | `graph.edges.len()` | 0 |
+| Per-paper listings (venue pages, scholar profiles) | `s2ag_citations.json` | S2AG `citation_count` per matched title | ~41,468 total across 731 entries |
+| *(removed)* `/api/citation-status` | `combined_cache.json` | sum of `citation_count` over 599 papers | ~4,145 |
 
-A reader who visits the homepage sees zero total citations, opens the
-citation-status dashboard and sees a few thousand, then clicks into a venue and
-sees individual papers with hundreds or thousands of citations each. All three are
-"correct" for their own data source; there is no reconciliation layer. An extender
+A reader who visits the dashboard sees zero total citations, then clicks into a
+venue and sees individual papers with hundreds or thousands of citations each. Both
+are "correct" for their own data source; there is no reconciliation layer. An extender
 who wants one consistent number must pick a single pipeline as the source of truth
 and route every surface through it — the natural choice being S2AG, given it has
 the broadest coverage, with the open work being to also derive edges from it
@@ -360,13 +356,13 @@ S2AG/S2ORC bulk data under `data/` is gitignored.
 | `s2ag_id_mapping.json` | `dict[norm_title -> corpus_id:int]` | 731 | (reference only) |
 | `s2ag_summary.json` | `{total_papers_matched, total_citations, papers_by_venue, citations_by_venue, top_cited_papers}` | — | (reference only) |
 | `s2ag_citation_graph.json` | `dict[corpus_id_str -> {cites:[], cited_by:[]}]` | 190 (2 edges total) | nothing (orphan) |
-| `combined_cache.json` | `dict[md5 -> {title,year,venue,dblp_key,doi,source,citation_count,openalex_id,fetched_at}]` | 599 | `handlers.rs` |
+| `combined_cache.json` | `dict[md5 -> {title,year,venue,dblp_key,doi,source,citation_count,openalex_id,fetched_at}]` | 599 | nothing (formerly the removed citation-status endpoint) |
 | `combined_failed.json` | `dict[md5 -> failure record]` | 3,170 | (scripts) |
-| `paper_cache.json` | `dict[md5 -> {title,authors,year,doi,ss_id,citation_count,venue,fetched_at}]` | 103 | `handlers.rs` fallback |
+| `paper_cache.json` | `dict[md5 -> {title,authors,year,doi,ss_id,citation_count,venue,fetched_at}]` | 103 | nothing (formerly that endpoint's fallback) |
 | `openalex_cache.json` | OpenAlex records | 152 | (scripts) |
 | `openalex_failed.json` | failures | 178 | (scripts) |
 | `failed_lookups.json` | SS failures | 266 | (scripts) |
-| `dblp_cache.json` | DBLP records | 1 | declared, unused |
+| `dblp_cache.json` | DBLP records | 1 | nothing |
 | `dblp_mapping.json` | DBLP id map | 1 | (scripts) |
 | `dblp_failed.json` | `{}` | 0 | (scripts) |
 | `citation_data.json` | `{papers:[...], citations:[], metadata:{...}}` | 103 papers / 0 links | nothing in Rust |
@@ -406,11 +402,12 @@ uncommitted `.env`.
 ## 6.9 Summary and extension points
 
 What works today: a per-paper citation *count* for the 731 BibTeX papers that
-matched S2AG, looked up by normalized title from a committed JSON file and rendered
-on venue/scholar detail pages. What does not work: the citation *graph* — every
+matched S2AG, looked up by normalized title from a committed JSON file at site-build time and
+rendered on venue pages and scholar profiles. What does not work: the citation *graph* — every
 graph artifact is empty, `CitationGraph.edges` stays at zero, and PageRank runs its
 prestige fallback rather than on real citation flow (Chapter 5). The system has
-multiple competing pipelines whose totals do not reconcile.
+multiple competing pipelines whose totals do not reconcile, and the fuzzy title
+match attaches counts to far more papers than the index can legitimately cover.
 
 The highest-leverage extensions, in order:
 
@@ -418,13 +415,12 @@ The highest-leverage extensions, in order:
    the S2AG `citations` release, and add a Rust loader that populates
    `Paper.citations`/`Paper.cited_by` before ranking. This is what would turn the
    dead PageRank path live.
-2. **Unify the source of truth.** Route the homepage, the citation-status
-   dashboard, and per-paper display through one pipeline (S2AG) so the three
-   totals agree.
+2. **Unify the source of truth.** Route the dashboard and statistics totals and
+   the per-paper display through one pipeline (S2AG) so the totals agree.
 3. **Index the lookup.** Replace the O(N) fuzzy scan in
    `get_citation_count_for_paper` with a pre-built normalized-title index and an
-   explicit DOI key, removing both the per-render cost and the substring
-   false-match risk.
+   explicit DOI key, removing both the per-paper scan cost at build time and the
+   substring false-match risk.
 4. **Improve coverage.** At ~3.7 percent matched, better title/DOI matching (and
    reducing the 3,170-entry failure cache) is where most of the missing citation
    data is.

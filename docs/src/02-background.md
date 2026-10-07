@@ -2,7 +2,7 @@
 
 This chapter surveys the ideas QIndex builds on and, for each, names the design
 choice the system actually makes today. Two senses of the word "QIndex" appear
-throughout the book: **QIndex (the project)** is this codebase and web service;
+throughout the book: **QIndex (the project)** is this codebase and the website it generates;
 **QIndex (the metric)** is the per-scholar score it computes (the `qindex` field
 on the `Scholar` struct, `src/models.rs:46-58`). When the distinction matters we
 qualify it; elsewhere context disambiguates.
@@ -191,34 +191,34 @@ venue score defaults to 0.01. Chapter 5 covers the formula in full.
 
 QIndex's central dependency is per-paper citation counts and citation edges.
 Several public sources supply these, with different trade-offs. The system has
-scripts for most of them; only one feeds the running web service today.
+scripts for most of them; only one feeds the published website today.
 
 | Source | What it provides | How QIndex uses it |
 | ------ | ---------------- | ------------------ |
 | **DBLP** | Clean conference/journal proceedings metadata (titles, authors, venues, years) via a search API. No citation counts. | Source of the `bib/` corpus. `scripts/fetch_main_conference.py` queries the DBLP `publ` API and filters out workshops/posters. |
-| **Semantic Scholar / S2AG** | Bulk academic-graph corpus: paper records, citation counts, and citation edges. | The only live citation source. `s2ag_citations.json` (731 papers) feeds per-paper counts in the web UI. |
-| **OpenAlex** | Open scholarly index with citation counts and IDs. | `scripts/fetch_citations_combined.py` populates `combined_cache.json`; feeds the homepage citation-status dashboard, not rankings. |
+| **Semantic Scholar / S2AG** | Bulk academic-graph corpus: paper records, citation counts, and citation edges. | The only live citation source. `s2ag_citations.json` (731 papers) feeds per-paper counts on the website. |
+| **OpenAlex** | Open scholarly index with citation counts and IDs. | `scripts/fetch_citations_combined.py` populates `combined_cache.json`; no longer read by any Rust code (it fed the removed server's citation-status endpoint), and never fed rankings. |
 | **Crossref** | DOI registration metadata and reference lists. | Used by the legacy fetcher and the (stubbed) paper extractor for DOI lookups. |
 
 ### DBLP: the metadata backbone
 
 DBLP supplies the bibliographic records but **no citations**. The `bib/` folder
 holds roughly 21,000 BibTeX entries across about 44 venue files (largest: `ccs`
-≈ 2,789, `stoc` ≈ 1,923, `sigcomm` ≈ 1,687). At startup the parser produces
+≈ 2,789, `stoc` ≈ 1,923, `sigcomm` ≈ 1,687). The parser produces
 roughly 19,954 papers, 44 venues, and 43,942 scholars (observed via
-`GET /api/stats`). DBLP is the right tool for clean proceedings metadata and the
+`qindex stats` and the site's `data/stats.json`). DBLP is the right tool for clean proceedings metadata and the
 wrong tool for impact: that gap is exactly why a second source is needed.
 
 ### Semantic Scholar / S2AG: the live citation feed
 
 S2AG (the Semantic Scholar Academic Graph) is the only citation source the
-running service consults. The loader `src/s2ag_citations.rs` reads
+site build consults. The loader `src/s2ag_citations.rs` reads
 `cache/citations/s2ag_citations.json` — a dictionary of 731 entries keyed by
 normalised title — and exposes `get_citation_count(title)`
-(`src/s2ag_citations.rs:173`). The web templates call it
-(`src/web/templates.rs:5-7`, used at `templates.rs:1093` and `1293`) to render
-`Citations: N (S2AG)` on detail pages, falling back to the (empty)
-`cited_by.len()` when no match is found. The matched set carries about 41,468
+(`src/s2ag_citations.rs:173`). The site generator calls it once per paper at
+build time (`paper_citations` in `src/site/mod.rs`) and renders
+`Citations: N (S2AG)` on venue pages and scholar profiles, falling back to the
+(empty) `cited_by.len()` when no match is found. The matched set carries about 41,468
 total citations; the top entry in the data is "Wait-free synchronization"
 (≈ 1,966) followed by FlashAttention-2 (≈ 1,456).
 
@@ -234,22 +234,24 @@ committed.
 
 ### OpenAlex and Crossref: the secondary pipelines
 
-`combined_cache.json` (599 papers, from a DBLP + OpenAlex pipeline) backs the
-homepage citation-status panel (`src/web/handlers.rs:669-720`), with a fallback
-to `paper_cache.json` (103 papers) if absent. A legacy Semantic
+`combined_cache.json` (599 papers, from a DBLP + OpenAlex pipeline), with
+`paper_cache.json` (103 papers) as its fallback, used to back the old web
+server's citation-status endpoint. That endpoint was removed with the server, so
+no Rust code reads either file today. A legacy Semantic
 Scholar/Crossref fetcher (`src/citations.rs`) persists to a `citations.json` that
 does not exist on disk and is not invoked at render time — it is effectively
 dead. Crossref also underpins the largely stubbed reference extractor
 (`src/paper_extractor.rs`), covered in Chapter 9.
 
-### Why three citation numbers disagree
+### Why the citation numbers disagree
 
-A consequence worth flagging up front: the three citation figures shown by the
-system come from independent pipelines over different paper sets and **do not
-agree.** `/api/stats`, `/statistics`, and `/api/homepage` report
+A consequence worth flagging up front: the citation figures shown by the system
+come from independent pipelines over different paper sets and **do not agree.**
+The dashboard, the statistics page, and `data/stats.json` report
 `total_citations = graph.edges.len()`, which is 0 because the in-memory graph is
-empty. `/api/citation-status` sums `combined_cache.json` (a few thousand). And
-per-paper detail pages show S2AG counts. Reconciling these into a single
+empty, while per-paper listings show S2AG counts. (Until the server was removed,
+a third figure — the sum over `combined_cache.json`, a few thousand — appeared on
+its citation-status endpoint.) Reconciling these into a single
 authoritative citation graph that actually drives PageRank is the core open
 problem; see Chapter 6, *Citation Data Integration*, and Chapter 11,
 *Limitations, Known Issues, and Roadmap*.
@@ -265,4 +267,4 @@ techniques surveyed here — eigenvector centrality, the h-index, CSRankings
 methodology, and the DBLP/S2AG/OpenAlex/Crossref data landscape — define both the
 ambition and the honest current limits of the system. The remaining chapters
 trace these from data model (Chapter 3) through algorithm (Chapter 5) and
-integration (Chapter 6) to the web and CLI surfaces.
+integration (Chapter 6) to the website and CLI surfaces.

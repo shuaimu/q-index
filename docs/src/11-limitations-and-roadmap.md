@@ -11,11 +11,11 @@ chapter that owns the topic in full.
 
 The README mentions Bootstrap, Chart.js, and a WASM build and shows sample
 ranking tables. The CDN-loaded Bootstrap/Chart.js claim is real (see
-`base_template` in `src/web/templates.rs:80`), but the sample tables and any
+`base_template` in `src/site/templates.rs`), but the sample tables and any
 WASM target are not reproducible from the repository and are not relied on here.
 
-A useful one-line summary of the current state comes from the running server:
-`GET /api/stats` reports roughly 19,954 papers, 44 venues, and 43,942 scholars,
+A useful one-line summary of the current state comes from any site build:
+`data/stats.json` reports roughly 19,954 papers, 44 venues, and 43,942 scholars,
 with `total_citations = 0`. That last zero is the root cause of most of the
 algorithmic limitations below.
 
@@ -85,23 +85,23 @@ difference in a signed type or behind a guard, as the BibTeX path already does
 with an `as i32` cast (`src/algorithm.rs:211`). See Chapter 5,
 "The Ranking Algorithm".
 
-### 11.1.3 Web and CLI scoring diverge
+### 11.1.3 Website and CLI scoring diverge
 
-The web server and the CLI compute different rankings from the same bib data.
-The CLI read commands (`calculate`, `venues`, `scholars`, `search`) call
-`calculator.load_citation_cache("./cache/citations.json")`
-(`src/main.rs:89-90,118-119,136-137,154-155`) before `calculate()`. The web path
-constructs `PageRankCalculator::new(&*graph)` in `src/web/state.rs:70,99` and
-calls `calculate()` **without ever calling `load_citation_cache`** — that
-function is invoked nowhere in the web codebase. So in the web path
+The site build and the CLI compute rankings from the same bib data along
+different paths. The CLI read commands (`calculate`, `venues`, `scholars`,
+`search`) call `calculator.load_citation_cache("./cache/citations.json")`
+(`src/main.rs:116-118,145-147,163-165,181-183`) before `calculate()`. The site
+generator (`build_site` in `src/site/mod.rs`) constructs
+`PageRankCalculator::new(&graph)` and calls `calculate()` **without ever calling
+`load_citation_cache`**, exactly as the removed web server did. So on the website
 `citation_cache` stays `None` and `has_cached_citations` is false unconditionally
 (`src/algorithm.rs:124-127`).
 
 In practice, because `./cache/citations.json` is also missing, *both* paths land
 in the prestige fallback today, so the divergence is currently masked. But the
-moment that file is provided, the CLI and web UI will silently disagree. This is
-a structural hazard, documented here against Chapters 8 (*Web Interface and HTTP
-API*) and 9 (*The Command-Line Interface*).
+moment that file is provided, the CLI and the website will silently disagree. This
+is a structural hazard, documented here against Chapters 8 (*The Static Website
+and Its Data Files*) and 9 (*The Command-Line Interface*).
 
 ## 11.2 Data limitations
 
@@ -112,29 +112,29 @@ The S2AG integration (Chapter 6, *Citation Data Integration*) matched only
 `cache/citations/s2ag_citations.json` (`cache/citations/s2ag_summary.json`).
 Against a corpus of roughly 21,000 BibTeX entries (`bib/` totals ~20,898
 `@inproceedings` + 122 `@article`), that is about a 3.5% citation-data hit rate.
-These counts feed the **per-paper display only** — `get_real_citations`
-(`src/web/templates.rs:5-7`) calls `s2ag_citations::get_citation_count`, rendering
-`Citations: N (S2AG)` on venue/scholar detail pages
-(`src/web/templates.rs:1093-1095, 1293-1295`) and falling back to the
-(always-zero) internal `cited_by.len()` otherwise.
+These counts feed the **per-paper display only** — the site build's
+`paper_citations` (`src/site/mod.rs`) calls `s2ag_citations::get_citation_count`
+once per paper, and venue pages and scholar profiles render
+`Citations: N (S2AG)`, falling back to the (always-zero) internal
+`cited_by.len()` otherwise.
 
 ### 11.2.2 Multiple inconsistent citation sources
 
-At least four pipelines coexist, and three different numbers are reported for
-"total citations" depending on which endpoint you hit:
+At least four pipelines coexist. The website reports two different kinds of
+"citation" number, and the removed web server reported a third:
 
 | Surface | Source | What it counts |
 |---|---|---|
-| `/api/stats`, `/statistics`, `/api/homepage` | `graph.edges.len()` (internal) | 0 (edges never populated) |
-| `/api/citation-status` | `combined_cache.json` | sum of 599 papers' counts (~4,145) |
-| Per-paper detail pages | `s2ag_citations.json` | S2AG count for 731 papers (~41,468 total) |
+| dashboard, `statistics/`, `data/stats.json` | `graph.edges.len()` (internal) | 0 (edges never populated) |
+| Per-paper listings (venue pages, scholar profiles) | `s2ag_citations.json` | S2AG count for 731 entries (~41,468 total) |
+| *(removed)* `/api/citation-status` | `combined_cache.json` | sum of 599 papers' counts (~4,145) |
 
-These sets do not overlap cleanly: the homepage stats come from the
-DBLP+OpenAlex `combined_cache.json` (599 papers), per-paper numbers from S2AG
-(731 papers), and the internal `edges` count is always zero
-(`src/web/handlers.rs:669-720`, `src/web/handlers.rs:543`,
-`src/web/templates.rs:5-7`). A user comparing the homepage total to a paper's
-displayed citations will see inconsistent figures. The S2AG citation *graph*
+These sets do not overlap cleanly: per-paper numbers come from S2AG (731
+entries), the internal `edges` count is always zero (`stats_json` and
+`statistics_data` in `src/site/mod.rs`), and the DBLP+OpenAlex
+`combined_cache.json` (599 papers) is no longer read by any Rust code. A user
+comparing the dashboard total to a paper's displayed citations will see
+inconsistent figures. The S2AG citation *graph*
 artifact `cache/citations/s2ag_citation_graph.json` has 190 nodes but only one
 `cites` edge and one `cited_by` edge total — it is an orphan written by no
 current script and read by no code. The CLAUDE.md claim of "285 citation
@@ -149,8 +149,12 @@ S2AG lookups normalize the title (lowercase, alphanumeric + whitespace only;
 containment of either normalized title, or on >70% overlap of significant
 (length-> 3) words. Substring containment can produce false positives between
 papers sharing a generic prefix or suffix, and the scan is $O(N)$ per unmatched
-title — run per paper on every detail-page render (up to 100 papers per page).
-This is correctness *and* performance debt; see Chapter 6.
+title. The site build runs it once per paper (about 20,000 lookups, parallelized
+with rayon) rather than on every page render as the old server did, so the
+performance cost is now a build-time cost. The false positives are visible in the
+output: about 23,900 of the 92,400 author-paper entries in the scholar shards
+carry an S2AG count, far more papers than 731 index entries can legitimately
+match. This is correctness *and* performance debt; see Chapter 6.
 
 ## 11.3 Implementation limitations
 
@@ -166,35 +170,28 @@ to return `Ok(None)`: `search_usenix` and `search_google_scholar`
 DOI/metadata are functional. The command runs to completion but produces no
 reference data.
 
-### 11.3.2 Placeholder fields in `/api/citation-status`
+### 11.3.2 Removed: placeholder fields in `/api/citation-status`
 
-`api_citation_status` (`src/web/handlers.rs:623`) returns a `CitationStatus`
-whose progress metrics are hardcoded (`src/web/handlers.rs:801-816`):
-`success_rate = 100.0` when `total_papers > 0`, `papers_per_minute = 2.0`
-(commented "Estimated rate"), `active_sources = ["DBLP", "OpenAlex"]` always,
-`current_conference = None` always, and `successful == total_attempts ==
-total_papers` (which makes `success_rate` definitionally meaningless).
-Per-conference `papers_fetched` and `citations` are hardcoded to 0
-(`src/web/handlers.rs:748-749`, commented "Would need to track per-conference").
-The endpoint also shells out to `ps aux | grep ... fetch_citations`
-(`src/web/handlers.rs:766-768`) to guess whether a fetch is running. The
-citation-status dashboard therefore shows mostly fabricated metrics, not live
-progress (Chapter 8).
+The old web server's `/api/citation-status` endpoint reported mostly hardcoded
+progress metrics (a tautological `success_rate`, a fixed `papers_per_minute = 2.0`,
+fixed `active_sources`, per-conference counts pinned to 0) plus a `ps aux` check
+for a running fetch. It was removed with the server rather than ported, since a
+static site has no fetch process to observe (Chapter 8). It is listed here only
+so that older references to it can be traced.
 
-### 11.3.3 `unwrap`/`expect` panics and lock poisoning
+### 11.3.3 Error handling
 
-Failure handling leans on panics. At startup, `parse_directory(...).expect(...)`
-and `APP_STATE.set(...).expect(...)` abort the process on error
-(`src/web/server.rs:16,31`). Per request, `api_citation_status` calls
-`std::fs::read_dir(bib_dir).unwrap()` (`src/web/handlers.rs:730`), which panics
-the worker if `bib/` becomes unreadable. Every handler takes
-`state.graph.read().unwrap()` and the cache locks use `.read().unwrap()` /
-`.write().unwrap()` (`src/web/handlers.rs:92,111,175,...`; `src/web/state.rs:58,
-69,76,...`). Because these are `RwLock`s, a single panic while a write lock is
-held poisons the lock and turns every subsequent request into a panic — a
-cascading failure mode. Separately, `calculate().ok()`
-(`src/web/state.rs:71,100`) silently swallows ranking errors and still caches
-whatever the (possibly empty) result was for the 5-minute staleness window.
+The server-era failure modes — `.expect` panics at startup, a per-request
+`read_dir(...).unwrap()`, `RwLock` poisoning cascading across requests, and
+`calculate().ok()` caching a failed ranking for five minutes — left with the
+server. The site build (`build_site` in `src/site/mod.rs`) returns errors with
+context instead: a missing bib directory, an unwritable output directory, or a
+ranking error fails the build, and CI does not deploy. Two weaker spots remain.
+First, the S2AG index still loads from a hardcoded CWD-relative path and silently
+falls back to an empty index, so a build run from the wrong directory succeeds
+but shows only `(internal)` citation counts (Chapter 10). Second, the ranking code
+still sorts with `partial_cmp().unwrap()`, which would panic on a `NaN` score
+(Chapter 5).
 
 ### 11.3.4 Dead code, warnings, and unused dependencies
 
@@ -209,12 +206,15 @@ whatever the (possibly empty) result was for the 5-minute staleness window.
 - `src/citations.rs` (the legacy async Semantic Scholar fetcher) persists to a
   `citations.json` that does not exist in `cache/citations/` and is never invoked
   for display.
-- `exportData()` in `static/app.js:226-239` targets `?format=` query params that
-  no route honors; the footer links to `/api/docs`
-  (`src/web/templates.rs:149`), which is not a registered route (404).
-- The dependency footprint is large (363 packages in `Cargo.lock`) including
-  `actix-session`, `petgraph`, and `ndarray`, several of which do not appear in
-  the active code paths and inflate the LTO release build (Chapter 10).
+- `tests/integration_test.rs` has a stale assertion: `test_get_venue_field`
+  expects the field "Systems" for SOSP/OSDI, but the code now returns
+  "Operating Systems", so the test fails. CI runs only the library and site tests
+  (Chapter 10).
+- The dependency footprint shrank from 363 to 278 packages in `Cargo.lock` when
+  the actix stack was removed, but `petgraph` and `ndarray` still have no call
+  sites and still inflate the LTO release build (Chapter 10). (The server-era
+  `exportData()` helper and dead `/api/docs` footer link were removed with the
+  server.)
 
 ## 11.4 Prioritized roadmap
 
@@ -232,15 +232,15 @@ affects so a contributor can find the surrounding design.
    §PageRank, Ch. 6 §Graph extraction.* Fix the brace-nesting bug at
    `src/algorithm.rs:293-333` as part of this, since it becomes live.
 
-2. **Unify the web and CLI scoring paths.** Either call `load_citation_cache` in
-   the web path (`src/web/state.rs:70,99`) or remove it from the CLI, and settle
+2. **Unify the website and CLI scoring paths.** Either call `load_citation_cache`
+   in the site build (`build_site` in `src/site/mod.rs`) or remove it from the CLI, and settle
    on one canonical cache location instead of the singular
    `./cache/citations.json` the CLI hardcodes vs. the `cache/citations/`
-   directory everything else uses. *Affects Ch. 8 §State, Ch. 9 §Cache paths.*
+   directory everything else uses. *Affects Ch. 8 §The build, Ch. 9 §Cache paths.*
 
 3. **Unify citation sources.** Pick one pipeline (S2AG is the most complete) and
-   route the homepage stats, `/api/stats`, and per-paper display through it so
-   the three "total citations" numbers in §11.2.2 agree. Deprecate the legacy
+   route the dashboard totals, `data/stats.json`, and per-paper display through it
+   so the "total citations" numbers in §11.2.2 agree. Deprecate the legacy
    `src/citations.rs` and the dead S2ORC pipeline. *Affects Ch. 6.*
 
 ### P1 — Correctness and safety
@@ -249,17 +249,16 @@ affects so a contributor can find the surrounding design.
    (`src/algorithm.rs:426`) with `chrono::Utc::now().year()` or a CLI/config
    value, and document the $/5$ decay exponent. *Affects Ch. 5 §Recency.*
 
-5. **Add authentication before any network exposure.** `qindex web --host
-   0.0.0.0` binds to all interfaces (`src/web/server.rs:62`) with no auth. Add at
-   least a token or basic-auth layer before recommending `0.0.0.0`. Also rotate
-   the API key that is committed in plaintext in CLAUDE.md and rely solely on the
-   `S2_API_KEY` env var (`.env.example`). *Affects Ch. 8, Ch. 10 §Deployment.*
+5. **Fail the build when citation data is missing.** The site build silently
+   falls back to an empty S2AG index when `cache/citations/s2ag_citations.json`
+   is not found from the working directory (§11.3.3). Resolving the path
+   relative to the repository, or failing loudly, would stop a misconfigured
+   build from publishing a site with every citation count at zero. *Affects
+   Ch. 6, Ch. 10.*
 
-6. **Replace request-path panics with graceful errors.** Convert the
-   `.unwrap()`/`.expect()` calls in handlers and locks (§11.3.3) to `Result`
-   returns or `actix` error responses, and consider `parking_lot` locks or
-   poison recovery to avoid cascading failure. *Affects Ch. 7 §Architecture,
-   Ch. 8.*
+6. **Remove the remaining panic paths.** Replace the `partial_cmp().unwrap()`
+   sorts in the ranking code (§11.3.3) with `total_cmp` or explicit `NaN`
+   handling. *Affects Ch. 5.*
 
 ### P2 — Feature completion and hygiene
 
@@ -267,34 +266,33 @@ affects so a contributor can find the surrounding design.
    implement the PDF backends and `extract_references_from_pdf`
    (`src/paper_extractor.rs:374-382`). *Affects Ch. 9.*
 
-8. **Replace placeholder `/api/citation-status` fields** (§11.3.2) with real
-   per-conference tracking, or label them as estimates in the UI. *Affects Ch. 8.*
-
-9. **Index S2AG lookups.** Replace the $O(N)$ fuzzy scan
+8. **Index S2AG lookups.** Replace the $O(N)$ fuzzy scan
    (`src/s2ag_citations.rs:118-148`) with a precomputed index and tighten the
    substring rule to reduce false matches. *Affects Ch. 6.*
 
-10. **Add tests and benchmarks.** There is no observed test coverage for the
-    parser, ranking, or matching logic. At minimum: golden tests for
-    `normalize_author_name`/`normalize_venue_id`, a small fixture graph that
-    exercises the live PageRank path once §P0.1 lands, and a benchmark for
-    detail-page render time under the fuzzy-match load. *Affects all of Part III
-    and IV.*
+9. **Add tests and benchmarks.** The site generator has tests
+    (`tests/site_test.rs` and the unit tests in `src/site/mod.rs`), but there is
+    no observed coverage for the parser, ranking, or matching logic, and
+    `test_get_venue_field` is stale (§11.3.4). At minimum: fix that assertion,
+    golden tests for `normalize_author_name`/`normalize_venue_id`, a small
+    fixture graph that exercises the live PageRank path once §P0.1 lands, and a
+    benchmark for the build-time citation lookup under the fuzzy-match load.
+    *Affects all of Part III and IV.*
 
-11. **Prune dead code and unused deps** (§11.3.4): drop the unused `HashSet`
-    import, the duplicate `calculate_h_index`, the discarded `_impact`, the
-    non-functional `exportData()`/`/api/docs` link, and audit the 363-package
-    dependency tree to shrink the LTO release build. *Affects Ch. 10 §Build.*
+10. **Prune dead code and unused deps** (§11.3.4): drop the unused `HashSet`
+    import, the duplicate `calculate_h_index`, the discarded `_impact`, and the
+    unused `petgraph`/`ndarray` dependencies to shrink the LTO release build.
+    *Affects Ch. 10 §Build.*
 
 ## 11.5 Summary
 
-QIndex parses a substantial bibliographic corpus correctly and serves a
-functional web and CLI surface, but its headline algorithm does not yet run as
+QIndex parses a substantial bibliographic corpus correctly and publishes a
+functional static website and CLI, but its headline algorithm does not yet run as
 designed: the citation graph is empty, PageRank is short-circuited to a
-paper-count prestige heuristic, and the three citation numbers exposed across the
-UI come from three unreconciled sources. The reference year is frozen at 2024,
-the web and CLI scoring paths are structurally divergent, reference extraction is
-stubbed, and several request paths panic on error. None of these are
+paper-count prestige heuristic, and the citation numbers exposed on the website
+come from unreconciled sources. The reference year is frozen at 2024, the website
+and CLI scoring paths are structurally divergent, and reference extraction is
+stubbed. None of these are
 architectural dead ends — the roadmap above turns the existing scaffolding into a
 working link-analysis ranking, primarily by populating the citation graph
 (§P0.1) and unifying the data sources (§P0.3). Until then, readers and evaluators

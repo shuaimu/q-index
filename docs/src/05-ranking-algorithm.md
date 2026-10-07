@@ -220,7 +220,7 @@ venue with weight `× 0.1` (`src/algorithm.rs:176-185`). A comment at
 `src/algorithm.rs:152-153` admits the weight is "distributed uniformly" rather
 than per-reference. The result is a graph of self-loops only, with no true
 venue-to-venue edges, so even this branch would not yield a meaningful
-PageRank. It is also dead in the web path: the web server never calls
+PageRank. It is also dead in the site build: `qindex build-site` never calls
 `load_citation_cache` (see Chapter 8), and the CLI looks for a file that does
 not exist (Section 5.6).
 
@@ -464,7 +464,7 @@ breaking on the first failure. There are two important caveats:
    (`src/algorithm.rs:478-484`) calls `calculate_scholar_h_index` and writes the
    result only to a `debug!` log — it never stores it back on the `Scholar`.
    The `Scholar.h_index` field stays at its parser-initialized `0`
-   (`src/parser.rs`). The web ranking path recomputes the h-index on demand in
+   (`src/parser.rs`). The CLI rankings and the website recompute the h-index on demand in
    `get_top_scholars` (`src/algorithm.rs:544-620`), which is still `0` for the
    same `cited_by` reason. A second standalone free function
    `calculate_h_index` (`src/algorithm.rs:631-651`) counts **all** papers
@@ -507,14 +507,15 @@ repository has only a `cache/citations/` directory containing other JSON files
 effectively empty `citation_graph.json`). So even on the CLI path the cache is
 never loaded, `has_cached_citations` is false, and the prestige fallback runs.
 
-The web server path is different and even more decisive: it constructs
-`PageRankCalculator::new(&*graph)` and calls `calculate()` **without ever
-calling `load_citation_cache`** (`src/web/state.rs:70, 99`). The web UI's
-rankings are therefore always computed from the in-memory BibTeX graph (empty
-edges → prestige fallback), and can differ from a future CLI run that does load
-a cache. This divergence, and the relative-path requirement (the server must be
-launched from the repo root or the cache/static paths resolve to nothing), are
-covered further in Chapter 8, *The Web Interface and HTTP API*.
+The site generator is different and even more decisive: `build_site`
+(`src/site/mod.rs`) constructs `PageRankCalculator::new(&graph)` and calls
+`calculate()` **without ever calling `load_citation_cache`**, as the removed web
+server did before it. The published rankings are therefore always computed from
+the in-memory BibTeX graph (empty edges → prestige fallback), and can differ from
+a future CLI run that does load a cache. This divergence, and the relative-path
+requirement (the build must run from the repo root or the S2AG cache path
+resolves to nothing), are covered further in Chapter 8, *The Static Website and
+Its Data Files*.
 
 ## 5.10 Summary: intended vs. actual
 

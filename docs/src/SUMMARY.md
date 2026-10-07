@@ -20,7 +20,7 @@
 # Part IV — System
 
 - [System Architecture](07-system-architecture.md)
-- [The Web Interface and HTTP API](08-web-interface-and-api.md)
+- [The Static Website and Its Data Files](08-web-interface-and-api.md)
 - [The Command-Line Interface](09-command-line-interface.md)
 
 # Part V — Operations and Outlook

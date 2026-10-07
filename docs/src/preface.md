@@ -21,10 +21,10 @@ recur throughout the text, are:
   scores are produced today by a **prestige-based fallback**, not by PageRank. See
   Chapter 5, *The Ranking Algorithm*.
 - The Semantic Scholar (S2AG) integration supplies **per-paper citation counts** to the
-  web UI, but its extracted citation *graph* is effectively empty, so it does not feed the
+  website, but its extracted citation *graph* is effectively empty, so it does not feed the
   ranking algorithm. See Chapter 6, *Citation Data Integration*.
-- The web interface and the CLI can produce different scores because they load citation
-  data differently. See Chapter 8, *The Web Interface and HTTP API*.
+- The website and the CLI can produce different scores because they load citation
+  data differently. See Chapter 8, *The Static Website and Its Data Files*.
 
 Where a feature is aspirational, stubbed, or running a fallback, the book says so plainly.
 It does not repeat unverified claims from the project `README.md`.
