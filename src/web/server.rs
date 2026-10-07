@@ -1,43 +1,54 @@
-use actix_web::{web, App, HttpServer, middleware};
 use actix_files::Files;
+use actix_web::{middleware, web, App, HttpServer};
 use log::info;
 use std::sync::Arc;
 
 use crate::parser::BibParser;
-use crate::web::state::{AppState, APP_STATE};
 use crate::web::handlers::*;
+use crate::web::state::{AppState, APP_STATE};
 
 pub async fn start_server(bib_dir: &str, host: &str, port: u16) -> std::io::Result<()> {
     info!("Loading bibliography data from {}...", bib_dir);
-    
+
     // Parse bibliography
     let mut parser = BibParser::new();
-    let graph = parser.parse_directory(bib_dir)
+    let graph = parser
+        .parse_directory(bib_dir)
         .expect("Failed to parse bibliography");
-    
-    info!("Loaded {} papers, {} venues, {} scholars",
-          graph.papers.len(), graph.venues.len(), graph.scholars.len());
-    
+
+    info!(
+        "Loaded {} papers, {} venues, {} scholars",
+        graph.papers.len(),
+        graph.venues.len(),
+        graph.scholars.len()
+    );
+
     // Debug: Print all venue names
     info!("All venues loaded from BibTeX:");
     let mut venues_sorted: Vec<_> = graph.venues.iter().collect();
     venues_sorted.sort_by_key(|(_, v)| &v.name);
     for (id, venue) in venues_sorted {
-        info!("  {} -> {} (papers: {})", id, venue.name, venue.papers.len());
+        info!(
+            "  {} -> {} (papers: {})",
+            id,
+            venue.name,
+            venue.papers.len()
+        );
     }
-    
+
     // Initialize application state
     let state = Arc::new(AppState::new(graph));
-    APP_STATE.set(state.clone()).expect("Failed to set application state");
-    
+    APP_STATE
+        .set(state.clone())
+        .expect("Failed to set application state");
+
     info!("Starting web server on http://{}:{}", host, port);
-    
+
     // Start HTTP server
     HttpServer::new(move || {
         App::new()
             .wrap(middleware::Logger::default())
             .wrap(middleware::Compress::default())
-            
             // HTML routes
             .route("/", web::get().to(index_handler))
             .route("/venues", web::get().to(venues_handler))
@@ -55,7 +66,6 @@ pub async fn start_server(bib_dir: &str, host: &str, port: u16) -> std::io::Resu
             .route("/api/stats", web::get().to(api_stats))
             .route("/api/stats/fields", web::get().to(api_stats_fields))
             .route("/api/citation-status", web::get().to(api_citation_status))
-            
             // Static files
             .service(Files::new("/static", "./static").show_files_listing())
             // Rendered mdBook documentation (build with `mdbook build docs` -> docs/book)

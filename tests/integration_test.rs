@@ -1,4 +1,4 @@
-use qindex::models::{normalize_author_name, get_venue_tier, get_venue_field};
+use qindex::models::{get_venue_field, get_venue_tier, normalize_author_name};
 
 #[test]
 fn test_normalize_author_name() {

@@ -1,4 +1,4 @@
-pub mod server;
 pub mod handlers;
-pub mod templates;
+pub mod server;
 pub mod state;
+pub mod templates;
