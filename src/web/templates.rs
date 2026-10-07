@@ -118,6 +118,9 @@ pub fn base_template(title: &str, content: Markup) -> Markup {
                                 li class="nav-item" {
                                     a class="nav-link" href="/about" { "About" }
                                 }
+                                li class="nav-item" {
+                                    a class="nav-link" href="/book/" target="_blank" { "Book" }
+                                }
                             }
                             form class="d-flex" action="/search" method="get" {
                                 input class="form-control me-2" type="search" name="q" placeholder="Search..." aria-label="Search";
@@ -147,7 +150,7 @@ pub fn base_template(title: &str, content: Markup) -> Markup {
                                 h5 class="text-uppercase" { "Links" }
                                 ul class="list-unstyled mb-0" {
                                     li { a href="/api/docs" class="text-dark" { "API Documentation" } }
-                                    li { a href="https://github.com/shuai/qindex" class="text-dark" { "GitHub" } }
+                                    li { a href="https://github.com/shuaimu/q-index" class="text-dark" { "GitHub" } }
                                 }
                             }
                             div class="col-lg-3 col-md-6 mb-4 mb-md-0" {

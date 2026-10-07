@@ -5,7 +5,11 @@ edition = "2021"
 authors = ["Your Name <your.email@example.com>"]
 description = "Academic quality index calculator using PageRank algorithm"
 license = "MIT"
-repository = "https://github.com/shuai/qindex"
+repository = "https://github.com/shuaimu/q-index"
+
+# Independent workspace root so cargo does not attach qindex to an unrelated
+# workspace manifest in a parent directory (e.g. ~/Cargo.toml).
+[workspace]
 
 [dependencies]
 # CLI and argument parsing

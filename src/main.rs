@@ -43,11 +43,11 @@ fn main() -> Result<()> {
         Commands::Stats { bib_dir } => {
             run_stats(&bib_dir)?;
         }
-        Commands::Web { bib_dir, port } => {
+        Commands::Web { bib_dir, host, port } => {
             // Use tokio runtime for web server
             let runtime = tokio::runtime::Runtime::new()?;
             runtime.block_on(async {
-                run_web_server(&bib_dir, port).await
+                run_web_server(&bib_dir, &host, port).await
             })?;
         }
         Commands::FetchCitations { bib_dir, cache_dir, max_papers, venue } => {
@@ -338,13 +338,13 @@ async fn run_fetch_citations(bib_dir: &str, cache_dir: &str, max_papers: Option<
     Ok(())
 }
 
-async fn run_web_server(bib_dir: &str, port: u16) -> Result<()> {
+async fn run_web_server(bib_dir: &str, host: &str, port: u16) -> Result<()> {
     println!("🌐 Starting QIndex Web Server");
     println!("📚 Loading data from: {}", bib_dir);
-    println!("🚀 Server will be available at: http://127.0.0.1:{}", port);
+    println!("🚀 Server will be available at: http://{}:{}", host, port);
     println!();
-    
-    crate::web::server::start_server(bib_dir, port).await?;
+
+    crate::web::server::start_server(bib_dir, host, port).await?;
     Ok(())
 }
 

@@ -7,7 +7,7 @@ use crate::parser::BibParser;
 use crate::web::state::{AppState, APP_STATE};
 use crate::web::handlers::*;
 
-pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
+pub async fn start_server(bib_dir: &str, host: &str, port: u16) -> std::io::Result<()> {
     info!("Loading bibliography data from {}...", bib_dir);
     
     // Parse bibliography
@@ -30,7 +30,7 @@ pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
     let state = Arc::new(AppState::new(graph));
     APP_STATE.set(state.clone()).expect("Failed to set application state");
     
-    info!("Starting web server on http://127.0.0.1:{}", port);
+    info!("Starting web server on http://{}:{}", host, port);
     
     // Start HTTP server
     HttpServer::new(move || {
@@ -58,8 +58,10 @@ pub async fn start_server(bib_dir: &str, port: u16) -> std::io::Result<()> {
             
             // Static files
             .service(Files::new("/static", "./static").show_files_listing())
+            // Rendered mdBook documentation (build with `mdbook build docs` -> docs/book)
+            .service(Files::new("/book", "./docs/book").index_file("index.html"))
     })
-    .bind(("127.0.0.1", port))?
+    .bind((host, port))?
     .run()
     .await
 }

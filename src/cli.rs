@@ -92,6 +92,10 @@ pub enum Commands {
         #[arg(short, long, default_value = "./bib")]
         bib_dir: String,
         
+        /// Host/interface to bind to (use 0.0.0.0 to allow access over the network)
+        #[arg(long, default_value = "127.0.0.1")]
+        host: String,
+
         /// Port to listen on
         #[arg(short, long, default_value = "8080")]
         port: u16,

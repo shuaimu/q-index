@@ -272,7 +272,7 @@ pub async fn about_handler() -> Result<Markup> {
                                 p.card-text {
                                     "QIndex is open source software. Contributions and feedback are welcome!"
                                 }
-                                a.btn.btn-primary href="https://github.com/shuai/qindex" target="_blank" {
+                                a.btn.btn-primary href="https://github.com/shuaimu/q-index" target="_blank" {
                                     "View on GitHub"
                                 }
                             }

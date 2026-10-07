@@ -23,8 +23,8 @@ A high-performance academic quality index calculator built in Rust, using PageRa
 
 ```bash
 # Clone the repository
-git clone https://github.com/shuai/qindex.git
-cd qindex
+git clone https://github.com/shuaimu/q-index.git
+cd q-index
 
 # Build in release mode for optimal performance
 cargo build --release
@@ -250,8 +250,8 @@ Contributions are welcome! Please feel free to submit pull requests.
 
 ```bash
 # Clone the repo
-git clone https://github.com/shuai/qindex.git
-cd qindex
+git clone https://github.com/shuaimu/q-index.git
+cd q-index
 
 # Run in development mode
 cargo run -- calculate

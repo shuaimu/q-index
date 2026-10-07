@@ -1,0 +1,16 @@
+[book]
+title = "QIndex: Design and Implementation"
+authors = ["Shuai Mu"]
+description = "A design specification and implementation reference for QIndex, a PageRank-based academic quality index calculator."
+src = "src"
+language = "en"
+
+[output.html]
+default-theme = "rust"
+preferred-dark-theme = "ayu"
+git-repository-url = "https://github.com/shuaimu/q-index"
+edit-url-template = "https://github.com/shuaimu/q-index/edit/main/docs/{path}"
+
+[output.html.fold]
+enable = true
+level = 1
