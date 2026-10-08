@@ -218,7 +218,7 @@ class Api:
     def title_match(self, title):
         query = urllib.parse.urlencode({"query": title, "fields": API_FIELDS})
         data = self.request(f"{API}/paper/search/match?{query}")
-        return (data or {}).get("data", [None])[0]
+        return ((data or {}).get("data") or [None])[0]
 
 
 def titles_agree(ours: str, theirs: str) -> bool:
