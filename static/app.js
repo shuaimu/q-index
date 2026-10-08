@@ -356,8 +356,11 @@ function scholarHtml(scholar, pagePapers, page, totalPages, id) {
 }
 
 function paperHtml(paper) {
+    // Same wording as paper_item() in src/site/templates.rs
     const citations = paper.s2ag
         ? `Citations: <strong class="text-primary">${paper.citations}</strong> (S2AG)`
+        : paper.citations === 0
+        ? '<span title="Not found in Semantic Scholar">Citations: n/a</span>'
         : `Citations: ${paper.citations} (internal)`;
     const publisher = paper.doi ? `https://doi.org/${paper.doi}` : paper.publisher_url;
 

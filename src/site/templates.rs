@@ -1,7 +1,6 @@
-use super::{Ctx, FieldCounts, PaperCitations, StatisticsData, Stats, VenuePage};
+use super::{Citations, Ctx, FieldCounts, StatisticsData, Stats, VenuePage};
 use crate::models::{Paper, ScholarRanking, VenueRanking};
 use maud::{html, Markup, PreEscaped, DOCTYPE};
-use std::collections::HashMap;
 
 // Helper functions for generating paper links
 fn get_google_scholar_url(paper: &Paper) -> String {
@@ -772,11 +771,7 @@ fn pagination(current_page: usize, total_pages: usize, url: impl Fn(usize) -> St
     }
 }
 
-pub fn venue_detail_page(
-    ctx: &Ctx,
-    data: &VenuePage,
-    citations: &HashMap<String, PaperCitations>,
-) -> Markup {
+pub fn venue_detail_page(ctx: &Ctx, data: &VenuePage, citations: &Citations) -> Markup {
     let venue = data.venue;
     base_template(
         ctx,
@@ -897,11 +892,8 @@ pub fn venue_detail_page(
     )
 }
 
-fn paper_item(ctx: &Ctx, paper: &Paper, citations: &HashMap<String, PaperCitations>) -> Markup {
-    let cites = citations.get(&paper.id).copied().unwrap_or(PaperCitations {
-        count: paper.cited_by.len(),
-        s2ag: false,
-    });
+fn paper_item(ctx: &Ctx, paper: &Paper, citations: &Citations) -> Markup {
+    let cites = citations.of(paper);
     html! {
         .list-group-item {
             h6.mb-2 { (paper.title) }
@@ -920,6 +912,8 @@ fn paper_item(ctx: &Ctx, paper: &Paper, citations: &HashMap<String, PaperCitatio
                 small.text-muted {
                     @if cites.s2ag {
                         "Citations: " strong.text-primary { (cites.count) } " (S2AG)"
+                    } @else if cites.unknown() {
+                        span title="Not found in Semantic Scholar" { "Citations: n/a" }
                     } @else {
                         "Citations: " (cites.count) " (internal)"
                     }

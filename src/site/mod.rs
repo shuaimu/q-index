@@ -14,7 +14,6 @@ mod templates;
 
 use anyhow::{bail, Context, Result};
 use log::info;
-use rayon::prelude::*;
 use serde::Serialize;
 use std::collections::{BTreeMap, HashMap};
 use std::fs;
@@ -23,6 +22,7 @@ use std::path::{Path, PathBuf};
 use crate::algorithm::PageRankCalculator;
 use crate::models::{normalize_author_name, CitationGraph, Paper, ScholarRanking, VenueRanking};
 use crate::parser::{generate_scholar_id, BibParser};
+use crate::s2ag_citations::S2agCitations;
 
 /// Number of JSON shards scholar profiles are split into.
 /// Must match `SCHOLAR_SHARDS` in static/app.js.
@@ -43,6 +43,8 @@ pub struct SiteOptions {
     pub static_dir: PathBuf,
     /// Rendered mdBook to copy to `book/` (skipped if it doesn't exist).
     pub book_dir: Option<PathBuf>,
+    /// S2AG citation counts from scripts/match_s2ag.py (none if `None`).
+    pub citations_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Default)]
@@ -196,12 +198,71 @@ pub fn scholar_shard(id: &str) -> u32 {
     h % SCHOLAR_SHARDS
 }
 
-/// Citation count shown for a paper: S2AG when we have it, otherwise the
-/// number of citing papers inside our own dataset.
+/// Citation count shown for a paper: Semantic Scholar's when the paper was
+/// matched, otherwise the number of citing papers inside our own dataset.
 #[derive(Debug, Clone, Copy)]
 pub struct PaperCitations {
     pub count: usize,
     pub s2ag: bool,
+}
+
+impl PaperCitations {
+    /// Not matched in Semantic Scholar and not cited within our dataset, so
+    /// we don't actually know the count.
+    pub fn unknown(&self) -> bool {
+        !self.s2ag && self.count == 0
+    }
+}
+
+/// The citation counts every page displays. Scholar and venue totals and
+/// h-indexes are derived from these per-paper counts. (Rankings are not:
+/// QIndex and PageRank come from `PageRankCalculator` unchanged.)
+pub struct Citations {
+    s2ag: S2agCitations,
+}
+
+impl Citations {
+    pub fn of(&self, paper: &Paper) -> PaperCitations {
+        match self.s2ag.get(&paper.id) {
+            Some(s) => PaperCitations {
+                count: s.citations,
+                s2ag: true,
+            },
+            None => PaperCitations {
+                count: paper.cited_by.len(),
+                s2ag: false,
+            },
+        }
+    }
+
+    pub fn total<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> usize {
+        self.distinct_counts(papers).iter().sum()
+    }
+
+    pub fn h_index<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> usize {
+        let mut counts = self.distinct_counts(papers);
+        counts.sort_unstable_by(|a, b| b.cmp(a));
+        counts
+            .iter()
+            .enumerate()
+            .take_while(|(i, &c)| c > *i)
+            .count()
+    }
+
+    /// Per-paper counts, taking each Semantic Scholar paper once: duplicate
+    /// BibTeX entries for the same paper (same corpus id) would otherwise be
+    /// counted several times.
+    fn distinct_counts<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> Vec<usize> {
+        let mut seen = std::collections::HashSet::new();
+        papers
+            .into_iter()
+            .filter(|p| match self.s2ag.get(&p.id).and_then(|s| s.corpus_id) {
+                Some(corpus_id) => seen.insert(corpus_id),
+                None => true,
+            })
+            .map(|p| self.of(p).count)
+            .collect()
+    }
 }
 
 pub struct Stats {
@@ -259,22 +320,32 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
         graph.scholars.len()
     );
 
+    let citations = Citations {
+        s2ag: match &opts.citations_file {
+            Some(path) => S2agCitations::load(path)?,
+            None => S2agCitations::default(),
+        },
+    };
+
     let mut calculator = PageRankCalculator::new(&graph);
     calculator.calculate()?;
     let venue_rankings = calculator.get_top_venues(usize::MAX, None, None);
-    let scholar_rankings = calculator.get_top_scholars(usize::MAX, None);
+    let mut scholar_rankings = calculator.get_top_scholars(usize::MAX, None);
+    // Show citation totals and h-indexes computed from the displayed
+    // per-paper counts; the ranking order (QIndex) is left as calculated.
+    for ranking in &mut scholar_rankings {
+        if let Some(scholar) = graph.scholars.get(&ranking.id) {
+            let papers = scholar.papers.iter().filter_map(|id| graph.papers.get(id));
+            ranking.citation_count = citations.total(papers.clone());
+            ranking.h_index = citations.h_index(papers);
+        }
+    }
     let scholar_by_id: HashMap<&str, &ScholarRanking> = scholar_rankings
         .iter()
         .map(|s| (s.id.as_str(), s))
         .collect();
     let venue_rank_by_id: HashMap<&str, &VenueRanking> =
         venue_rankings.iter().map(|v| (v.id.as_str(), v)).collect();
-
-    info!(
-        "Looking up citation counts for {} papers...",
-        graph.papers.len()
-    );
-    let citations = paper_citations(&graph);
 
     let ctx = Ctx {
         base,
@@ -293,7 +364,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
         total_papers: graph.papers.len(),
         total_venues: graph.venues.len(),
         total_scholars: graph.scholars.len(),
-        total_citations: graph.edges.len(),
+        total_citations: citations.total(graph.papers.values()),
     };
     let top_scholars = &scholar_rankings[..scholar_rankings.len().min(TOP_SCHOLARS)];
 
@@ -320,7 +391,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
     out.html("search/index.html", templates::search_shell_page(&ctx))?;
     out.html(
         "statistics/index.html",
-        templates::statistics_page(&ctx, &statistics_data(&graph)),
+        templates::statistics_page(&ctx, &statistics_data(&graph, &citations)),
     )?;
     out.html("about/index.html", templates::about_page(&ctx))?;
     out.html("404.html", templates::not_found_page(&ctx))?;
@@ -334,7 +405,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
     )?;
     out.json("data/venues.json", &venue_rankings)?;
     out.json("data/scholars.json", &top_scholars)?;
-    out.json("data/stats.json", &stats_json(&graph))?;
+    out.json("data/stats.json", &stats_json(&graph, &citations))?;
 
     // Assets
     copy_dir(
@@ -424,28 +495,6 @@ fn copy_dir(src: &Path, dst: &Path, report: &mut BuildReport) -> Result<()> {
     Ok(())
 }
 
-fn paper_citations(graph: &CitationGraph) -> HashMap<String, PaperCitations> {
-    let papers: Vec<&Paper> = graph.papers.values().collect();
-    papers
-        .par_iter()
-        .map(|paper| {
-            let s2ag = crate::s2ag_citations::get_citation_count(&paper.title);
-            let citations = if s2ag > 0 {
-                PaperCitations {
-                    count: s2ag,
-                    s2ag: true,
-                }
-            } else {
-                PaperCitations {
-                    count: paper.cited_by.len(),
-                    s2ag: false,
-                }
-            };
-            (paper.id.clone(), citations)
-        })
-        .collect()
-}
-
 fn field_counts(graph: &CitationGraph) -> FieldCounts {
     let mut counts: HashMap<&str, usize> = HashMap::new();
     for venue in graph.venues.values() {
@@ -470,11 +519,11 @@ fn write_venue_pages(
     out: &mut Output,
     ctx: &Ctx,
     graph: &CitationGraph,
-    citations: &HashMap<String, PaperCitations>,
+    citations: &Citations,
 ) -> Result<()> {
     for venue in graph.venues.values() {
         let papers = papers_newest_first(graph, &venue.papers);
-        let total_citations: usize = papers.iter().map(|p| p.cited_by.len()).sum();
+        let total_citations = citations.total(papers.iter().copied());
 
         let mut author_counts: HashMap<&str, usize> = HashMap::new();
         for paper in &papers {
@@ -512,7 +561,7 @@ fn write_venue_pages(
     Ok(())
 }
 
-fn statistics_data(graph: &CitationGraph) -> StatisticsData {
+fn statistics_data(graph: &CitationGraph, citations: &Citations) -> StatisticsData {
     let mut papers_by_year = BTreeMap::new();
     for paper in graph.papers.values() {
         if let Some(year) = paper.year {
@@ -531,7 +580,7 @@ fn statistics_data(graph: &CitationGraph) -> StatisticsData {
     let mut top_cited: Vec<(String, usize)> = graph
         .papers
         .values()
-        .map(|p| (p.title.clone(), p.cited_by.len()))
+        .map(|p| (p.title.clone(), citations.of(p).count))
         .collect();
     top_cited.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     top_cited.truncate(10);
@@ -541,7 +590,7 @@ fn statistics_data(graph: &CitationGraph) -> StatisticsData {
             total_papers: graph.papers.len(),
             total_venues: graph.venues.len(),
             total_scholars: graph.scholars.len(),
-            total_citations: graph.edges.len(),
+            total_citations: citations.total(graph.papers.values()),
         },
         papers_by_year,
         papers_by_venue,
@@ -550,7 +599,7 @@ fn statistics_data(graph: &CitationGraph) -> StatisticsData {
 }
 
 /// Same shape as the old `/api/stats` response body.
-fn stats_json(graph: &CitationGraph) -> serde_json::Value {
+fn stats_json(graph: &CitationGraph, citations: &Citations) -> serde_json::Value {
     let mut papers_by_year = BTreeMap::new();
     for paper in graph.papers.values() {
         if let Some(year) = paper.year {
@@ -567,7 +616,7 @@ fn stats_json(graph: &CitationGraph) -> serde_json::Value {
         "total_papers": graph.papers.len(),
         "total_venues": graph.venues.len(),
         "total_scholars": graph.scholars.len(),
-        "total_citations": graph.edges.len(),
+        "total_citations": citations.total(graph.papers.values()),
         "papers_by_year": papers_by_year,
         "papers_by_tier": papers_by_tier,
         "papers_by_field": papers_by_field,
@@ -649,7 +698,7 @@ struct ScholarRecord<'a> {
     affiliations: &'a [String],
     qindex: f64,
     h_index: usize,
-    /// Citations from inside the dataset, summed over all papers.
+    /// Displayed per-paper citation counts, summed.
     citations: usize,
     /// `[venue name, paper count]`, most papers first.
     venues: Vec<(&'a str, usize)>,
@@ -679,7 +728,7 @@ fn write_scholar_shards(
     out: &mut Output,
     graph: &CitationGraph,
     scholar_by_id: &HashMap<&str, &ScholarRanking>,
-    citations: &HashMap<String, PaperCitations>,
+    citations: &Citations,
 ) -> Result<()> {
     let mut shards: Vec<BTreeMap<&str, ScholarRecord>> =
         (0..SCHOLAR_SHARDS).map(|_| BTreeMap::new()).collect();
@@ -694,24 +743,21 @@ fn write_scholar_shards(
         let mut venues: Vec<(&str, usize)> = venue_counts.into_iter().collect();
         venues.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
 
-        let (qindex, h_index) = scholar_by_id
+        let qindex = scholar_by_id
             .get(scholar.id.as_str())
-            .map_or((0.0, 0), |r| (r.qindex, r.h_index));
+            .map_or(0.0, |r| r.qindex);
 
         let record = ScholarRecord {
             name: &scholar.name,
             affiliations: &scholar.affiliations,
             qindex: round4(qindex),
-            h_index,
-            citations: papers.iter().map(|p| p.cited_by.len()).sum(),
+            h_index: citations.h_index(papers.iter().copied()),
+            citations: citations.total(papers.iter().copied()),
             venues,
             papers: papers
                 .iter()
                 .map(|p| {
-                    let c = citations.get(&p.id).copied().unwrap_or(PaperCitations {
-                        count: p.cited_by.len(),
-                        s2ag: false,
-                    });
+                    let c = citations.of(p);
                     PaperRecord {
                         title: &p.title,
                         venue: &p.venue,

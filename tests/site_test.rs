@@ -42,6 +42,7 @@ fn options(root: &Path, base_url: &str) -> SiteOptions {
         base_url: base_url.to_string(),
         static_dir,
         book_dir: None,
+        citations_file: None,
     }
 }
 
@@ -147,4 +148,51 @@ fn refuses_to_overwrite_unrelated_directory() {
     let err = build_site(&options(tmp.path(), "/")).unwrap_err();
     assert!(err.to_string().contains("refusing"), "{}", err);
     assert!(out_dir.join("precious.txt").exists());
+}
+
+#[test]
+fn uses_s2ag_citation_counts() {
+    let tmp = tempfile::tempdir().unwrap();
+    let citations = tmp.path().join("s2ag.json");
+    fs::write(
+        &citations,
+        r#"{"generated": "2026-10-08", "papers": {
+            "dean04mapreduce": {"corpus_id": 1, "citations": 20000, "s2_title": "MapReduce", "s2_year": 2004, "match": "doi"},
+            "ghemawat03gfs": {"corpus_id": 2, "citations": 9000, "s2_title": "The Google File System", "s2_year": 2003, "match": "local-title"},
+            "gfsdup": {"corpus_id": 2, "citations": 9000, "s2_title": "The Google File System", "s2_year": 2003, "match": "local-title"}
+        }}"#,
+    )
+    .unwrap();
+    let mut opts = options(tmp.path(), "/");
+    opts.citations_file = Some(citations);
+    // A duplicate entry for the GFS paper, matched to the same corpus id
+    fs::write(
+        opts.bib_dir.join("dup.bib"),
+        "@inproceedings{gfsdup,\nauthor = {Ghemawat, Sanjay},\ntitle = {The Google File System},\nbooktitle = \"SOSP\",\nyear = {2003},\n}\n",
+    )
+    .unwrap();
+    build_site(&opts).unwrap();
+    let site = opts.out_dir;
+
+    // Scholar totals and h-index come from the per-paper counts, counting
+    // the duplicate GFS entry once
+    let shard = format!(
+        "data/scholars/{:02x}.json",
+        scholar_shard("sanjay_ghemawat")
+    );
+    let shard: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join(shard)).unwrap()).unwrap();
+    let scholar = &shard["sanjay_ghemawat"];
+    assert_eq!(scholar["citations"], 29000);
+    assert_eq!(scholar["h_index"], 2);
+    assert_eq!(scholar["papers"][0]["citations"], 20000);
+    assert_eq!(scholar["papers"][0]["s2ag"], true);
+
+    // Venue pages: matched papers show S2AG counts, unmatched ones "n/a"
+    let sosp = fs::read_to_string(site.join("venue/sosp/index.html")).unwrap();
+    assert!(sosp.contains("9000"));
+    assert!(sosp.contains("Citations: n/a"));
+    let stats: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join("data/stats.json")).unwrap()).unwrap();
+    assert_eq!(stats["total_citations"], 29000);
 }

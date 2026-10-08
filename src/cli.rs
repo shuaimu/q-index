@@ -86,6 +86,18 @@ pub enum Commands {
         bib_dir: String,
     },
 
+    /// Write every parsed paper (id, title, year, DOI, venue) as JSON lines,
+    /// for matching against external datasets such as S2AG
+    ExportPapers {
+        /// Directory containing BibTeX files
+        #[arg(short, long, default_value = "./bib")]
+        bib_dir: String,
+
+        /// Output file
+        #[arg(short, long, default_value = "./cache/citations/papers.jsonl")]
+        output: String,
+    },
+
     /// Generate the static website (for GitHub Pages or any static host)
     BuildSite {
         /// Directory containing BibTeX files
@@ -107,6 +119,10 @@ pub enum Commands {
         /// Rendered mdBook to publish under book/ (skipped if missing; build it with `mdbook build docs`)
         #[arg(long, default_value = "./docs/book")]
         book_dir: String,
+
+        /// S2AG citation counts written by scripts/match_s2ag.py
+        #[arg(long, default_value = crate::s2ag_citations::DEFAULT_PATH)]
+        citations_file: String,
     },
 
     /// Fetch citation data from Semantic Scholar

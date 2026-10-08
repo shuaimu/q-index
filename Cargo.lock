@@ -1435,7 +1435,6 @@ dependencies = [
  "ndarray",
  "nom",
  "nom-bibtex",
- "once_cell",
  "ordered-float",
  "petgraph",
  "rayon",

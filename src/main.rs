@@ -57,14 +57,25 @@ fn main() -> Result<()> {
         Commands::Stats { bib_dir } => {
             run_stats(&bib_dir)?;
         }
+        Commands::ExportPapers { bib_dir, output } => {
+            run_export_papers(&bib_dir, &output)?;
+        }
         Commands::BuildSite {
             bib_dir,
             out_dir,
             base_url,
             static_dir,
             book_dir,
+            citations_file,
         } => {
-            run_build_site(&bib_dir, &out_dir, &base_url, &static_dir, &book_dir)?;
+            run_build_site(
+                &bib_dir,
+                &out_dir,
+                &base_url,
+                &static_dir,
+                &book_dir,
+                &citations_file,
+            )?;
         }
         Commands::FetchCitations {
             bib_dir,
@@ -204,6 +215,29 @@ fn run_search(bib_dir: &str, query: &str) -> Result<()> {
         println!("No results found for '{}'", query);
     }
 
+    Ok(())
+}
+
+fn run_export_papers(bib_dir: &str, output: &str) -> Result<()> {
+    use std::io::Write;
+
+    let mut parser = BibParser::new();
+    let graph = parser.parse_directory(bib_dir)?;
+
+    let mut out = std::io::BufWriter::new(std::fs::File::create(output)?);
+    for paper in graph.papers.values() {
+        let line = serde_json::json!({
+            "id": paper.id,
+            "title": paper.title,
+            "year": paper.year,
+            "doi": paper.doi,
+            "venue": paper.venue,
+        });
+        writeln!(out, "{}", line)?;
+    }
+    out.flush()?;
+
+    println!("📝 Wrote {} papers to {}", graph.papers.len(), output);
     Ok(())
 }
 
@@ -401,6 +435,7 @@ fn run_build_site(
     base_url: &str,
     static_dir: &str,
     book_dir: &str,
+    citations_file: &str,
 ) -> Result<()> {
     println!("🏗️  Building static site");
     let report = crate::site::build_site(&crate::site::SiteOptions {
@@ -409,6 +444,7 @@ fn run_build_site(
         base_url: base_url.to_string(),
         static_dir: static_dir.into(),
         book_dir: Some(book_dir.into()),
+        citations_file: Some(citations_file.into()),
     })?;
 
     println!(

@@ -49,3 +49,7 @@ run.sh
 /docs/book/
 # Generated static site (built by `qindex build-site`, deployed by CI)
 /site/
+
+# Paper list exported for S2AG matching (`qindex export-papers`); regenerable
+/cache/citations/papers.jsonl
+__pycache__/

@@ -175,22 +175,36 @@ python3 scripts/sort_papers_by_year.py
 ## S2AG Citation Data Integration (2025-08-14)
 
 ### Downloaded Data Status
-- **Papers dataset**: 32 files downloaded (~48GB)
+- **Papers dataset**: 32 files downloaded (~27GB, release 2025-08-08; one file is truncated)
 - **Citations dataset**: 122 files downloaded (~90GB)  
 - **Total downloaded**: 138GB from Semantic Scholar Academic Graph (S2AG)
 - **Location**: `data/s2ag/`
 
-### Citation Integration Results
-- Successfully matched **731 papers** from BibTeX with S2AG data
-- Found **41,468 total citations** for matched papers
-- Extracted **285 citation relationships** between papers
-- Top cited paper: FlashAttention-2 with 1,456 citations
+### Citation Counts (rebuilt 2026-10-08)
+Per-paper citation counts on the site come from `cache/citations/s2ag_paper_citations.json`,
+keyed by our paper ids (exact lookups in `src/s2ag_citations.rs`, no fuzzy matching).
+- **16,462 / 19,954 papers matched (82.5%)**: 97% of papers with a DOI, 48% of papers
+  without one (USENIX venues, NeurIPS, ICML have no DOIs and can only be title-matched)
+- The no-DOI gap is the 28 S2AG papers files never downloaded; closing it needs the
+  API key (title-match API, or downloading the full papers dataset)
+- Scholar/venue citation totals and h-indexes on the site are computed from these
+  per-paper counts (each S2 corpus id counted once); QIndex/PageRank are unchanged
 
-### Key Files Created
-- `cache/citations/s2ag_citations.json` - Citation counts for papers
-- `cache/citations/s2ag_citation_graph.json` - Citation relationships
-- `cache/citations/s2ag_id_mapping.json` - Mapping of paper IDs
-- `cache/citations/s2ag_summary.json` - Summary statistics
+```bash
+# Rebuild the matches (rerun after adding papers to bib/)
+./target/release/qindex export-papers                # -> cache/citations/papers.jsonl
+python3 -I scripts/match_s2ag.py scan                # local S2AG files -> corpus ids (few min)
+python3 -I scripts/match_s2ag.py resolve             # Graph API batch -> current counts
+# With a key, also title-match papers missing from the local files (~1 req/s):
+S2_API_KEY="$S2_API_KEY" python3 -I scripts/match_s2ag.py resolve --title-match
+```
+Intermediate results are cached in `data/s2ag/work/` (gitignored), so reruns only fetch
+what's new. Commit the updated `cache/citations/s2ag_paper_citations.json` — CI builds
+the site from it.
+
+`scripts/parse_s2ag.py` and its outputs (`s2ag_citations.json`, `s2ag_id_mapping.json`,
+`s2ag_citation_graph.json`, `s2ag_summary.json`) are superseded: they matched only 731
+papers and the site no longer reads them.
 
 ### S2AG Scripts
 ```bash
@@ -199,18 +213,9 @@ python3 scripts/sort_papers_by_year.py
 S2_API_KEY="$S2_API_KEY" python3 scripts/download_s2ag.py --dataset papers
 S2_API_KEY="$S2_API_KEY" python3 scripts/download_s2ag.py --dataset citations
 
-# Parse downloaded S2AG data
-python3 scripts/parse_s2ag.py
-
 # Monitor download progress
 python3 scripts/monitor_s2ag_download.py
 ```
-
-### Rust Integration
-- Added `src/s2ag_citations.rs` module to load S2AG citation data
-- `src/site/templates.rs` shows real citation counts (S2AG, falling back to internal)
-- Citation data is loaded when the static site is built
-- Real citation counts displayed on venue and scholar pages
 
 ### API Key
 The Semantic Scholar API key is read from the `S2_API_KEY` environment variable.
