@@ -36,8 +36,11 @@ these steps in order:
    `get_top_scholars(usize::MAX, None)` (`src/site/mod.rs`). As on the old
    web path, `load_citation_cache` is not called, so the prestige fallback
    produces the venue scores (Chapter 5).
-3. Look up a citation count for every paper (`paper_citations`,
-   `src/site/mod.rs`; see "Per-paper citation display" below).
+   Before that, load the S2AG citation counts (`S2agCitations::load` on
+   `SiteOptions::citations_file`); after it, overwrite each scholar ranking's
+   `h_index` and `citation_count` with values derived from those counts.
+3. Wrap the counts in `Citations` (`src/site/mod.rs`), which every page and
+   JSON file uses for citation figures (see "Citation display (S2AG)" below).
 4. Build a `Ctx` (link builder; see "URLs and the base path"), then clear and
    recreate the output directory (`prepare_out_dir`, `src/site/mod.rs`).
 5. Write the pre-rendered HTML pages, then every venue page, then the scholar
@@ -147,8 +150,9 @@ the footer, and the asset links. The `page` argument is written to
 behaviour to run.
 
 **Dashboard (`index.html`).** `index_page` (`src/site/templates.rs`)
-renders the four total cards (papers, venues, scholars, and
-`total_citations = graph.edges.len()`), the top 10 venues by PageRank, the top
+renders the four total cards (papers, venues, scholars, and the dataset's total
+citations — the sum of the per-paper S2AG counts, each Semantic Scholar paper
+once), the top 10 venues by PageRank, the top
 10 scholars by QIndex, and the "Venue Distribution by Field" bar chart. The old
 homepage was an empty shell that fetched `/api/homepage` and `/api/stats/fields`
 after load; now everything is in the HTML. The chart data — paper counts per
@@ -169,8 +173,9 @@ renumbers the visible ranks. If nothing matches it shows "No venues match these
 filters."
 
 **Venue pages (`venue/<slug>/…`).** `write_venue_pages`
-(`src/site/mod.rs`) sorts each venue's papers newest first, sums
-`cited_by.len()` into a total-citations figure, counts papers per author for a
+(`src/site/mod.rs`) sorts each venue's papers newest first, sums their displayed
+citation counts into a total-citations figure (`Citations::total`, each Semantic
+Scholar paper once), counts papers per author for a
 top-10 author list (ties broken alphabetically so builds are deterministic), and
 writes one page per 20 papers. `venue_detail_page` (`src/site/templates.rs`)
 renders the header stats, the top authors, the papers, and the pagination bar;
@@ -188,7 +193,9 @@ graph.
 
 **Scholars (`scholars/`).** `scholars_page` (`src/site/templates.rs`)
 renders the top 100 scholars by QIndex (the old page showed 50 by default) with
-QIndex, h-index, CSRankings paper count, citation count, and top venues. Rows
+QIndex, h-index, CSRankings paper count, citation count, and top venues. The
+h-index and citation count are derived from the per-paper S2AG counts over all
+of the scholar's papers (see "Citation display" below); the order is QIndex. Rows
 carry `data-papers`; `initScholarFilters` (`static/app.js`) applies an
 optional `?min_papers=` filter and renumbers the ranks. The old server had no
 form for this parameter, and neither does the static page; it is reachable by
@@ -197,9 +204,9 @@ URL only.
 **Statistics (`statistics/`).** `statistics_page` (`src/site/templates.rs`)
 renders the same tables as before from `statistics_data`
 (`src/site/mod.rs`): totals, the ten most recent years by paper count,
-the ten largest venues, and the ten "most cited" papers by `cited_by.len()`.
-Because `graph.edges` is empty (Chapters 3 and 6), the citation total is 0 and
-the most-cited table degenerates to ties at zero, broken alphabetically by title.
+the ten largest venues, and the ten most cited papers by their displayed citation
+count (`Citations::of`), ties broken alphabetically by title. Duplicate BibTeX
+entries for the same paper each appear in that list.
 
 **About (`about/`) and 404.** `about_page` (`src/site/templates.rs`)
 keeps the old static content and adds an "Open Data" card (`id="open-data"`,
@@ -243,7 +250,8 @@ an empty `#scholar-root`. `renderScholarPage` (`static/app.js`) computes
 the scholar's shard (see "Scholar shards" below), fetches
 `data/scholars/<shard>.json`, looks up the id, and renders the profile with the
 same layout as the old server's scholar page: affiliation, paper count, citation
-count, h-index, a venues list, and the publications, 20 per page, with the same
+count and h-index (both from S2AG counts), a venues list, and the publications,
+20 per page, with the same
 pagination window as the Rust template (`paginationHtml`,
 `static/app.js`). It updates `document.title` and the breadcrumb, and it
 shows "Scholar not found." for an unknown id or "No scholar selected." when `id`
@@ -265,7 +273,10 @@ envelope any more: each file is the bare value.
 
 `data/stats.json` (`stats_json`, `src/site/mod.rs`) has the same fields
 as the `Statistics` payload the old `/api/stats` wrapped in its envelope; the
-three maps are now `BTreeMap`s, so their keys come out sorted.
+three maps are now `BTreeMap`s, so their keys come out sorted, and
+`total_citations` is now the S2AG-based total (about 1.8 million on the
+reference build) instead of `graph.edges.len()`, which is always 0.
+`data/scholars.json`'s `h_index` and `citation_count` are S2AG-based as well.
 
 ### `data/search-index.json`
 
@@ -275,7 +286,7 @@ three maps are now `BTreeMap`s, so their keys come out sorted.
 {
   "venues":   [ { "id": "SOSP", "name": "SOSP", "full_name": "...", "field": "Operating Systems",
                   "tier": "A*", "pagerank": 0.12, "url": "venue/sosp/" }, ... ],
-  "scholars": [ [ "ion_stoica", "Ion Stoica", 61.2345, 0, 114 ], ... ]
+  "scholars": [ [ "ion_stoica", "Ion Stoica", 61.2345, 42, 114 ], ... ]
 }
 ```
 
@@ -284,7 +295,8 @@ PageRank, with `pagerank` taken from the computed rankings (0 for venues outside
 the CSRankings list) and `url` relative to the base. `scholars` covers every
 scholar as a compact `[id, name, qindex, h_index, paper_count]` array — about
 44,000 of them, so the array form saves a lot over objects — sorted by QIndex
-descending, then id. `qindex` is rounded to four decimals; `paper_count` is the
+descending, then id. `qindex` is rounded to four decimals; `h_index` is the
+S2AG-based one shown on the profile; `paper_count` is the
 scholar's total paper count, as on the old search page. On the reference corpus
 the file is about 2.0 MB, or about 0.73 MB gzip-compressed as GitHub Pages
 serves it.
@@ -300,12 +312,12 @@ split across 256 files named by two hex digits (`data/scholars/00.json` …
   "name": "Ion Stoica",
   "affiliations": [ ... ],          // omitted when empty
   "qindex": 61.2345,
-  "h_index": 0,
-  "citations": 0,                   // internal cited_by, summed over all papers
+  "h_index": 42,                    // from the papers' citation counts
+  "citations": 25929,               // displayed counts summed, each S2 paper once
   "venues": [ [ "NSDI", 30 ], ... ],// venue name, paper count; most papers first
   "papers": [                       // newest first
     { "title": "...", "venue": "NSDI", "year": 2024, "citations": 12,
-      "s2ag": true,                 // omitted when false
+      "s2ag": true,                 // omitted when false (citations is then internal)
       "first_author": "...",        // for the Google Scholar link
       "doi": "...",                 // omitted when absent
       "publisher_url": "..." }      // omitted when there is a DOI
@@ -360,49 +372,52 @@ dispatches on `document.body.dataset.page` to `initVenueFilters`,
 `exportData()` (which targeted `?format=` parameters no route honored) and the
 `fetch`-monkeypatching loading indicator were removed.
 
-## Per-paper citation display (S2AG)
+## Citation display (S2AG)
 
 Every paper on a venue page or scholar profile shows one citation number with its
-source. The number is decided once, at build time, by `paper_citations`
-(`src/site/mod.rs`): it calls `s2ag_citations::get_citation_count(title)`
-for every paper (in parallel with rayon) and records the S2AG count when it is
-non-zero, otherwise the internal `cited_by.len()`. Venue pages render this in
-Rust; scholar shards store it as `citations` plus an `s2ag` flag, and `app.js`
-renders it the same way:
+source, decided once at build time by `Citations::of` (`src/site/mod.rs`). The
+counts come from `cache/citations/s2ag_paper_citations.json`, produced offline by
+`scripts/match_s2ag.py` and keyed by paper id (Chapter 6); `build_site` loads it
+with `S2agCitations::load` from `SiteOptions::citations_file` (the
+`--citations-file` flag, default `cache/citations/s2ag_paper_citations.json`)
+and looks each paper up by id — no title matching happens at build time. Venue
+pages render the result in Rust (`paper_item`, `src/site/templates.rs`); scholar
+shards store it as `citations` plus an `s2ag` flag, and `paperHtml`
+(`static/app.js`) renders it with the same wording:
 
 ```text
-Citations: N (S2AG)        when the S2AG lookup found the paper
-Citations: N (internal)    otherwise (N = cited_by.len(), currently always 0)
+Citations: N (S2AG)        the paper was matched in Semantic Scholar
+Citations: N (internal)    not matched, but cited inside the dataset (never today)
+Citations: n/a             not matched and no internal citations
 ```
 
-The backing store is still the global `Lazy<RwLock<S2AGCitationIndex>>`
-(`src/s2ag_citations.rs:152`), which loads `cache/citations/s2ag_citations.json`
-from a hardcoded relative path on first access. The build must therefore run from
-the repository root; anywhere else the index loads empty and every paper falls
-back to `(internal)` without an error. The lookup (`src/s2ag_citations.rs:71-148`)
-tries an exact match on the normalized title and otherwise scans every entry with
-`titles_match` (substring containment or more than 70% significant-word overlap).
-That scan used to run for every paper on every detail-page request. It now runs
-once per paper per build. Its generosity is visible in the output: about 23,900
-of the 92,400 paper entries in the shards carry an S2AG count, far more than the
-731 entries in the S2AG file, so some matches are surely loose. See Chapter 6 for
-the matching rules.
+The aggregates are computed from these same per-paper numbers:
+`Citations::total` and `Citations::h_index` sum or h-index a set of papers,
+taking each Semantic Scholar corpus id once (`distinct_counts`), so duplicate
+BibTeX entries for the same paper are not counted twice. They feed the scholar
+shards, the top-scholars table and `data/scholars.json` (`build_site` overwrites
+each `ScholarRanking`'s `h_index` and `citation_count`), the search index's
+`h_index`, venue totals, the dashboard and statistics totals, and
+`data/stats.json`. The QIndex scores and the ranking order are not affected.
 
-### Two citation totals, two sources
+The default path is relative, so the build should run from the repository root;
+anywhere else the file is not found, a warning is logged, and every paper shows
+"n/a" without the build failing. On the reference build 16,462 of 19,954 papers
+have an S2AG count; the unmatched remainder is mostly DOI-less USENIX and ML
+papers (Chapter 6).
 
-"Total citations" still means different things in different places, though one
-of the three sources the server used is gone:
+### One source for every citation figure
 
-| Surface | Source | Code |
-|---------|--------|------|
-| dashboard card, `statistics/`, `data/stats.json` | `graph.edges.len()` (internal, 0 today) | `src/site/mod.rs` |
-| per paper on venue pages and scholar profiles | S2AG count from `s2ag_citations.json`, else `cited_by.len()` | `src/site/mod.rs` |
-
-The third source, the DBLP/OpenAlex `combined_cache.json` summed by the old
-`/api/citation-status` endpoint, is no longer read by any Rust code. That
-endpoint — a process monitor that shelled out to `ps aux` and reported several
-hardcoded placeholder metrics — was dropped, since a static site has no running
-fetch process to observe.
+The server showed citation numbers from three unrelated sources: an internal
+`graph.edges.len()` total (always 0) on the dashboard and statistics page,
+per-paper S2AG counts from a fuzzy title match, and a DBLP/OpenAlex total on
+`/api/citation-status`. Every citation figure on the site now comes from the
+S2AG per-paper counts, so the dashboard total, a venue's total, and a scholar's
+total are consistent with the numbers listed against each paper. The DBLP/OpenAlex
+`combined_cache.json` is no longer read by any Rust code, and the
+`/api/citation-status` endpoint — a process monitor that shelled out to `ps aux`
+and reported several hardcoded placeholder metrics — was dropped, since a static
+site has no running fetch process to observe.
 
 ## Behaviour changes from the server
 
@@ -411,8 +426,11 @@ Most pages look and behave as before. The differences, all deliberate:
 - **Scores are the computed ones.** The server's search results and scholar
   pages read `Scholar.qindex`, `Scholar.h_index`, and `Venue.pagerank` from the
   graph, which the calculator never fills in, so they always showed 0. The site
-  uses the computed rankings everywhere (Chapter 7). h-index is still 0 because
-  the corpus has no internal citation edges.
+  uses the computed rankings everywhere (Chapter 7).
+- **Citation figures come from Semantic Scholar.** Citation totals and h-indices
+  are derived from the per-paper S2AG counts (the algorithm's own are always 0,
+  because the corpus has no internal citation edges), and an unmatched paper
+  shows "n/a" rather than a misleading 0.
 - **Author names link to scholar profiles** on venue pages.
 - **Venue URLs use slugs** (`venue/sosp/`) instead of internal ids.
 - **Page sizes are fixed** at 20 papers; `per_page` and `limit` parameters are
@@ -445,8 +463,9 @@ search and scholar profiles are rendered in the browser from a search index and
 Every link goes through one base path, so the same build logic serves a GitHub
 Pages project site under `/q-index/` or a local preview at `/`. The honest
 caveats carried over from the server era still apply: venue scores come from the
-prestige fallback because the citation cache is not loaded, graph-based citation
-totals are zero, and the only non-zero per-paper citation numbers come from the
-separate, loosely matched S2AG index. What is gone is the server's operational
+prestige fallback because the citation cache is not loaded, and the ranking sees
+no citations at all. The citation figures the site displays are now consistent
+with each other, all derived from per-paper Semantic Scholar counts matched
+offline by DOI or title. What is gone is the server's operational
 risk — panicking handlers, lock poisoning, the shell-out, and the stale-cache
 window — along with any need to run, secure, or monitor a process.

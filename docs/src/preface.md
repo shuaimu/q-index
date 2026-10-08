@@ -20,8 +20,9 @@ recur throughout the text, are:
   per-paper citations), so the PageRank power iteration does not run on real data. Venue
   scores are produced today by a **prestige-based fallback**, not by PageRank. See
   Chapter 5, *The Ranking Algorithm*.
-- The Semantic Scholar (S2AG) integration supplies **per-paper citation counts** to the
-  website, but its extracted citation *graph* is effectively empty, so it does not feed the
+- The Semantic Scholar (S2AG) integration supplies **citation counts** for about 82 percent
+  of papers, from which every citation figure on the website (including scholars' h-indices)
+  is derived, but no citation *graph* was extracted from it, so it does not feed the
   ranking algorithm. See Chapter 6, *Citation Data Integration*.
 - The website and the CLI can produce different scores because they load citation
   data differently. See Chapter 8, *The Static Website and Its Data Files*.

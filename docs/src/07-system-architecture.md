@@ -44,7 +44,7 @@ library and as the `qindex` binary. The modules and their responsibilities:
 | `parser` | `src/parser.rs` | `BibParser` — reads `*.bib`, parses entries, builds the `CitationGraph`. |
 | `algorithm` | `src/algorithm.rs` | `PageRankCalculator` — venue PageRank, scholar QIndex, h-index; CSRankings venue allowlist. |
 | `citations` | `src/citations.rs` | Legacy async Semantic Scholar / CrossRef fetcher (`CitationFetcher`). Effectively unused for display today. |
-| `s2ag_citations` | `src/s2ag_citations.rs` | Loads `cache/citations/s2ag_citations.json`; serves per-paper citation counts via a global `RwLock`. |
+| `s2ag_citations` | `src/s2ag_citations.rs` | `S2agCitations::load` — reads `cache/citations/s2ag_paper_citations.json` (S2AG counts keyed by paper id) for exact lookups. |
 | `export` | `src/export.rs` | JSON / CSV export of rankings (`Exporter`). |
 | `cli` | `src/cli.rs` | `clap`-derive command definitions (`Cli`, `Commands`). |
 | `utils` | `src/utils.rs` | Shared helper functions. |
@@ -69,10 +69,10 @@ over `IndexMap`s in `src/algorithm.rs`, and the graph is the project's own
 `CitationGraph` rather than a `petgraph` type. An extender should treat these as
 available-but-unused rather than as load-bearing. (Removing them would shorten
 the dependency tree; see Chapter 11, "Limitations, Known Issues, and Roadmap.")
-`rayon` (`Cargo.toml:55`), previously in the same category, now has exactly one
-call site: the site generator's per-paper citation lookup
-(`paper_citations`, `src/site/mod.rs`) uses `par_iter`. The ranking
-itself remains sequential.
+`rayon` (`Cargo.toml:55`) is now in the same category. It briefly had one call
+site — a parallel per-paper fuzzy S2AG lookup in the site generator — but S2AG
+counts are now exact `HashMap` lookups by paper id (Chapter 6), so nothing calls
+`par_iter` any more. The ranking itself was always sequential.
 
 Two modules are stubs. `paper_finder` returns `Ok(None)` from `find_acm_paper`
 (`src/paper_finder.rs:147-156`) and `find_on_author_page`
@@ -117,7 +117,8 @@ into files.
                   PageRankCalculator::new(&graph).calculate()
                     (load_citation_cache NOT called)
                   get_top_venues(all) / get_top_scholars(all)
-                  paper_citations: S2AG count per paper (rayon)
+                  Citations: S2agCitations::load(s2ag_paper_citations.json)
+                    → per-paper counts; scholar/venue totals and h-indices
                     │
                     ├── templates.rs → HTML pages   (index, venues, venue/*, …)
                     ├── data/*.json                (search index, rankings, stats)
@@ -157,9 +158,8 @@ documents both the intended PageRank path and the fallback that actually runs.
 The runtime numbers observed in the reference session reflect this pipeline:
 the `bib/` corpus parses to roughly 19,954 papers, 44 venues, and about 43,942
 scholars (`qindex stats`, and `total_*` in the generated `data/stats.json`),
-and `data/stats.json` reports `total_citations = 0` because it is
-`graph.edges.len()` and the edge list is empty. These are observed values, not
-targets, and they will drift as the corpus changes.
+with zero internal citation edges. These are observed values, not targets, and
+they will drift as the corpus changes.
 
 ### Computed scores are now what the pages show
 
@@ -171,27 +171,30 @@ fields of the graph. The old server's search results and scholar detail pages
 read those graph fields, so they always showed 0. The site generator instead
 looks every venue and scholar up in the computed rankings
 (`venue_rank_by_id`, `scholar_by_id`, `src/site/mod.rs`) when it builds
-the search index and the scholar shards. Because internal citation edges are 0
-in the current corpus, h-index (which counts `cited_by`) is still 0 everywhere;
-QIndex and PageRank values are non-zero.
+the search index and the scholar shards. The rankings' own h-index (which
+counts `cited_by`) is still 0, because internal citation edges are 0 in the
+current corpus; the site replaces it, and each scholar's citation total, with
+values derived from the S2AG per-paper counts described next. QIndex and
+PageRank values are shown as computed.
 
 ### A separate, parallel citation path
 
-The per-paper citation *counts* shown on venue and scholar pages do not come
-from the graph at all. They come from `s2ag_citations`, which loads
-`cache/citations/s2ag_citations.json` — a committed artifact of roughly 731
-papers matched to Semantic Scholar with about 41,468 total citations — into a
-global `Lazy<RwLock<S2AGCitationIndex>>` (`src/s2ag_citations.rs:152`). At build
-time `paper_citations` (`src/site/mod.rs`) asks it for every paper once,
-recording `PaperCitations { count, s2ag }`: the S2AG count when the lookup is
-non-zero, otherwise `paper.cited_by.len()`, which is zero. Pages render this as
-`"N (S2AG)"` or `"N (internal)"`. This is a wholly separate ingestion path from
-the BibTeX graph; the S2AG *graph* file (`s2ag_citation_graph.json`) is
-effectively empty (one or two edges) and feeds nothing. The result is that
-"total citations" figures computed over the graph (`data/stats.json`, the
-dashboard, `/statistics/`) and the per-paper S2AG numbers are computed over
-different paper sets and will not agree. Chapter 6 lays out these competing
-pipelines in full.
+The citation numbers shown on the site do not come from the graph at all. An
+offline pipeline (`qindex export-papers`, then `scripts/match_s2ag.py`) matches
+each parsed paper to Semantic Scholar and commits
+`cache/citations/s2ag_paper_citations.json`, keyed by paper id (16,462 of 19,954
+papers matched). `build_site` loads it through `S2agCitations::load` (path from
+`SiteOptions::citations_file`) and wraps it in `Citations` (`src/site/mod.rs`):
+`Citations::of(paper)` is an exact `HashMap` lookup returning
+`PaperCitations { count, s2ag }` — the S2AG count when the paper was matched,
+otherwise `paper.cited_by.len()`, which is zero. Pages render this as
+`"N (S2AG)"`, or `"n/a"` for an unmatched paper. Every aggregate the site shows —
+scholar totals and h-indices, venue totals, `data/stats.json`'s
+`total_citations`, the dashboard and `/statistics/` — is derived from the same
+per-paper counts, counting each Semantic Scholar paper once, so the site's
+figures agree with one another. This is a wholly separate ingestion path from the
+BibTeX graph: no citation *graph* was extracted from S2AG, so the ranking
+algorithm still sees no citations. Chapter 6 describes the pipeline in full.
 
 ## 7.3 Key dependencies and rationale
 
@@ -211,17 +214,16 @@ dependencies that matter architecturally:
 | `reqwest` 0.11 (`json`) | HTTP client | Outbound calls in the citation/paper fetchers. |
 | `urlencoding` 2.1 | URLs | Encodes scholar ids into `scholar/?id=` links; also used by the fetchers. |
 | `walkdir` 2.4 | I/O | Recursive `*.bib` discovery; copying `static/` and the book into the output. |
-| `rayon` 1.8 | Parallelism | Parallel per-paper S2AG lookups during the site build. |
 | `regex` 1.10 | Parsing | `@string` extraction and venue cleanup. |
 | `chrono` 0.4 (`serde`) | Time | Timestamps on metrics, export metadata, the build date in the site footer. |
 | `indicatif` 0.17 | UX | Per-file parse progress bars. |
 | `comfy-table` 7.1, `colored` 2.1 | CLI output | Terminal tables and colored text. |
 | `anyhow` / `thiserror` | Errors | Application and typed errors. |
-| `once_cell` 1.19 | State | `Lazy` for the global S2AG index. |
-| `petgraph`, `ndarray` | (declared, unused) | Intended graph/matrix support; no call sites. |
+| `petgraph`, `ndarray`, `rayon`, `lazy_static` | (declared, unused) | Intended graph/matrix support and parallelism; no call sites. |
 
 `actix-web`, `actix-files`, `actix-session`, `futures`, and `mime` were removed
-with the server, and `maud` no longer enables its `actix-web` feature. The
+with the server, and `maud` no longer enables its `actix-web` feature. `once_cell`
+went with the global S2AG index it backed. The
 browser-side libraries — Bootstrap 5.3, Bootstrap Icons, and Chart.js 4.4 — are
 not Rust dependencies at all; the page template links them from the jsDelivr
 CDN (`src/site/templates.rs`).
@@ -254,13 +256,12 @@ runtime construction.
 `build_site` (`src/site/mod.rs`) is a straight-line batch computation.
 It parses the corpus once, runs `PageRankCalculator::calculate()` once
 (propagating any error with `?`, where the old server discarded it with
-`.ok()`), and then writes files sequentially. The only parallel section is
-`paper_citations`, which fans the S2AG title lookups out over rayon's global
-thread pool. Those workers share the global `S2AG_CITATIONS` index through its
-`RwLock`, taking only read locks, so they do not contend. Doing the lookup once
-per paper at build time also removes the old per-render cost: the fuzzy title
-match is a linear scan of the S2AG index on a miss (Chapter 6), which the
-server used to repeat for every paper on every detail-page request.
+`.ok()`), and then writes files sequentially, with no parallel section. S2AG
+citation counts are loaded once from `s2ag_paper_citations.json` into a plain
+`HashMap` owned by the build (`Citations`), and every lookup is an exact hit by
+paper id; the old global `Lazy<RwLock<…>>` index and its linear fuzzy-title scan,
+which the server repeated for every paper on every detail-page request, are
+gone (Chapter 6).
 
 There is no shared mutable state to protect after the build. The old server's
 `AppState`, its `APP_STATE` `OnceCell`, the `RwLock`-guarded graph, and the

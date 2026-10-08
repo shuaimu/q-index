@@ -13,8 +13,9 @@ gives the project its name; from here on, "QIndex" without qualification refers
 to the project, while "the scholar QIndex" or "the QIndex score" refers to the
 per-author metric. One caveat is worth carrying into the design exposition: the
 running system does not yet populate the venue citation graph, so a prestige
-fallback currently stands in for PageRank and the h-index is largely zero for
-want of per-paper citation counts — the implementation-reference sections below
+fallback currently stands in for PageRank and the algorithm's h-index is zero for
+want of per-paper citation counts (the website displays an h-index computed from
+Semantic Scholar counts instead) — the implementation-reference sections below
 give the exact equations for what runs today. For how citation data is (and is
 not) wired in, see Chapter 6, *Citation Data Integration*; for the data model the
 algorithm consumes, see Chapter 3, *The Data Model*.
@@ -459,14 +460,18 @@ $$
 breaking on the first failure. There are two important caveats:
 
 1. **Every h-index is 0 today.** `cited_by` is empty for every paper
-   (Section 5.2), so all counts are 0 and `h = 0` for all scholars.
+   (Section 5.2), so all counts are 0 and `h = 0` for all scholars. (The
+   h-indices on the website are not these; see item 2.)
 2. **The computed h-index is discarded.** `calculate_h_indices`
    (`src/algorithm.rs:478-484`) calls `calculate_scholar_h_index` and writes the
    result only to a `debug!` log — it never stores it back on the `Scholar`.
    The `Scholar.h_index` field stays at its parser-initialized `0`
-   (`src/parser.rs`). The CLI rankings and the website recompute the h-index on demand in
+   (`src/parser.rs`). The CLI rankings recompute the h-index on demand in
    `get_top_scholars` (`src/algorithm.rs:544-620`), which is still `0` for the
-   same `cited_by` reason. A second standalone free function
+   same `cited_by` reason. The website does not use that value: `build_site`
+   overwrites each ranking's `h_index` and `citation_count` with figures derived
+   from the per-paper S2AG counts (`Citations` in `src/site/mod.rs`, Chapter 6),
+   leaving the QIndex scores and ranking order untouched. A second standalone free function
    `calculate_h_index` (`src/algorithm.rs:631-651`) counts **all** papers
    without the CSRankings filter and is unused dead code.
 
@@ -503,8 +508,9 @@ cache. The CLI commands `calculate`, `venues`, `scholars`, and `search` call it
 with the hardcoded path `./cache/citations.json`
 (`src/main.rs:89, 118, 136, 154`). **That singular file does not exist** — the
 repository has only a `cache/citations/` directory containing other JSON files
-(`citation_data.json`, `combined_cache.json`, `s2ag_citations.json`, and an
-effectively empty `citation_graph.json`). So even on the CLI path the cache is
+(`citation_data.json`, `combined_cache.json`, `s2ag_paper_citations.json`, and
+an effectively empty `citation_graph.json`; none of them is in the
+`CitationCache` format). So even on the CLI path the cache is
 never loaded, `has_cached_citations` is false, and the prestige fallback runs.
 
 The site generator is different and even more decisive: `build_site`
@@ -512,10 +518,12 @@ The site generator is different and even more decisive: `build_site`
 `calculate()` **without ever calling `load_citation_cache`**, as the removed web
 server did before it. The published rankings are therefore always computed from
 the in-memory BibTeX graph (empty edges → prestige fallback), and can differ from
-a future CLI run that does load a cache. This divergence, and the relative-path
-requirement (the build must run from the repo root or the S2AG cache path
-resolves to nothing), are covered further in Chapter 8, *The Static Website and
-Its Data Files*.
+a future CLI run that does load a cache. The S2AG counts the site build loads
+(`--citations-file`, Chapter 6) are used only for display — citation totals and
+h-indices — never as ranking input. This divergence, and the relative-path
+defaults (run the build from the repo root, or the S2AG file is not found and
+every paper shows "n/a"), are covered further in Chapter 8, *The Static Website
+and Its Data Files*.
 
 ## 5.10 Summary: intended vs. actual
 
@@ -525,7 +533,7 @@ Its Data Files*.
 | Venue score | PageRank power iteration, `d=0.85`, tol `1e-6` | prestige fallback: `ln(papers+1)/10 × (CSR?2:1) + name-jitter` |
 | Tier bonus | multiply by tier, re-normalize | same (active) |
 | Scholar QIndex | `Σ venuescore·decay·pos`, ×`ln(papers+1)`, 0–100 | active, but over fallback venue scores; 2024 ref-year frozen |
-| H-index | CSRankings-filtered citation h-index | always 0 (`cited_by` empty); also discarded after compute |
+| H-index | CSRankings-filtered citation h-index | always 0 (`cited_by` empty); also discarded after compute. The website instead shows an h-index over all of a scholar's papers from S2AG counts (Chapter 6). |
 
 The honest reading: QIndex today is a **prestige-and-volume ranking dressed in
 PageRank vocabulary.** The graph machinery, the power-iteration equation, and

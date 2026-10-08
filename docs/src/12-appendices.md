@@ -14,53 +14,61 @@ aspirational, it is labelled as such rather than presented as working.
 ## Appendix A: cache/citations JSON file formats
 
 Every file discussed here lives under `cache/citations/`. The directory is
-committed to the repository; the multi-gigabyte raw S2AG bulk download under
-`data/` is gitignored and is *not* the subject of this appendix. Several of
-these files are produced by competing Python pipelines (see Chapter 6,
-"Citation Data Integration") and only one of them is read by Rust:
-`s2ag_citations.json` (per-paper counts, `src/s2ag_citations.rs:152`, read when
-the static site is built). `combined_cache.json` was also read, by the removed
-web server's citation-status endpoint, until that server was replaced by the
-static site generator.
+committed to the repository; the multi-gigabyte raw S2AG bulk download and the
+S2AG matcher's work files under `data/` are gitignored and are *not* the subject
+of this appendix. Several of these files are produced by competing Python
+pipelines (see Chapter 6, "Citation Data Integration") and only one of them is
+read by Rust: `s2ag_paper_citations.json` (per-paper S2AG counts, loaded by
+`S2agCitations::load` in `src/s2ag_citations.rs` when the static site is built).
+`combined_cache.json` was also read, by the removed web server's citation-status
+endpoint, until that server was replaced by the static site generator.
 
-### A.1 `s2ag_citations.json` (consumed by Rust)
+### A.1 `s2ag_paper_citations.json` (consumed by Rust)
 
-A single JSON object mapping a *normalized title* to one S2AG record. The key
-is the title lowercased, reduced to alphanumerics and single spaces (no
-punctuation), matching `normalize_title` at `src/s2ag_citations.rs:108-116`.
-Each value deserializes into `S2AGCitationData` (`src/s2ag_citations.rs:9-26`);
-note the `abstract` JSON field is renamed to `abstract_text` because
-`abstract` is a Rust keyword (`src/s2ag_citations.rs:23-24`). The file holds
-731 entries.
+Written by `scripts/match_s2ag.py resolve` (Chapter 6). A JSON object with
+provenance fields and a `papers` map keyed by **paper id** — the cite key the
+Rust parser assigns, as exported by `qindex export-papers` — so the site build
+looks papers up exactly, with no title matching. 16,462 of 19,954 papers have an
+entry (about 3.3 MB).
 
 ```json
 {
-  "hang doctor runtime detection and diagnosis of soft hangs for smartphone apps": {
-    "title": "Hang Doctor: ...",
-    "year": "2016",
-    "venue": "eurosys",
-    "corpus_id": 4936200,
-    "s2ag_title": "Hang Doctor: ...",
-    "s2ag_year": 2016,
-    "doi": null,
-    "citation_count": 12,
-    "reference_count": 0,
-    "authors": ["..."],
-    "venue_info": null,
-    "fields": null,
-    "abstract": null,
-    "url": null
+  "generated": "2026-10-08",
+  "source": "Semantic Scholar Graph API citation counts; S2AG papers dataset for title matching",
+  "matched": 16462,
+  "total": 19954,
+  "by_method": { "local-doi": 6981, "local-title": 3171, "doi": 6310 },
+  "papers": {
+    "000110": {
+      "corpus_id": 50626,
+      "citations": 91,
+      "influential": 7,
+      "s2_title": "Higher-order multi-parameter tree transducers and recursion schemes for program verification",
+      "s2_year": 2010,
+      "match": "local-doi"
+    }
   }
 }
 ```
 
-The value above is illustrative in its numeric fields; the key form and field
-set are taken from the loader struct and observed data. `abstract` is
-frequently `null` in the actual file.
+`citations` is Semantic Scholar's `citationCount` at the `generated` date and
+`influential` its `influentialCitationCount`. `match` records how the paper was
+found: `doi` (Graph API lookup by DOI), `local-doi` or `local-title` (found in the
+downloaded S2AG `papers` files by DOI, or by normalized title and year within
+±1), or `api-title` (title-match endpoint; only with an API key).
+`src/s2ag_citations.rs` deserializes only `generated` and, per paper,
+`corpus_id` and `citations` (into `S2agPaper`); the rest is kept for auditing.
+`corpus_id` lets the site count duplicate BibTeX entries for the same paper once.
 
-### A.2 `s2ag_summary.json` (human-readable summary)
+### A.2 `s2ag_citations.json` and `s2ag_summary.json` (superseded)
 
-Aggregate statistics emitted by `scripts/parse_s2ag.py`. Top-level keys
+Outputs of the superseded `scripts/parse_s2ag.py`; no code reads them any more.
+`s2ag_citations.json` maps a normalized title to an S2AG record
+(`title`, `year`, `venue`, `corpus_id`, `s2ag_title`, `s2ag_year`, `doi`,
+`citation_count`, `reference_count`, `authors`, `venue_info`, `fields`,
+`abstract`, `url`) for 731 papers; the Rust site build used to fuzzy-match titles
+against it, which misattributed counts (Chapter 6, §6.3.3).
+`s2ag_summary.json` holds aggregate statistics. Top-level keys
 (confirmed from the file): `total_papers_matched`, `total_citations`,
 `papers_by_venue`, `citations_by_venue`, `top_cited_papers`.
 
@@ -77,9 +85,9 @@ Aggregate statistics emitted by `scripts/parse_s2ag.py`. Top-level keys
 }
 ```
 
-The values shown are the actual observed counts: 731 matched papers, 41,468
-total citations, top paper "Wait-free synchronization" (1,966). No Rust code
-reads this file; it exists for inspection.
+The values shown are the observed counts for that old extraction: 731 matched
+papers, 41,468 total citations, top paper "Wait-free synchronization" (1,966).
+No code reads this file.
 
 ### A.3 `combined_cache.json` (DBLP + OpenAlex; formerly consumed by Rust)
 
@@ -112,7 +120,7 @@ This is a verbatim entry from the committed file.
 
 | File | Shape | Count | Status |
 |---|---|---|---|
-| `s2ag_id_mapping.json` | `{normalized_title: corpus_id}` | 731 | read by no Rust |
+| `s2ag_id_mapping.json` | `{normalized_title: corpus_id}` | 731 | superseded (old `parse_s2ag.py`); read by nothing |
 | `s2ag_citation_graph.json` | `{corpus_id_str: {cites:[], cited_by:[]}}` | 190 nodes | orphan; only 1 cites + 1 cited_by edge total; written by no script |
 | `paper_cache.json` | `{md5: {title,authors,year,doi,ss_id,citation_count,venue,fetched_at}}` | 103 | read by no Rust (formerly the removed `/api/citation-status` fallback) |
 | `citation_data.json` | `{papers:[...], citations:[], metadata:{...}}` | 103 papers, 0 links | read by no Rust |
@@ -133,8 +141,8 @@ Honesty note: the citation *graph* artifacts are non-functional.
 `citation_graph.json` is `{}`, and `citation_data.json` reports
 `total_citation_links: 0`. The earlier "285 citation relationships" claim in
 `CLAUDE.md` is not reflected in any current artifact. Consequently S2AG feeds
-per-paper citation *counts* only, never the PageRank graph; see Chapter 5,
-"The Ranking Algorithm."
+citation *counts* only — every citation figure on the website — never the
+PageRank graph; see Chapter 5, "The Ranking Algorithm."
 
 ## Appendix B: BibTeX entry conventions
 
@@ -194,7 +202,7 @@ files. Entry-type totals across all files: 20,898 `@inproceedings`, 122
 
 | Variable | Used by | Default / notes |
 |---|---|---|
-| `S2_API_KEY` | `scripts/download_s2ag.py:258`, `scripts/fetch_citations_multi_api.py` | Semantic Scholar key; read via `os.environ.get('S2_API_KEY')`. No Rust code reads it. |
+| `S2_API_KEY` | `scripts/download_s2ag.py:258`, `scripts/fetch_citations_multi_api.py`, `scripts/match_s2ag.py` (`Api`) | Semantic Scholar key; read via `os.environ.get('S2_API_KEY')`. Required for the S2AG datasets download and `match_s2ag.py --title-match`; optional for its batch lookups. No Rust code reads it. |
 | `RUST_LOG` | `env_logger` in `main()` | Defaults to `info` (`src/main.rs:25`). |
 
 `.env.example` contains exactly the template `S2_API_KEY=your-api-key-here`.
@@ -224,13 +232,14 @@ working directory, so QIndex effectively must be run from the repository root.
 | `./static` | assets copied into the site's `static/` (`--static-dir`) | `src/cli.rs` (`BuildSite`) |
 | `./site` | site build output, replaced on every build (`--out-dir`) | `src/cli.rs` (`BuildSite`) |
 | `./docs/book` | rendered book copied to `book/` if present (`--book-dir`) | `src/cli.rs` (`BuildSite`) |
-| `cache/citations/s2ag_citations.json` | per-paper S2AG counts | `src/s2ag_citations.rs:152-163` (hardcoded relative) |
+| `cache/citations/s2ag_paper_citations.json` | S2AG citation counts keyed by paper id (`--citations-file`) | `s2ag_citations::DEFAULT_PATH`, `src/cli.rs` (`BuildSite`) |
+| `./cache/citations/papers.jsonl` | paper list for S2AG matching (`export-papers --output`) | `src/cli.rs` (`ExportPapers`) |
 | `./cache/citations.json` | citation cache for CLI `calculate`/`venues`/`scholars`/`search` | `src/main.rs:117` etc. (file does not exist; load is a silent no-op) |
 
 If `build-site` is run from any other directory with the default flags, it fails
 to find `./bib` and `./static`; with explicit `--bib-dir`/`--static-dir` it
-succeeds, but the hardcoded S2AG path loads an empty index silently and every
-paper shows an `(internal)` count of zero.
+succeeds, but unless `--citations-file` is also given the S2AG file is not
+found, a warning is logged, and every paper shows "Citations: n/a".
 
 ### C.4 Build configuration
 
@@ -238,7 +247,7 @@ paper shows an `(internal)` count of zero.
 treats QIndex as its own workspace root rather than walking up to
 `/home/users/shuai/Cargo.toml` (whose `members = ["crates/*"]` would reject
 QIndex). The release profile sets `lto = true`, `codegen-units = 1`,
-`opt-level = 3` (`Cargo.toml:80-83`), which favors runtime speed at the cost
+`opt-level = 3` (`Cargo.toml:79-82`), which favors runtime speed at the cost
 of slow link/codegen; for iteration use debug builds. See Chapter 10,
 "Building, Running, and Deployment."
 
@@ -272,8 +281,9 @@ of slow link/codegen; for iteration use debug builds. See Chapter 10,
   in `AlgorithmParams` (`src/models.rs:108-125`). The random surfer follows a
   link with probability `d` and jumps to a uniformly random node with
   probability `1-d`.
-- **S2AG.** Semantic Scholar Academic Graph; bulk-download corpus used to
-  fetch per-paper citation counts. Loaded by `src/s2ag_citations.rs`.
+- **S2AG.** Semantic Scholar Academic Graph; its bulk `papers` dataset and
+  Graph API are used by `scripts/match_s2ag.py` to match our papers and fetch
+  their citation counts, which `src/s2ag_citations.rs` loads at site-build time.
 - **OpenAlex.** Open scholarly catalog; one of two sources behind
   `combined_cache.json` (DBLP plus OpenAlex). Provides citation counts and
   work IDs.
@@ -295,12 +305,14 @@ not verifiable from the source tree.
 2. **h-index.** J. E. Hirsch, "An index to quantify an individual's
    scientific research output," *PNAS* (2005). Background for QIndex's
    h-index computation (`src/algorithm.rs:486-512`), which today returns 0
-   for all scholars because no `cited_by` data is populated.
+   for all scholars because no `cited_by` data is populated, and of the
+   website's S2AG-based h-index (`Citations::h_index`, `src/site/mod.rs`).
 3. **CSRankings.** E. Berger et al., CSRankings: Computer Science Rankings
    (csrankings.org). Source of the subarea taxonomy and venue allowlist that
    QIndex reproduces.
 4. **Semantic Scholar / S2AG.** Semantic Scholar Academic Graph and its bulk
-   datasets and API, Allen Institute for AI. Source of `s2ag_citations.json`.
+   datasets and API, Allen Institute for AI. Source of
+   `s2ag_paper_citations.json`.
    API access is keyed by `S2_API_KEY`.
 5. **OpenAlex.** OpenAlex, OurResearch — an open index of scholarly works.
    One of the two backends for `combined_cache.json`.

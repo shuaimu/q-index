@@ -189,11 +189,13 @@ roughly 43,942 scholars from the `bib/` corpus (`data/stats.json`). However, `Pa
 populated from any BibTeX field (`src/parser.rs:166`), so the venue-to-venue graph is
 empty, the PageRank power iteration is dead code at runtime, and venue scores come from
 the prestige fallback described in §1.2. Consequently every paper's internal `cited_by`
-is empty, so internally computed citation counts and h-indices are zero, and
-`data/stats.json` reports `total_citations = 0`. The one source of real per-paper citation numbers is the
-committed S2AG extract `cache/citations/s2ag_citations.json` (about 731 papers matched,
-~41,468 citations total), which the website displays per paper but which does **not** feed
-the ranking graph — its accompanying citation *graph* file is empty. The raw S2AG bulk
+is empty, so the ranking algorithm's own citation counts and h-indices are zero. The one
+source of real citation numbers is the committed S2AG match
+`cache/citations/s2ag_paper_citations.json` (16,462 of 19,954 papers matched to Semantic
+Scholar, by DOI or by title and year). The website derives every citation figure it shows
+from it — per paper, per scholar (total and h-index), per venue, and the dataset total in
+`data/stats.json` — but it does **not** feed the ranking graph, and no citation *graph*
+was ever extracted (Chapter 6). The raw S2AG bulk
 download lives under `data/` and is gitignored; only the small derived JSON caches are
 committed. Other subsystems are explicitly stubbed: `extract-papers` does not extract
 references (PDF extraction returns an empty vector, `src/paper_extractor.rs:374-382`) and

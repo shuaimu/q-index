@@ -66,11 +66,12 @@ limitations are tracked in
 When this corpus is parsed, `qindex stats` and the site's `data/stats.json` report
 roughly 19,954 papers, 44 venues, and 43,942 scholars. The gap between 49 files
 and 44 venues, and between ~21,000 entries and ~19,954 papers, is explained in
-Sections 4.4 and 4.5. The same statistics report `total_citations = 0`, because
-the in-memory citation graph is essentially empty — `CitationGraph.edges` is
-initialized empty and never populated by the parser path
-(`src/models.rs:174-192`). Citation *counts* shown per paper come from a separate
-S2AG cache, not from this corpus; that path is detailed in Chapter 6.
+Sections 4.4 and 4.5. The corpus itself carries no citations: the in-memory
+citation graph is essentially empty — `CitationGraph.edges` is initialized empty
+and never populated by the parser path (`src/models.rs:174-192`). The citation
+figures the website shows, including `total_citations` in `data/stats.json`, come
+from a separate S2AG match, not from this corpus; that path is detailed in
+Chapter 6.
 
 ## 4.2 Special files
 
@@ -240,11 +241,13 @@ are therefore name-derived identities, not verified individuals.
 edges. `Paper.citations` is initialized empty and never written from any BibTeX
 field, so `Paper.cited_by` also stays empty through the parser path, and the
 `CitationGraph.edges` vector is never populated. Any citation information must
-come from an external source. The committed S2AG cache
-(`cache/citations/s2ag_citations.json`) supplies per-paper *counts* for about
-731 matched papers (~41,468 citations total), and these are shown on the website;
-but the corresponding citation *graph* is effectively empty, so it feeds counts,
-not edges. That integration — including why the rankings fall back to a
+come from an external source. The committed S2AG match
+(`cache/citations/s2ag_paper_citations.json`) supplies per-paper *counts* for
+16,462 of the ~19,954 papers, keyed by the same paper ids (cite keys) this corpus
+defines, and these drive every citation figure on the website. Matching relies on
+each entry's `doi` field where present and otherwise on the title and year, which
+is why the DOI-less USENIX, NeurIPS, and ICML files (Section 4.4) are the least
+covered. No citation *graph* was extracted, so it feeds counts, not edges. That integration — including why the rankings fall back to a
 prestige score rather than true PageRank — is the subject of Chapter 6.
 
 ## 4.6 Summary

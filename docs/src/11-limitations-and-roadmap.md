@@ -14,10 +14,11 @@ ranking tables. The CDN-loaded Bootstrap/Chart.js claim is real (see
 `base_template` in `src/site/templates.rs`), but the sample tables and any
 WASM target are not reproducible from the repository and are not relied on here.
 
-A useful one-line summary of the current state comes from any site build:
-`data/stats.json` reports roughly 19,954 papers, 44 venues, and 43,942 scholars,
-with `total_citations = 0`. That last zero is the root cause of most of the
-algorithmic limitations below.
+A useful one-line summary of the current state: a build parses roughly 19,954
+papers, 44 venues, and 43,942 scholars, with **zero internal citation edges**.
+That zero is the root cause of most of the algorithmic limitations below. (The
+website's citation figures do not show it: they come from per-paper Semantic
+Scholar counts matched offline, which the ranking never sees.)
 
 ## 11.1 Algorithmic limitations
 
@@ -54,10 +55,13 @@ block in `calculate_venue_pagerank` also has a brace-nesting quirk
 per-`from_venue` loop; because the branch is never reached, the bug is latent
 rather than observed.
 
-Consequently `h_index` and `citation_count` are `0` for every scholar (the
-h-index loop reads `cited_by.len()`, which is always zero;
+Consequently the algorithm's `h_index` and `citation_count` are `0` for every
+scholar (the h-index loop reads `cited_by.len()`, which is always zero;
 `src/algorithm.rs:486-512`), and venue `impact_factor` reduces to
-`pagerank * ln(paper_count + 1)`.
+`pagerank * ln(paper_count + 1)`. The website replaces the two scholar figures
+with ones derived from Semantic Scholar counts (`Citations` in
+`src/site/mod.rs`), so the h-indices it shows are real — but they are display
+values only and do not influence any ranking.
 
 ### 11.1.2 The reference year is hardcoded to 2024
 
@@ -105,56 +109,55 @@ and Its Data Files*) and 9 (*The Command-Line Interface*).
 
 ## 11.2 Data limitations
 
-### 11.2.1 Coverage: ~731 of ~21,000 papers have external citation data
+### 11.2.1 Coverage: 82.5% of papers have S2AG citation counts
 
-The S2AG integration (Chapter 6, *Citation Data Integration*) matched only
-**731** papers to Semantic Scholar, carrying ~41,468 total citations, stored in
-`cache/citations/s2ag_citations.json` (`cache/citations/s2ag_summary.json`).
-Against a corpus of roughly 21,000 BibTeX entries (`bib/` totals ~20,898
-`@inproceedings` + 122 `@article`), that is about a 3.5% citation-data hit rate.
-These counts feed the **per-paper display only** — the site build's
-`paper_citations` (`src/site/mod.rs`) calls `s2ag_citations::get_citation_count`
-once per paper, and venue pages and scholar profiles render
-`Citations: N (S2AG)`, falling back to the (always-zero) internal
-`cited_by.len()` otherwise.
+The S2AG integration (Chapter 6, *Citation Data Integration*) matches
+**16,462 of 19,954** papers to Semantic Scholar and stores their counts in
+`cache/citations/s2ag_paper_citations.json`, keyed by paper id. Coverage is
+uneven: 97 percent of papers with a DOI are matched, but only 48 percent of the
+6,018 without one. Those are concentrated in OSDI, NSDI, USENIX ATC, FAST,
+NeurIPS, and ICML, whose BibTeX carries no DOIs, so they can only be matched by
+title against the downloaded S2AG `papers` files — and only 32 of that release's
+60 files were downloaded (one of them truncated). Unmatched papers show
+"Citations: n/a" and contribute nothing to scholar and venue totals or
+h-indices, so scholars who publish mainly at the DOI-less venues are
+under-counted relative to the rest. Closing the gap needs an S2 API key (the
+datasets API and the title-match endpoint require one; Chapter 6, §6.4).
 
-### 11.2.2 Multiple inconsistent citation sources
+The counts are a snapshot (the file's `generated` date) and go stale until the
+pipeline is rerun; papers added to `bib/` show "n/a" until then.
 
-At least four pipelines coexist. The website reports two different kinds of
-"citation" number, and the removed web server reported a third:
+### 11.2.2 Displayed citations and the ranking disagree
 
-| Surface | Source | What it counts |
-|---|---|---|
-| dashboard, `statistics/`, `data/stats.json` | `graph.edges.len()` (internal) | 0 (edges never populated) |
-| Per-paper listings (venue pages, scholar profiles) | `s2ag_citations.json` | S2AG count for 731 entries (~41,468 total) |
-| *(removed)* `/api/citation-status` | `combined_cache.json` | sum of 599 papers' counts (~4,145) |
+Every citation figure on the website — per paper, per scholar, per venue, the
+dashboard and `data/stats.json` totals — is derived from the same per-paper S2AG
+counts, so the site is internally consistent. The ranking is not part of that:
+`PageRankCalculator` still sees an empty citation graph, so a scholar's displayed
+citation total and h-index have no effect on their QIndex, and the "Top Scholars"
+table is ordered by a score that ignores the citation numbers printed next to it.
+The S2AG citation *graph* artifact `cache/citations/s2ag_citation_graph.json` has
+190 nodes but only one `cites` edge and one `cited_by` edge total — it is an
+orphan written by no current script and read by no code. The CLAUDE.md claim of
+"285 citation relationships" is not reflected in any present artifact.
 
-These sets do not overlap cleanly: per-paper numbers come from S2AG (731
-entries), the internal `edges` count is always zero (`stats_json` and
-`statistics_data` in `src/site/mod.rs`), and the DBLP+OpenAlex
-`combined_cache.json` (599 papers) is no longer read by any Rust code. A user
-comparing the dashboard total to a paper's displayed citations will see
-inconsistent figures. The S2AG citation *graph*
-artifact `cache/citations/s2ag_citation_graph.json` has 190 nodes but only one
-`cites` edge and one `cited_by` edge total — it is an orphan written by no
-current script and read by no code. The CLAUDE.md claim of "285 citation
-relationships" is not reflected in any present artifact.
+Older pipelines add noise around this: the superseded `parse_s2ag.py` outputs
+(`s2ag_citations.json` and friends) and the DBLP+OpenAlex `combined_cache.json`
+(599 papers) are still committed but read by no Rust code, and the CLI
+subcommands print the algorithm's zero h-indices and citation counts rather than
+the website's S2AG-based ones.
 
-### 11.2.3 Fuzzy title matching can mismatch
+### 11.2.3 Duplicate BibTeX entries and matching residue
 
-S2AG lookups normalize the title (lowercase, alphanumeric + whitespace only;
-`src/s2ag_citations.rs:108-116`), try an exact `HashMap` hit, then fall back to a
-**linear scan** over all 731 entries using `titles_match`
-(`src/s2ag_citations.rs:118-148`). That predicate returns true on substring
-containment of either normalized title, or on >70% overlap of significant
-(length-> 3) words. Substring containment can produce false positives between
-papers sharing a generic prefix or suffix, and the scan is $O(N)$ per unmatched
-title. The site build runs it once per paper (about 20,000 lookups, parallelized
-with rayon) rather than on every page render as the old server did, so the
-performance cost is now a build-time cost. The false positives are visible in the
-output: about 23,900 of the 92,400 author-paper entries in the scholar shards
-carry an S2AG count, far more papers than 731 index entries can legitimately
-match. This is correctness *and* performance debt; see Chapter 6.
+Some papers appear in `bib/` more than once under different keys (Ion Stoica's
+114 papers include the vLLM/PagedAttention paper three times). Citation totals and
+h-indices count each Semantic Scholar corpus id once (`distinct_counts` in
+`src/site/mod.rs`), but paper listings, paper counts, and the "Most Cited Papers"
+table still show every duplicate, and an unmatched duplicate cannot be recognized
+at all. Matching itself is conservative — DOI equality, or a normalized title of
+at least three words with the year within ±1 — and spot checks found no false
+matches, but S2 occasionally stores a garbled title for a USENIX paper
+("This paper is included in the Proceedings of …"), and a DOI-less paper whose S2
+record carries a different title will stay unmatched.
 
 ## 11.3 Implementation limitations
 
@@ -187,9 +190,10 @@ The server-era failure modes — `.expect` panics at startup, a per-request
 server. The site build (`build_site` in `src/site/mod.rs`) returns errors with
 context instead: a missing bib directory, an unwritable output directory, or a
 ranking error fails the build, and CI does not deploy. Two weaker spots remain.
-First, the S2AG index still loads from a hardcoded CWD-relative path and silently
-falls back to an empty index, so a build run from the wrong directory succeeds
-but shows only `(internal)` citation counts (Chapter 10). Second, the ranking code
+First, the S2AG counts load from a CWD-relative default path
+(`--citations-file`, default `cache/citations/s2ag_paper_citations.json`), and a
+missing file only logs a warning, so a build run from the wrong directory succeeds
+but shows "Citations: n/a" everywhere (Chapter 10). Second, the ranking code
 still sorts with `partial_cmp().unwrap()`, which would panic on a `NaN` score
 (Chapter 5).
 
@@ -211,8 +215,13 @@ still sorts with `partial_cmp().unwrap()`, which would panic on a `NaN` score
   "Operating Systems", so the test fails. CI runs only the library and site tests
   (Chapter 10).
 - The dependency footprint shrank from 363 to 278 packages in `Cargo.lock` when
-  the actix stack was removed, but `petgraph` and `ndarray` still have no call
-  sites and still inflate the LTO release build (Chapter 10). (The server-era
+  the actix stack was removed, but `petgraph`, `ndarray`, `rayon`, and
+  `lazy_static` still have no call sites and still inflate the LTO release build
+  (Chapter 10). `rayon` lost its only call site when the fuzzy S2AG lookup was
+  replaced by exact lookups.
+- `scripts/parse_s2ag.py` and its outputs (`s2ag_citations.json`,
+  `s2ag_id_mapping.json`, `s2ag_summary.json`) are superseded by
+  `scripts/match_s2ag.py` and read by nothing (Chapter 6). (The server-era
   `exportData()` helper and dead `/api/docs` footer link were removed with the
   server.)
 
@@ -223,8 +232,9 @@ affects so a contributor can find the surrounding design.
 
 ### P0 — Make the rankings real and consistent
 
-1. **Populate a paper-level citation graph and feed PageRank.** Wire
-   `s2ag_citations.json` (and a real `s2ag_citation_graph.json`) into
+1. **Populate a paper-level citation graph and feed PageRank.** Extract
+   paper-to-paper edges from the S2AG `citations` release — the corpus ids in
+   `s2ag_paper_citations.json` already map S2 papers to ours — into
    `Paper.citations`/`cited_by`, or populate `CitationGraph.edges` directly, so
    `build_venue_graph` produces non-empty edges and the power-iteration path in
    `src/algorithm.rs:255-378` actually runs. This retires the prestige fallback
@@ -238,10 +248,11 @@ affects so a contributor can find the surrounding design.
    `./cache/citations.json` the CLI hardcodes vs. the `cache/citations/`
    directory everything else uses. *Affects Ch. 8 §The build, Ch. 9 §Cache paths.*
 
-3. **Unify citation sources.** Pick one pipeline (S2AG is the most complete) and
-   route the dashboard totals, `data/stats.json`, and per-paper display through it
-   so the "total citations" numbers in §11.2.2 agree. Deprecate the legacy
-   `src/citations.rs` and the dead S2ORC pipeline. *Affects Ch. 6.*
+3. **Close the S2AG coverage gap.** With an S2 API key, download the complete
+   `papers` release or run `match_s2ag.py resolve --title-match`, so the DOI-less
+   USENIX and ML venues (§11.2.1) stop being under-counted. While there, retire
+   the superseded `parse_s2ag.py`, the legacy `src/citations.rs`, and the dead
+   S2ORC pipeline. *Affects Ch. 6.*
 
 ### P1 — Correctness and safety
 
@@ -249,9 +260,9 @@ affects so a contributor can find the surrounding design.
    (`src/algorithm.rs:426`) with `chrono::Utc::now().year()` or a CLI/config
    value, and document the $/5$ decay exponent. *Affects Ch. 5 §Recency.*
 
-5. **Fail the build when citation data is missing.** The site build silently
-   falls back to an empty S2AG index when `cache/citations/s2ag_citations.json`
-   is not found from the working directory (§11.3.3). Resolving the path
+5. **Fail the build when citation data is missing.** The site build only warns
+   when `cache/citations/s2ag_paper_citations.json` is not found from the working
+   directory (§11.3.3). Resolving the path
    relative to the repository, or failing loudly, would stop a misconfigured
    build from publishing a site with every citation count at zero. *Affects
    Ch. 6, Ch. 10.*
@@ -266,22 +277,23 @@ affects so a contributor can find the surrounding design.
    implement the PDF backends and `extract_references_from_pdf`
    (`src/paper_extractor.rs:374-382`). *Affects Ch. 9.*
 
-8. **Index S2AG lookups.** Replace the $O(N)$ fuzzy scan
-   (`src/s2ag_citations.rs:118-148`) with a precomputed index and tighten the
-   substring rule to reduce false matches. *Affects Ch. 6.*
+8. **Deduplicate the corpus.** Merge duplicate BibTeX entries for the same paper
+   (§11.2.3) — the S2 corpus ids already identify most of them — so listings and
+   paper counts stop showing duplicates. *Affects Ch. 4, Ch. 6.*
 
 9. **Add tests and benchmarks.** The site generator has tests
     (`tests/site_test.rs` and the unit tests in `src/site/mod.rs`), but there is
     no observed coverage for the parser, ranking, or matching logic, and
     `test_get_venue_field` is stale (§11.3.4). At minimum: fix that assertion,
     golden tests for `normalize_author_name`/`normalize_venue_id`, a small
-    fixture graph that exercises the live PageRank path once §P0.1 lands, and a
-    benchmark for the build-time citation lookup under the fuzzy-match load.
+    fixture graph that exercises the live PageRank path once §P0.1 lands, and
+    tests for `scripts/match_s2ag.py`'s title normalization and candidate choice.
     *Affects all of Part III and IV.*
 
 10. **Prune dead code and unused deps** (§11.3.4): drop the unused `HashSet`
     import, the duplicate `calculate_h_index`, the discarded `_impact`, and the
-    unused `petgraph`/`ndarray` dependencies to shrink the LTO release build.
+    unused `petgraph`/`ndarray`/`rayon`/`lazy_static` dependencies to shrink the
+    LTO release build.
     *Affects Ch. 10 §Build.*
 
 ## 11.5 Summary
@@ -289,12 +301,13 @@ affects so a contributor can find the surrounding design.
 QIndex parses a substantial bibliographic corpus correctly and publishes a
 functional static website and CLI, but its headline algorithm does not yet run as
 designed: the citation graph is empty, PageRank is short-circuited to a
-paper-count prestige heuristic, and the citation numbers exposed on the website
-come from unreconciled sources. The reference year is frozen at 2024, the website
+paper-count prestige heuristic, and the citation numbers the website shows —
+now consistent, S2AG-based, and covering 82.5 percent of papers — have no effect
+on the rankings. The reference year is frozen at 2024, the website
 and CLI scoring paths are structurally divergent, and reference extraction is
 stubbed. None of these are
 architectural dead ends — the roadmap above turns the existing scaffolding into a
 working link-analysis ranking, primarily by populating the citation graph
-(§P0.1) and unifying the data sources (§P0.3). Until then, readers and evaluators
+(§P0.1) and closing the citation-coverage gap (§P0.3). Until then, readers and evaluators
 should treat the venue and scholar rankings as prestige-weighted paper counts,
 not citation-based scores.

@@ -117,10 +117,14 @@ QIndex computes an h-index per scholar (`calculate_scholar_h_index`,
 papers, **restricted to CSRankings venues**, sorts descending, and finds the
 largest $h$ with `citations[h-1] >= h`. A second, unused free function
 `calculate_h_index` (`src/algorithm.rs:631-651`) computes the unfiltered version.
-Because `cited_by` is empty for every paper (Section 2.1), **every scholar's
-h-index is 0 in the current build**, and `citation_count` is likewise 0. The
+Because `cited_by` is empty for every paper (Section 2.1), **the algorithm's
+h-index is 0 for every scholar**, and its `citation_count` is likewise 0. The
 h-index machinery is correct but starved of input; it will produce meaningful
-values only once a real citation graph is loaded (Chapter 6).
+values only once a real citation graph is loaded (Chapter 6). The website does
+not show those zeros: it recomputes each scholar's citation total and h-index
+from the per-paper Semantic Scholar counts (`Citations::h_index` in
+`src/site/mod.rs`), so the h-indices displayed on the site are real, while the
+ranking itself still sees none of it.
 
 ## 2.3 CSRankings Methodology: What QIndex Borrows and Changes
 
@@ -196,7 +200,7 @@ scripts for most of them; only one feeds the published website today.
 | Source | What it provides | How QIndex uses it |
 | ------ | ---------------- | ------------------ |
 | **DBLP** | Clean conference/journal proceedings metadata (titles, authors, venues, years) via a search API. No citation counts. | Source of the `bib/` corpus. `scripts/fetch_main_conference.py` queries the DBLP `publ` API and filters out workshops/posters. |
-| **Semantic Scholar / S2AG** | Bulk academic-graph corpus: paper records, citation counts, and citation edges. | The only live citation source. `s2ag_citations.json` (731 papers) feeds per-paper counts on the website. |
+| **Semantic Scholar / S2AG** | Bulk academic-graph corpus: paper records, citation counts, and citation edges. | The only live citation source. `s2ag_paper_citations.json` (16,462 matched papers) supplies every citation figure on the website. |
 | **OpenAlex** | Open scholarly index with citation counts and IDs. | `scripts/fetch_citations_combined.py` populates `combined_cache.json`; no longer read by any Rust code (it fed the removed server's citation-status endpoint), and never fed rankings. |
 | **Crossref** | DOI registration metadata and reference lists. | Used by the legacy fetcher and the (stubbed) paper extractor for DOI lookups. |
 
@@ -212,23 +216,26 @@ wrong tool for impact: that gap is exactly why a second source is needed.
 ### Semantic Scholar / S2AG: the live citation feed
 
 S2AG (the Semantic Scholar Academic Graph) is the only citation source the
-site build consults. The loader `src/s2ag_citations.rs` reads
-`cache/citations/s2ag_citations.json` — a dictionary of 731 entries keyed by
-normalised title — and exposes `get_citation_count(title)`
-(`src/s2ag_citations.rs:173`). The site generator calls it once per paper at
-build time (`paper_citations` in `src/site/mod.rs`) and renders
-`Citations: N (S2AG)` on venue pages and scholar profiles, falling back to the
-(empty) `cited_by.len()` when no match is found. The matched set carries about 41,468
-total citations; the top entry in the data is "Wait-free synchronization"
-(≈ 1,966) followed by FlashAttention-2 (≈ 1,456).
+site build consults. An offline matcher, `scripts/match_s2ag.py`, pairs each
+parsed paper with its Semantic Scholar record — by DOI, or by normalized title and
+year against the downloaded S2AG `papers` files — and fetches current counts from
+the Semantic Scholar Graph API. It writes `cache/citations/s2ag_paper_citations.json`,
+keyed by our paper ids: 16,462 of 19,954 papers are matched (97 percent of those
+with a DOI, about half of the DOI-less USENIX and ML papers). The loader
+`src/s2ag_citations.rs` reads it into a map, and the site generator looks each
+paper up by id (`Citations::of` in `src/site/mod.rs`), rendering
+`Citations: N (S2AG)` on venue pages and scholar profiles, or "n/a" when a paper
+was not matched. Scholar and venue totals, scholar h-indices, and the dataset total
+are all derived from these counts.
 
 Crucially, S2AG feeds **per-paper counts, not the ranking graph.** The companion
 `s2ag_citation_graph.json` has 190 nodes but effectively one cites edge and one
-cited_by edge total — graph extraction never succeeded (`scripts/parse_s2ag.py`
-contains no graph-building code). So even the live source contributes display
-numbers, not the venue-to-venue edges PageRank needs. The bulk S2AG download
-(~138 GB per the project notes) lives under `data/` and is gitignored; only the
-derived `cache/citations/*.json` artifacts are committed. The API key is read
+cited_by edge total — graph extraction never succeeded (neither the superseded
+`scripts/parse_s2ag.py` nor `match_s2ag.py` builds a graph). So even the live
+source contributes display numbers, not the venue-to-venue edges PageRank needs.
+The partial S2AG bulk download (32 of 60 `papers` files, 122 of 236 `citations`
+files, about 139 GB) lives under `data/` and is gitignored; only the derived
+`cache/citations/*.json` artifacts are committed. The API key is read
 from the `S2_API_KEY` environment variable (`.env.example`); no real `.env` is
 committed.
 
@@ -243,18 +250,16 @@ does not exist on disk and is not invoked at render time — it is effectively
 dead. Crossref also underpins the largely stubbed reference extractor
 (`src/paper_extractor.rs`), covered in Chapter 9.
 
-### Why the citation numbers disagree
+### Display numbers versus ranking input
 
-A consequence worth flagging up front: the citation figures shown by the system
-come from independent pipelines over different paper sets and **do not agree.**
-The dashboard, the statistics page, and `data/stats.json` report
-`total_citations = graph.edges.len()`, which is 0 because the in-memory graph is
-empty, while per-paper listings show S2AG counts. (Until the server was removed,
-a third figure — the sum over `combined_cache.json`, a few thousand — appeared on
-its citation-status endpoint.) Reconciling these into a single
-authoritative citation graph that actually drives PageRank is the core open
-problem; see Chapter 6, *Citation Data Integration*, and Chapter 11,
-*Limitations, Known Issues, and Roadmap*.
+The website's citation figures are now consistent with one another: the
+dashboard, the statistics page, `data/stats.json`, venue and scholar pages all
+derive from the same per-paper S2AG counts. What still does not agree is the
+website and the ranking algorithm. The algorithm sees no citations at all (its
+graph is empty), so a scholar's displayed h-index and citation total have no
+influence on their QIndex. Turning the S2AG data into a citation graph that
+actually drives PageRank is the core open problem; see Chapter 6, *Citation Data
+Integration*, and Chapter 11, *Limitations, Known Issues, and Roadmap*.
 
 ## 2.5 Summary
 
@@ -262,7 +267,8 @@ QIndex is designed as a PageRank-over-venues prestige model fused with a
 CSRankings-style venue allowlist and position-weighted, year-decayed authorship
 credit. In its current state the design's link-analysis core does not run:
 absent a populated citation graph, venue scores come from a paper-count prestige
-fallback, and h-indices and internal citation counts are uniformly 0. The
+fallback, and the algorithm's own h-indices and internal citation counts are
+uniformly 0 (the website displays S2AG-based ones instead). The
 techniques surveyed here — eigenvector centrality, the h-index, CSRankings
 methodology, and the DBLP/S2AG/OpenAlex/Crossref data landscape — define both the
 ambition and the honest current limits of the system. The remaining chapters
