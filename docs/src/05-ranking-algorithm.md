@@ -67,19 +67,12 @@ We solve the fixed point by power iteration.
 
 Iteration begins from the uniform distribution, applies the update until the largest per-venue change falls below $\varepsilon = 10^{-6}$ or the cap $T = 100$ is reached, and L1-normalizes so that $\sum_v r(v) = 1$, allowing prestige to be read as a probability mass over venues.
 
-**A tier prior.** The learned vector $r$ captures citation structure. A manual, incomplete tier dictionary additionally supplies a policy multiplier; this is not an objectively agreed classification. It is systems/theory-heavy: ICML, NeurIPS, ICLR and CVPR currently fall through to C despite scholar-ranking eligibility. Each venue carries
-
-$$
-\tau(v) \in \{\, \mathrm{A^\ast} \mapsto 2.0,\;\; \mathrm{A} \mapsto 1.5,\;\; \mathrm{B} \mapsto 1.2,\;\; \mathrm{C} \mapsto 1.0 \,\},
-$$
-
-and we scale and renormalize:
-
-$$
-\rho(v) \;=\; \frac{\tau(v)\, r(v)}{\sum_{v' \in V} \tau(v')\, r(v')}.
-$$
-
-Conceptually this is a Bayesian-flavored move: $r$ is the data-driven estimate and $\tau$ is a soft prior over venue classes, multiplied in and renormalized to recover a distribution. Multiplying rather than adding keeps the prior and the learned signal on a common scale, and renormalization restores a probability vector. The result $\rho$ is the venue prestige consumed by Layer 2.
+**Unadjusted Venue Score.** The vector consumed by Layer 2 is $\rho(v)=r(v)$:
+normalized PageRank without manual prestige, venue-name or eligibility boosts.
+For a graph with no usable cross-venue edges, all nodes are dangling and the
+same update gives $\rho(v)=1/n$ for every venue. No substitute prestige heuristic
+is used. Automatic field taxonomy and the CSRankings scholar-eligibility
+allowlist remain separate policies; neither modifies this vector.
 
 ### Layer 2: the scholar QIndex
 
@@ -156,7 +149,7 @@ the largest $k$ such that at least $k$ of the scholar's top-venue papers each ha
 
 ### Design rationale and assumptions
 
-Venue-level aggregation pools sparse paper edges but cannot distinguish a landmark paper from routine work in the same venue; recency and byline corrections do not recover that missing distinction. PageRank measures recursive centrality within the selected corpus, not verified scientific quality. Tier multipliers add a manual prior, and the allowlist excludes unlisted venues. The first/last-author convention is field-dependent, while logarithmic scaling still rewards volume among eligible works. Relative normalization makes outputs readable, not invariant to corpus changes or resistant to all gaming. The implemented constants remain damping 0.85, tolerance $10^{-6}$, iteration cap 100, decay base 0.95 (scholar age divided by five), and tier multipliers 2.0, 1.5, 1.2 and 1.0.
+Venue-level aggregation pools sparse paper edges but cannot distinguish a landmark paper from routine work in the same venue; recency and byline corrections do not recover that missing distinction. PageRank measures recursive centrality within the selected corpus, not verified scientific quality. The scholar allowlist excludes unlisted venues without boosting venue scores. The first/last-author convention is field-dependent, while logarithmic scaling still rewards volume among eligible works. Relative normalization makes outputs readable, not invariant to corpus changes or resistant to all gaming. The implemented constants remain damping 0.85, tolerance $10^{-6}$, iteration cap 100, and decay base 0.95 (scholar age divided by five).
 
 The method is applied to a bibliography-only graph extracted from the local S2AG snapshot, not to the whole S2 graph; this sampling boundary remains important when interpreting venue prestige.
 
@@ -178,14 +171,12 @@ whole-S2 counts remain distinct from the internal graph.
 | `venue_weight` | `0.7` | declared, **unused** in `algorithm.rs` |
 | `year_decay` | `0.95` | recency decay base |
 | `reference_year` | current UTC year; valid snapshot release year with `with_citations` | scholar recency reference |
-| `tier_bonus` | `{A*:2.0, A:1.5, B:1.2, C:1.0}` | per-tier multiplier |
 
-`PageRankCalculator::calculate` runs a fixed five-stage pipeline:
+`PageRankCalculator::calculate` runs a fixed four-stage pipeline:
 
 ```text
 build_venue_graph        -> construct venue-to-venue edges
-calculate_venue_pagerank -> power iteration OR prestige fallback
-apply_tier_bonus         -> multiply by tier_bonus, re-normalize
+calculate_venue_pagerank -> normalized power iteration
 calculate_scholar_scores -> scholar QIndex from venue scores
 calculate_h_indices      -> per-scholar h-index (CSRankings-filtered)
 ```
@@ -227,53 +218,20 @@ Iteration bookkeeping and convergence checks run once per complete update.
 All venues, including those absent from the outgoing-edge map, participate;
 dangling mass is distributed uniformly rather than lost.
 
-## 5.4 Prestige fallback for graphs without usable edges
+## 5.4 Graphs without usable edges
 
-When `venue_graph` has no usable cross-venue edges, the fallback assigns each venue
-the following heuristic score. This is not the default snapshot ranking path:
+If there are N venues but no usable cross-venue edges, all venue mass is
+dangling. Uniform teleportation and dangling redistribution preserve the
+initial distribution, giving each venue PageRank 1/N. Paper counts, venue
+names and CSRankings eligibility do not change that result.
 
-$$
-\text{score}(v) =
-\underbrace{\left[\, \text{papers}_v > 0 \;?\; \frac{\ln(\text{papers}_v + 1)}{10} : 0 \,\right]}_{\text{log paper count}}
-\times \underbrace{(\text{is\_csrankings}(v) \;?\; 2.0 : 1.0)}_{\text{CSRankings boost}}
-+ \underbrace{\frac{\big(\sum \text{charcodes}(\text{name}_v)\big) \bmod 100}{10000}}_{\text{name-hash jitter}}
-$$
+## 5.5 Published venue metrics
 
-In `calculate_venue_pagerank`, `paper_count` is the unique representative count
-for this venue, not the length of its alias list:
-
-```rust
-let paper_count = self.venue_paper_count(venue_id) as f64;
-if paper_count > 0.0 {
-    score = (paper_count + 1.0).ln() / 10.0;
-}
-if is_csrankings_venue(&venue.name) {
-    score *= 2.0;
-}
-let name_hash = venue.name.chars().fold(0u32, |acc, c| acc.wrapping_add(c as u32));
-let variation = ((name_hash % 100) as f64) / 10000.0;
-score += variation;
-```
-
-The name-hash term (range `0.0` to `0.0099`) exists only to break ties between
-venues with identical paper counts — the comment calls it "variation ... to
-avoid identical scores." Scores are then L1-normalized to sum to 1.
-
-This fallback is a normalized log-count heuristic, not citation PageRank.
-It must not be interpreted as a citation-based result when graph input is absent.
-
-## 5.5 Tier bonus
-
-`apply_tier_bonus` multiplies each venue score by its tier multiplier
-(`A*` → 2.0, `A` → 1.5, `B` → 1.2, `C` → 1.0), then renormalizes.
-The published JSON field `pagerank` contains this adjusted score $\rho$, not
-raw PageRank $r$; CLI and UI call it **Venue Score**. The compatibility field
+The published JSON field `pagerank` contains normalized, unadjusted PageRank
+$\rho=r$; CLI and UI call it **Venue Score**. The retained field
 `impact_factor` is $\rho(v)\ln(n_v+1)$ for unique venue works $n_v$, a
 **Count-Scaled Score**, not a journal impact factor.
-Tiers come from `get_venue_tier` in `src/models.rs` (Chapter 3).
 
-Tier bonuses remain policy multipliers on top of citation PageRank. They are not
-inferred from the S2 snapshot, and the result is therefore not unmodified PageRank.
 
 ## 5.6 Scholar QIndex
 
@@ -346,19 +304,17 @@ SIGCOMM, NSDI, CCS, OAKLAND/SP/S&P, NDSS, SIGMOD, VLDB, ICDE, OSDI, SOSP,
 EUROSYS, FAST, USENIX ATC, PLDI, POPL, OOPSLA, ICSE, FSE, STOC, FOCS, SODA,
 PODC, SPAA, CHI, and so on.
 
-This filter is applied in three places with subtly different inputs, which is
-worth noting for anyone extending the venue mapping:
+This filter is applied in two places:
 
-- venue scoring boost in the fallback, on `venue.name`;
 - `eligible_scholar_papers`, which supplies QIndex, counts, h-index and top venues;
 - venue-ranking inclusion, on `venue.name`.
 
 Because the year-strip only removes a 4-digit token preceded by whitespace, a
 venue name without that exact shape (e.g. a name with no space before the year,
 or with an extra suffix) can fail the allowlist match and be silently excluded
-from both metrics. The substring-based tier/field classifiers in `models.rs`
-(Chapter 3) use a separate, larger keyword set, so `is_csrankings_venue` and
-`get_venue_tier`/`get_venue_field` can disagree about a given venue.
+from both metrics. The automatic substring-based field classifier in
+`models.rs` (Chapter 3) uses a separate keyword set, so `is_csrankings_venue`
+and `get_venue_field` can disagree about a given venue. Neither boosts PageRank.
 
 ## 5.9 Shared local citation inputs
 
@@ -375,11 +331,10 @@ See Chapter 6 for local-only extraction and Chapter 10 for deployment.
 | Stage | Behavior |
 |---|---|
 | Venue graph | unique internal directed citations aggregated across venues with year decay |
-| Venue score | PageRank with uniform dangling-mass redistribution; fallback only without usable edges |
-| Tier bonus | multiply by tier and renormalize |
+| Venue score | normalized, unadjusted PageRank; uniform 1/N without usable cross-venue edges |
 | Scholar QIndex | existing CSRankings/recency/authorship formula over venue scores |
 | Reported counts and h-index | whole-S2 snapshot counts, corpus-id deduplicated |
 
 The snapshot graph supplies genuine citation structure, but it is a selected
-bibliography graph rather than all of S2. Ranking filters and priors remain
-explicit policy choices. Those limitations are discussed in Chapter 11.
+bibliography graph rather than all of S2. Scholar eligibility and byline/age
+weighting remain explicit policy choices. Those limitations are discussed in Chapter 11.

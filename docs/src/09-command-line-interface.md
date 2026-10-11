@@ -24,7 +24,7 @@ is a single `Cli` struct holding one `#[command(subcommand)]` field
 | Subcommand        | Purpose                                              | State today                |
 |-------------------|-----------------------------------------------------|----------------------------|
 | `calculate`       | Compute and print top venues and scholars; optional export | Functional                 |
-| `venues`          | Print top venues, with field/tier filters           | Functional                 |
+| `venues`          | Print top venues, with a field filter                | Functional                 |
 | `scholars`        | Print top scholars, with a minimum-papers filter    | Functional                 |
 | `search`          | Substring search over venues and scholars           | Functional                 |
 | `stats`           | Print dataset statistics                            | Functional                 |
@@ -111,27 +111,24 @@ qindex calculate -e
 ### `venues`
 
 ```
-qindex venues [-b ./bib] [-n 20] [-f <field>] [-t <tier>]
+qindex venues [-b ./bib] [-n 20] [-f <field>]
 ```
 
-Flags (`src/cli.rs:39-55`): `-n`/`--top` (default `20`), `-f`/`--field`
-(`Option<String>`), `-t`/`--tier` (`Option<String>`, e.g. `A*`, `A`, `B`, `C`).
-The field and tier values are forwarded to `get_top_venues(top, field, tier)`
-(`src/main.rs:162`); the field filter is a case-insensitive substring match on
-`Venue.field` and the tier filter is an exact match. The result is printed by
-`display_venues`, whose table columns are `Venue, Tier, Field, Venue Score, Papers`,
-with Venue Score formatted as `{:.4}` (`src/main.rs`, `display_venues`).
+Flags: `-n`/`--top` (default `20`), `-f`/`--field` (`Option<String>`).
+These values are forwarded to `get_top_venues(top, field)`, whose API is
+`get_top_venues(&self, n: usize, field: Option<&str>) -> Vec<VenueRanking>`.
+The field filter is a case-insensitive substring match on `Venue.field`.
+`display_venues` prints `Venue, Field, Venue Score, Papers`, with Venue Score
+formatted as `{:.4}`.
 
 ```bash
-qindex venues -n 30 -t 'A*'
+qindex venues -n 30
 qindex venues -f Systems
-qindex venues -n 40 -f Database -t A
+qindex venues -n 40 -f Database
 ```
 
-Note that `--tier` matches the venue's classified tier string
-(`get_venue_tier`, see Chapter 3, *The Data Model*), and `--field` matches the
-classified CSRankings subarea string; both are substring/exact comparisons, so
-the spelling must match what the classifier produced.
+`--field` matches the automatically classified CSRankings-style subarea string
+(Chapter 3), separate from the venue eligibility allowlist.
 
 ### `scholars`
 
@@ -179,7 +176,7 @@ qindex stats [-b ./bib]
 `stats` takes only `--bib-dir` (`src/cli.rs:83-87`). It parses the corpus and
 calls `CitationGraph::print_statistics` (`src/main.rs`, `run_stats`;
 `src/models.rs`, `print_statistics`), which prints parsed-record totals,
-venue type/tier/field breakdowns, observed years and averages. It does no scoring
+venue type/field breakdowns, observed years and averages. It does no scoring
 or S2 corpus-id deduplication. These raw parsed-record statistics differ from
 the website's unique-work statistics; obtain current totals from actual output
 rather than carrying forward a previous corpus size.
@@ -190,11 +187,11 @@ All tabular output uses the `comfy_table` crate with the `UTF8_FULL` preset,
 which draws boxed tables with Unicode borders (`src/main.rs:253-351`,
 `src/models.rs:254`). The headers are fixed per command:
 
-- `calculate` venues table: `Rank, Venue, Tier, Field, Venue Score, Count-Scaled, Papers`
+- `calculate` venues table: `Rank, Venue, Field, Venue Score, Count-Scaled, Papers`
   (`src/main.rs`, `display_results`); both scores formatted `{:.4}`.
 - `calculate` scholars table: `Rank, Scholar, QIndex, H-Index, Papers, Citations`;
   QIndex formatted `{:.2}`.
-- `venues` table: `Venue, Tier, Field, Venue Score, Papers` (no rank column).
+- `venues` table: `Venue, Field, Venue Score, Papers` (no rank column).
 - `scholars` table: `Scholar, QIndex, H-Index, Papers, Citations`.
 
 Surrounding the tables, the subcommands print decorated status lines using emoji
@@ -234,12 +231,11 @@ The JSON document has four top-level keys: `metadata`, `venues`, `scholars`,
       "tolerance": 1e-6,
       "venue_weight": 0.7,
       "year_decay": 0.95,
-      "reference_year": 2026,
-      "tier_bonus": { "A*": 2.0, "A": 1.5, "B": 1.2, "C": 1.0 }
+      "reference_year": 2026
     }
   },
   "venues": [
-    { "rank": 1, "id": "...", "name": "...", "tier": "...", "field": "...",
+    { "rank": 1, "id": "...", "name": "...", "field": "...",
       "pagerank": 0.0, "impact_factor": 0.0, "paper_count": 0 }
   ],
   "scholars": [
@@ -249,7 +245,6 @@ The JSON document has four top-level keys: `metadata`, `venues`, `scholars`,
   "statistics": {
     "total_papers": 0, "total_venues": 0, "total_scholars": 0,
     "papers_by_year":  { "2024": 0 },
-    "papers_by_tier":  { "A*": 0 },
     "papers_by_field": { "Operating Systems": 0 }
   }
 }
@@ -257,7 +252,7 @@ The JSON document has four top-level keys: `metadata`, `venues`, `scholars`,
 
 (Types: `VenueExport`, `ScholarExport`, `DatasetStatistics`, `ExportMetadata` in
 `src/export.rs`; values are illustrative.) The retained `pagerank` is the
-tier-adjusted normalized Venue Score, not raw PageRank. `impact_factor` is
+normalized, unadjusted PageRank (Venue Score), without manual boosts. `impact_factor` is
 `Venue Score * ln(unique venue works + 1)`, not a journal impact factor.
 `metadata.parameters` currently serializes `AlgorithmParams::default()` in
 `Exporter::prepare_export_data`, including the current UTC `reference_year`;
@@ -269,10 +264,10 @@ corpus-deduplicated unique-work statistics.
 
 ### CSV schema
 
-The venues CSV retains the legacy header `Rank, Venue, Tier, Field, PageRank,
+The venues CSV retains the header `Rank, Venue, Field, PageRank,
 Impact Factor, Papers`, with both scores formatted `{:.6}` (`src/export.rs`,
 `Exporter::export_csv`). Those names have the Venue Score and count-scaled
-semantics above, not raw PageRank or journal impact. The scholars CSV header is
+semantics above: normalized PageRank, not journal impact. The scholars CSV header is
 `Rank, Scholar, QIndex, H-Index, Papers, Citations`, with QIndex formatted `{:.2}`.
 
 ```bash

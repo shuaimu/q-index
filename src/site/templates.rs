@@ -99,20 +99,6 @@ fn json_script<T: serde::Serialize>(value: &T) -> PreEscaped<String> {
     PreEscaped(json.replace("</", "<\\/"))
 }
 
-fn tier_badge(tier: &str) -> Markup {
-    html! {
-        @if tier == "A*" {
-            span class="badge bg-danger" { (tier) }
-        } @else if tier == "A" {
-            span class="badge bg-warning text-dark" { (tier) }
-        } @else if tier == "B" {
-            span class="badge bg-info text-dark" { (tier) }
-        } @else {
-            span class="badge bg-secondary" { (tier) }
-        }
-    }
-}
-
 /// Author name, linked to the scholar page when we know the scholar.
 fn author_link(ctx: &Ctx, author: &str) -> Markup {
     html! {
@@ -335,7 +321,6 @@ pub fn index_page(
                                         tr {
                                             th { "#" }
                                             th { "Venue" }
-                                            th { "Tier" }
                                             th { "Venue Score" }
                                         }
                                     }
@@ -348,7 +333,6 @@ pub fn index_page(
                                                         (venue.name)
                                                     }
                                                 }
-                                                td { (tier_badge(&venue.tier)) }
                                                 td { (format!("{:.4}", venue.pagerank)) }
                                             }
                                         }
@@ -515,7 +499,7 @@ const FIELD_OPTIONS: &[&str] = &[
     "General",
 ];
 
-/// All ranked venues; the field/tier filters run in the browser (app.js).
+/// All ranked venues; the field filter runs in the browser (app.js).
 pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
     base_template(
         ctx,
@@ -528,7 +512,7 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                         i class="bi bi-building me-3" {}
                         "Academic Venues"
                     }
-                    p class="lead" { "Indexed conferences and journals ranked by tier-adjusted internal-graph venue score" }
+                    p class="lead" { "Indexed conferences and journals ranked by citation-graph PageRank" }
                 }
             }
 
@@ -538,7 +522,7 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                     div class="card" {
                         div class="card-body" {
                             form method="get" action=(ctx.url("venues/")) class="row g-3" id="venue-filters" {
-                                div class="col-md-4" {
+                                div class="col-md-6" {
                                     label for="field" class="form-label" { "Field" }
                                     select class="form-select" name="field" id="field" {
                                         option value="" { "All Fields" }
@@ -547,17 +531,7 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                                         }
                                     }
                                 }
-                                div class="col-md-4" {
-                                    label for="tier" class="form-label" { "Tier" }
-                                    select class="form-select" name="tier" id="tier" {
-                                        option value="" { "All Tiers" }
-                                        option value="A*" { "A* (Top Tier)" }
-                                        option value="A" { "A (Second Tier)" }
-                                        option value="B" { "B" }
-                                        option value="C" { "C" }
-                                    }
-                                }
-                                div class="col-md-4" {
+                                div class="col-md-6" {
                                     label class="form-label" { (PreEscaped("&nbsp;")) }
                                     div {
                                         button type="submit" class="btn btn-primary me-2" {
@@ -584,7 +558,6 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                                         tr {
                                             th { "Rank" }
                                             th { "Venue" }
-                                            th { "Tier" }
                                             th { "Field" }
                                             th { "Venue Score" }
                                             th { "Count-Scaled Score" }
@@ -593,14 +566,13 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                                     }
                                     tbody {
                                         @for (i, venue) in venues.iter().enumerate() {
-                                            tr data-field=(venue.field) data-tier=(venue.tier) {
+                                            tr data-field=(venue.field) {
                                                 td class="rank" { (i + 1) }
                                                 td {
                                                     a href=(ctx.venue_url(&venue.id)) class="text-decoration-none" {
                                                         strong { (venue.name) }
                                                     }
                                                 }
-                                                td { (tier_badge(&venue.tier)) }
                                                 td {
                                                     span class="badge bg-light text-dark" { (venue.field) }
                                                 }
@@ -816,31 +788,19 @@ pub fn venue_detail_page(ctx: &Ctx, data: &VenuePage, citations: &Citations) -> 
                         h1.card-title.mb-3 { (super::display_venue(&venue.name)) }
 
                         .row {
-                            .col-md-3 {
-                                .stat-box.text-center {
-                                    h5 { "Tier" }
-                                    .display-6 {
-                                        span class=(format!("badge bg-{}",
-                                            if venue.tier == "A*" { "success" }
-                                            else if venue.tier == "A" { "primary" }
-                                            else { "secondary" }
-                                        )) { (venue.tier) }
-                                    }
-                                }
-                            }
-                            .col-md-3 {
+                            .col-md-4 {
                                 .stat-box.text-center {
                                     h5 { "Field" }
                                     p.lead { (venue.field) }
                                 }
                             }
-                            .col-md-3 {
+                            .col-md-4 {
                                 .stat-box.text-center {
                                     h5 { "Papers" }
                                     .display-6 { (data.total_papers) }
                                 }
                             }
-                            .col-md-3 {
+                            .col-md-4 {
                                 .stat-box.text-center {
                                     h5 { "Indexed-Work Citations" }
                                     .display-6 { (data.total_citations) }
@@ -1131,13 +1091,12 @@ pub fn about_page(ctx: &Ctx) -> Markup {
                                 h5.card-title { "How It Works" }
                                 ul {
                                     li { "Each matched S2 corpus work is counted once; unmatched works remain distinct by local bibliography ID." }
-                                    li { "PageRank is computed over the internal citation graph between indexed venues, not the full S2 citation network." }
-                                    li { "The displayed venue score is tier-adjusted and renormalized, not raw PageRank: A* × 2.0, A × 1.5, B × 1.2, C × 1.0." }
-                                    li { "Venue tiers are manual priors, not independent quality measurements. The current dictionary is systems/theory-heavy; ICML, NeurIPS, ICLR and CVPR are unlisted and fall back to C. This affects cross-field comparisons." }
-                                    li { "The count-scaled venue score multiplies this adjusted score by ln(unique indexed paper count + 1); it is not a journal impact factor." }
+                                    li { "PageRank is computed over the local directed cross-venue citation graph between indexed venues, not the full S2 citation network." }
+                                    li { "Venue Score is normalized, unadjusted PageRank on this graph, without manual or venue-name prestige bonuses." }
+                                    li { "The count-scaled venue score multiplies this score by ln(unique indexed paper count + 1); it is not a journal impact factor." }
                                     li { "Scholar QIndex sums CSRankings-eligible venue scores, with age decay 0.95^(age / 5), then multiplies by ln(eligible unique paper count + 1) and normalizes the largest score to 100." }
                                     li { "Author-order assumptions: sole/first author × 1.0, last author × 0.8, each middle author × 0.6 / (author count − 2). These heuristics do not infer actual contribution and can be inappropriate for alphabetical authorship." }
-                                    li { "If no internal citation edges are available, venue scores use the existing paper-count/venue heuristic, not measured citation PageRank." }
+                                    li { "If no usable cross-venue citation edges are available, PageRank assigns every indexed venue the same score, 1 / the number of venues." }
                                 }
                             }
                         }
@@ -1174,8 +1133,8 @@ pub fn about_page(ctx: &Ctx) -> Markup {
                                     li { a href=(ctx.url("data/search-index.json")) { "data/search-index.json" } " — every venue and scholar with scores" }
                                 }
                                 p.small.text-muted {
-                                    "The JSON field pagerank retains its name but contains the tier-adjusted, "
-                                    "renormalized venue score, not raw PageRank. Scholar search tuples and "
+                                    "The JSON field pagerank contains the normalized, unadjusted citation-graph "
+                                    "PageRank displayed as Venue Score. Scholar search tuples and "
                                     "rankings use eligible metrics; profile shards separate all_indexed from ranking."
                                 }
                             }

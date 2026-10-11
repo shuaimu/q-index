@@ -40,7 +40,7 @@ library and as the `qindex` binary. The modules and their responsibilities:
 
 | Module | File | Responsibility |
 | --- | --- | --- |
-| `models` | `src/models.rs` | Core data types: `Paper`, `Venue`, `Scholar`, `CitationGraph`, ranking structs, `AlgorithmParams`; venue tier/field classification helpers. |
+| `models` | `src/models.rs` | Core data types: `Paper`, `Venue`, `Scholar`, `CitationGraph`, ranking structs, `AlgorithmParams`; automatic venue field classification. |
 | `parser` | `src/parser.rs` | `BibParser` — reads `*.bib`, parses entries, builds the `CitationGraph`. |
 | `algorithm` | `src/algorithm.rs` | `PageRankCalculator` — venue PageRank, scholar QIndex, h-index; CSRankings venue allowlist. |
 | `citations` | `src/citations.rs` | Legacy async Semantic Scholar / CrossRef fetcher (`CitationFetcher`). Effectively unused for display today. |
@@ -147,8 +147,8 @@ duplicate bibliography aliases multiplying graph edges.
 
 The site uses computed venue and scholar rankings rather than initial model
 score fields. Venue PageRank uses directed cross-venue matched-bibliography edges,
-including dangling mass, nonnegative citation age, tier adjustment and final
-normalization. Scholar QIndex, logarithmic publication count, h-index, citations
+including dangling mass, nonnegative citation age and final normalization,
+without manual boosts. Scholar QIndex, logarithmic publication count, h-index, citations
 and top venues all use unique CSRankings-eligible authored works.
 
 Reported per-paper counts, scholar and venue totals, and h-indices come from the
@@ -308,9 +308,9 @@ results. The generator computes everything once and writes HTML and JSON that a
 static host serves, so there is no server process, no shared mutable state,
 and no request-time ranking cache. Local S2AG integration populates directed
 internal edges before scoring; whole-S2 paper counts are a separate input to
-reported totals and h-indices. PageRank is active when usable cross-venue edges
-exist, then tier-adjusted and normalized into Venue Score; only absent usable
-edges trigger the prestige fallback. Eligible unique-work rankings and
-all-indexed profile metrics are deliberately separate. Legacy PDF extraction
-remains incomplete, and name-based identity, manual tiers and partial corpus
-coverage remain limitations. Chapters 5, 6, 8 and 9 detail these surfaces.
+reported totals and h-indices. Normalized, unadjusted PageRank is Venue Score;
+without usable cross-venue edges it is uniform 1/N, not a prestige fallback.
+Eligible unique-work rankings and all-indexed profile metrics are deliberately
+separate. Legacy PDF extraction remains incomplete, and name-based identity and
+partial corpus coverage remain limitations.
+Chapters 5, 6, 8 and 9 detail these surfaces.

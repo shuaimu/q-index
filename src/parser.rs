@@ -8,8 +8,7 @@ use std::path::{Path, PathBuf};
 use walkdir::WalkDir;
 
 use crate::models::{
-    get_venue_field, get_venue_tier, normalize_author_name, CitationGraph, Paper, Scholar, Venue,
-    VenueType,
+    get_venue_field, normalize_author_name, CitationGraph, Paper, Scholar, Venue, VenueType,
 };
 
 pub struct BibParser {
@@ -382,7 +381,6 @@ impl BibParser {
                 papers: Vec::new(),
                 pagerank: 0.0,
                 impact_factor: 0.0,
-                tier: get_venue_tier(&paper.venue),
                 field: get_venue_field(&paper.venue),
             });
 

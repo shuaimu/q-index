@@ -16,7 +16,7 @@ data rather than invented scholar/venue measurements.
 
 The default CLI and website now use local snapshot counts and a real internal
 citation graph. The graph is restricted to matched bibliography papers; this
-sampling boundary, matching uncertainty and explicit ranking priors remain
+sampling boundary, matching uncertainty and scholar-ranking policy remain
 important limitations. Current coverage and edge totals are in generated outputs.
 
 ## 11.1 Algorithmic limitations
@@ -31,10 +31,10 @@ corpus, and coverage changes can change scores even when S2 records are stable.
 
 The loader canonicalizes duplicate BibTeX aliases by corpus id. Venue aggregation
 counts each directed edge once and retains only cross-venue citations with the
-existing year-decay policy. Dangling venues distribute mass uniformly. Tier
-bonuses and CSRankings scholar filters remain explicit policy choices, so the
-result is not an unmodified whole-S2 PageRank. A prestige fallback applies only
-when no usable cross-venue edges are available.
+existing year-decay policy. Dangling venues distribute mass uniformly. Venue
+Score is normalized, unadjusted PageRank of this bibliography-only graph,
+without manual prestige, name or eligibility boosts. Without usable cross-venue
+edges, each venue receives 1/N. CSRankings scholar eligibility remains separate.
 
 Reported counts and h-indices use whole-S2 snapshot counts, not internal
 in-degree. QIndex is still venue-weighted publication credit; a citation total
@@ -51,14 +51,13 @@ $0.95^{\max(y_{\mathrm{citing}}-y_{\mathrm{cited}},0)}$, not absolute year dista
 The gentle scholar exponent remains a deliberate heuristic, not evidence of
 individual contribution or a guarantee of career-stage fairness.
 
-### 11.1.3 Incomplete priors and byline assumptions
+### 11.1.3 Field classification and byline assumptions
 
-`get_venue_tier` in `src/models.rs` is a manual systems/theory-heavy dictionary.
-ICML, NeurIPS, ICLR and CVPR currently default to C while remaining eligible
-for scholar ranking. Substring classification can also misclassify names.
-The published `pagerank` field is post-tier normalized **Venue Score**, not raw
-PageRank. `impact_factor` is adjusted score times $\ln(\text{unique venue works}+1)$,
-a **Count-Scaled Score**, not a journal impact factor.
+Automatic venue field classification uses substring matching and can misclassify
+names. It is separate from the CSRankings scholar-eligibility allowlist and does
+not adjust scores. The published `pagerank` field is normalized, unadjusted
+PageRank (**Venue Score**). `impact_factor` is that score times
+$\ln(\text{unique venue works}+1)$, a **Count-Scaled Score**, not a journal impact factor.
 
 First/last-author weights assume roles that do not hold in every field
 (especially alphabetical bylines). The ranking sum and its logarithmic $N$
@@ -204,9 +203,9 @@ affects so a contributor can find the surrounding design.
    *Affects Ch. 6, Ch. 10.*
 
 5. **Measure ranking sensitivity.** Quantify how bibliography selection, unmatched
-   works, tier priors and byline conventions affect results. Disclose differences
-   between all-indexed profile metrics and eligible ranking metrics. Any future
-   policy change needs explicit justification, not a silent tier reclassification.
+   works, eligibility restrictions and byline conventions affect results. Disclose
+   differences between all-indexed profile metrics and eligible ranking metrics.
+   Any future policy change needs explicit justification.
 
 ### P2 — Feature completion and maintainability
 

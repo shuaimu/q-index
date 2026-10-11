@@ -34,7 +34,6 @@ struct VenueExport {
     rank: usize,
     id: String,
     name: String,
-    tier: String,
     field: String,
     pagerank: f64,
     impact_factor: f64,
@@ -59,7 +58,6 @@ struct DatasetStatistics {
     total_venues: usize,
     total_scholars: usize,
     papers_by_year: std::collections::HashMap<u32, usize>,
-    papers_by_tier: std::collections::HashMap<String, usize>,
     papers_by_field: std::collections::HashMap<String, usize>,
 }
 
@@ -121,7 +119,6 @@ impl<'a> Exporter<'a> {
         writer.write_record(&[
             "Rank",
             "Venue",
-            "Tier",
             "Field",
             "PageRank",
             "Impact Factor",
@@ -129,12 +126,11 @@ impl<'a> Exporter<'a> {
         ])?;
 
         // Write data
-        let venues = self.calculator.get_top_venues(top_n, None, None);
+        let venues = self.calculator.get_top_venues(top_n, None);
         for (i, venue) in venues.iter().enumerate() {
             writer.write_record(&[
                 (i + 1).to_string(),
                 venue.name.clone(),
-                venue.tier.clone(),
                 venue.field.clone(),
                 format!("{:.6}", venue.pagerank),
                 format!("{:.6}", venue.impact_factor),
@@ -178,7 +174,7 @@ impl<'a> Exporter<'a> {
     }
 
     fn prepare_export_data(&self, top_n: usize) -> ExportData {
-        let venues = self.calculator.get_top_venues(top_n, None, None);
+        let venues = self.calculator.get_top_venues(top_n, None);
         let scholars = self.calculator.get_top_scholars(top_n, None);
 
         let venue_exports: Vec<VenueExport> = venues
@@ -188,7 +184,6 @@ impl<'a> Exporter<'a> {
                 rank: i + 1,
                 id: v.id.clone(),
                 name: v.name.clone(),
-                tier: v.tier.clone(),
                 field: v.field.clone(),
                 pagerank: v.pagerank,
                 impact_factor: v.impact_factor,
@@ -236,12 +231,10 @@ impl<'a> Exporter<'a> {
             }
         }
 
-        let mut papers_by_tier = HashMap::new();
         let mut papers_by_field = HashMap::new();
 
         for venue in self.graph.venues.values() {
             let paper_count = venue.papers.len();
-            *papers_by_tier.entry(venue.tier.clone()).or_insert(0) += paper_count;
             *papers_by_field.entry(venue.field.clone()).or_insert(0) += paper_count;
         }
 
@@ -250,7 +243,6 @@ impl<'a> Exporter<'a> {
             total_venues: self.graph.venues.len(),
             total_scholars: self.graph.scholars.len(),
             papers_by_year,
-            papers_by_tier,
             papers_by_field,
         }
     }

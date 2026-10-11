@@ -120,17 +120,17 @@ unknown counts from available internal evidence.
 
 PageRank aggregates directed cross-venue internal citations with year-decayed
 weights. Same-venue edges are not part of venue ranking. Dangling venues distribute
-mass uniformly. Tier bonuses are applied after PageRank and scores are
-renormalized. The retained `pagerank` JSON field is this **Venue Score**, not raw
-PageRank; `impact_factor` is its count-scaled value, not journal impact.
+mass uniformly. The retained `pagerank` JSON field is normalized, unadjusted
+PageRank (**Venue Score**), without manual prestige, name or eligibility boosts;
+`impact_factor` is score times `ln(unique venue works + 1)`, not journal impact.
 Scholar QIndex retains CSRankings eligibility and author-position weights, but
 all contributions and its logarithmic publication count use unique eligible
 authored works. Excluded works cannot boost that count. Scholar decay uses
 `0.95^(max(reference_year - paper_year, 0)/5)`, with a valid release year replacing
 the current-UTC default; unknown years are undecayed. Whole-S2 counts are not a
-new QIndex term. Only a graph without usable cross-venue edges uses the prestige
-fallback. Manual tiers and partial coverage limit interpretation; see Chapters
-5 and 11.
+new QIndex term. A graph without usable cross-venue edges yields uniform 1/N
+PageRank. Bibliography boundaries and partial coverage limit interpretation;
+see Chapters 5 and 11.
 
 ## 6.5 Legacy pipelines
 

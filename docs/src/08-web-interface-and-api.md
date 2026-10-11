@@ -60,7 +60,7 @@ whether the rendered book is included; read them from the current build report.
 | Path | Kind | Contents |
 |------|------|----------|
 | `index.html` | pre-rendered | dashboard: totals, top-10 venues and scholars, field chart |
-| `venues/index.html` | pre-rendered + JS filter | every ranked venue; `?field=` / `?tier=` filters |
+| `venues/index.html` | pre-rendered + JS filter | every ranked venue; `?field=` filter |
 | `venue/<slug>/index.html` | pre-rendered | venue page 1: header stats, top-10 authors, 20 papers |
 | `venue/<slug>/page/<n>/index.html` | pre-rendered | venue page *n* (n ≥ 2) |
 | `scholars/index.html` | pre-rendered + JS filter | top 100 scholars by QIndex; `?min_papers=` filter |
@@ -124,7 +124,7 @@ The old routes map onto the new layout as follows:
 | Old server route | Static site |
 |------------------|-------------|
 | `GET /` (AJAX shell + `/api/homepage`) | `index.html`, fully pre-rendered |
-| `GET /venues?field=&tier=&limit=` | `venues/?field=&tier=` (filtered in the browser; `limit` ignored) |
+| `GET /venues?field=&limit=` | `venues/?field=` (filtered in the browser; `limit` ignored) |
 | `GET /venue/{id}?page=&per_page=` | `venue/<slug>/`, `venue/<slug>/page/<n>/` (fixed 20 per page) |
 | `GET /scholars?min_papers=&limit=` | `scholars/?min_papers=` (top 100; filtered in the browser) |
 | `GET /scholar/{id}?page=&per_page=` | `scholar/?id=<id>&page=<n>` (fixed 20 per page) |
@@ -159,12 +159,11 @@ close the `<script>` element.
 
 **Venues (`venues/`).** `venues_page` (`src/site/templates.rs`) renders
 every venue returned by `get_top_venues` — the CSRankings venues, in Venue Score
-order — with rank, tier badge, field, Venue Score, count-scaled score, and paper count.
-Each row carries `data-field` and `data-tier` attributes. The filter form
-submits to the same page as a GET request; `initVenueFilters`
-(`static/app.js`) reads `?field=` and `?tier=`, sets the two `<select>`s
-to match, hides rows that fail the filter (case-insensitive substring match on
-the field, exact match on the tier — the same rules as the old server), and
+order — with rank, field, Venue Score, count-scaled score, and paper count.
+Each row carries a `data-field` attribute. The filter form submits to the same
+page as a GET request; `initVenueFilters` (`static/app.js`) reads `?field=`,
+sets the field `<select>`, hides rows that fail the case-insensitive substring
+match, and
 renumbers the visible ranks. If nothing matches it shows "No venues match these
 filters."
 
@@ -262,19 +261,19 @@ envelope any more: each file is the bare value.
 |------|-------|-------|
 | `data/venues.json` | `Vec<VenueRanking>` | every ranked (CSRankings) venue, Venue Score order |
 | `data/scholars.json` | `Vec<ScholarRanking>` | top 100 by QIndex; eligible unique works |
-| `data/stats.json` | object | `snapshot_release`, `total_papers`, `total_venues`, `total_scholars`, `total_citations`, `papers_by_year`, `papers_by_tier`, `papers_by_field` |
+| `data/stats.json` | object | `snapshot_release`, `total_papers`, `total_venues`, `total_scholars`, `total_citations`, `papers_by_year`, `papers_by_field` |
 | `data/search-index.json` | object | see below |
 | `data/scholars/<xx>.json` | object | see below |
 
 `data/stats.json` (`stats_json`, `src/site/mod.rs`) counts unique works throughout
-its paper totals and year/tier/field maps; map keys are sorted. `snapshot_release`
+its paper totals and year/field maps; map keys are sorted. `snapshot_release`
 is the S2AG release string (or null without provenance), not the build date.
 `total_citations` sums displayed counts over unique works, not internal edges.
 Read current totals from generated data, not old builds. Scholar ranking JSON
 uses the eligible scope, whereas profile shards also expose all-indexed metrics.
 
-The retained JSON `pagerank` field is the tier-adjusted, renormalized **Venue
-Score**, not raw PageRank. `impact_factor` is that score multiplied by
+The retained JSON `pagerank` field is normalized, unadjusted PageRank (**Venue
+Score**), without manual boosts. `impact_factor` is that score multiplied by
 `ln(unique venue works + 1)`, a count-scaled score, not a journal impact factor.
 
 ### `data/search-index.json`
@@ -285,7 +284,7 @@ Score**, not raw PageRank. `impact_factor` is that score multiplied by
 {
   "venues": [
     { "id": "SOSP", "name": "SOSP", "full_name": "Symposium on Operating Systems Principles",
-      "field": "Operating Systems", "tier": "A*", "pagerank": 0.12, "url": "venue/sosp/" }
+      "field": "Operating Systems", "pagerank": 0.12, "url": "venue/sosp/" }
   ],
   "scholars": [ ["example_scholar", "Example Scholar", 61.2345, 2, 3] ]
 }
@@ -455,11 +454,11 @@ search and scholar profiles are rendered in the browser from a search index and
 256 scholar shards; and the four public JSON files replace the old HTTP API.
 Every link goes through one base path, so the same build logic serves a GitHub
 Pages project site under `/q-index/` or a local preview at `/`. Local matched
-citation edges drive directed venue PageRank, followed by tier adjustment and
-normalization; only a graph without usable cross-venue citations uses the
-prestige fallback. Whole-S2 counts are separate from this restricted graph.
-Profiles expose all-indexed metrics separately from eligible ranking metrics.
-Manual tiers, partial bibliography coverage and name-based identity remain
+citation edges drive normalized, unadjusted venue PageRank; without usable
+cross-venue citations each venue receives 1/N, without manual boosts.
+Whole-S2 counts are separate from this restricted graph. Profiles expose
+all-indexed metrics separately from eligible ranking metrics. Partial
+bibliography coverage, eligibility policy and name-based identity remain
 limitations, not guarantees of objective fairness. The server's operational
 risks — panicking handlers, lock poisoning, shell-outs and stale request caches —
 are gone, along with any need to run or monitor a server process.

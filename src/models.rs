@@ -41,7 +41,6 @@ pub struct Venue {
     pub papers: Vec<String>, // Paper IDs
     pub pagerank: f64,
     pub impact_factor: f64,
-    pub tier: String,
     pub field: String,
 }
 
@@ -106,17 +105,10 @@ pub struct AlgorithmParams {
     pub year_decay: f64,
     /// Snapshot year when citation data is loaded; current UTC year otherwise.
     pub reference_year: u32,
-    pub tier_bonus: HashMap<String, f64>,
 }
 
 impl Default for AlgorithmParams {
     fn default() -> Self {
-        let mut tier_bonus = HashMap::new();
-        tier_bonus.insert("A*".to_string(), 2.0);
-        tier_bonus.insert("A".to_string(), 1.5);
-        tier_bonus.insert("B".to_string(), 1.2);
-        tier_bonus.insert("C".to_string(), 1.0);
-
         Self {
             damping_factor: 0.85,
             max_iterations: 100,
@@ -124,7 +116,6 @@ impl Default for AlgorithmParams {
             venue_weight: 0.7,
             year_decay: 0.95,
             reference_year: chrono::Datelike::year(&chrono::Utc::now()) as u32,
-            tier_bonus,
         }
     }
 }
@@ -133,7 +124,6 @@ impl Default for AlgorithmParams {
 pub struct VenueRanking {
     pub id: String,
     pub name: String,
-    pub tier: String,
     pub field: String,
     pub pagerank: f64,
     pub impact_factor: f64,
@@ -208,7 +198,6 @@ impl CitationGraph {
                 results.push(VenueRanking {
                     id: venue.id.clone(),
                     name: venue.name.clone(),
-                    tier: venue.tier.clone(),
                     field: venue.field.clone(),
                     pagerank: venue.pagerank,
                     impact_factor: venue.impact_factor,
@@ -279,17 +268,6 @@ impl CitationGraph {
         println!("\n📚 Papers by Venue Type:");
         for (vtype, count) in venue_type_counts {
             println!("  {:?}: {}", vtype, count);
-        }
-
-        // Papers by tier
-        let mut tier_counts = HashMap::new();
-        for venue in self.venues.values() {
-            *tier_counts.entry(venue.tier.clone()).or_insert(0) += venue.papers.len();
-        }
-
-        println!("\n🏆 Papers by Venue Tier:");
-        for (tier, count) in tier_counts.iter() {
-            println!("  {}: {}", tier, count);
         }
 
         // Papers by field
@@ -366,39 +344,6 @@ pub fn normalize_author_name(name: &str) -> String {
         })
         .collect::<Vec<_>>()
         .join(" ")
-}
-
-pub fn get_venue_tier(venue: &str) -> String {
-    let venue_upper = venue.to_uppercase();
-
-    // Top tier venues
-    let top_tier = [
-        "SOSP", "OSDI", "SIGMOD", "VLDB", "PLDI", "POPL", "SIGCOMM", "NSDI", "ASPLOS", "ISCA",
-        "MICRO", "FAST", "EUROSYS", "ATC", "PODC", "SPAA", "CCS", "SECURITY", "OAKLAND", "STOC",
-        "FOCS", "SODA",
-    ];
-
-    // Second tier venues
-    let second_tier = [
-        "SOCC", "DSN", "ICDCS", "IPDPS", "CIDR", "ICDE", "EDBT", "VEE", "PPOPP", "PACT", "HPDC",
-        "SC", "CONEXT", "INFOCOM", "IMC", "OOPSLA", "ECOOP", "ICSE", "DISC", "OPODIS",
-    ];
-
-    if top_tier.iter().any(|&v| venue_upper.contains(v)) {
-        "A*".to_string()
-    } else if second_tier.iter().any(|&v| venue_upper.contains(v)) {
-        "A".to_string()
-    } else if venue_upper.contains("JOURNAL") || venue_upper.contains("TRANSACTIONS") {
-        if venue_upper.contains("ACM") || venue_upper.contains("IEEE") {
-            "A".to_string()
-        } else {
-            "B".to_string()
-        }
-    } else if venue_upper.contains("WORKSHOP") || venue_upper.contains("HOT") {
-        "B".to_string()
-    } else {
-        "C".to_string()
-    }
 }
 
 pub fn get_venue_field(venue: &str) -> String {

@@ -100,9 +100,6 @@ impl<'a> PageRankCalculator<'a> {
         info!("Calculating venue PageRank scores...");
         self.calculate_venue_pagerank()?;
 
-        info!("Applying tier bonuses...");
-        self.apply_tier_bonus();
-
         info!("Calculating scholar QIndex scores...");
         self.calculate_scholar_scores();
 
@@ -216,109 +213,72 @@ impl<'a> PageRankCalculator<'a> {
             return Ok(());
         }
 
-        // Check if we have any citation data
-        let has_citations = !self.venue_graph.is_empty();
+        info!(
+            "Running PageRank with citation graph ({} edges)",
+            self.venue_graph.values().map(|e| e.len()).sum::<usize>()
+        );
 
-        if has_citations {
-            // Use PageRank if we have citation data
-            info!(
-                "Running PageRank with citation graph ({} edges)",
-                self.venue_graph.values().map(|e| e.len()).sum::<usize>()
-            );
+        // Initialize uniformly, including graphs with no cross-venue citations.
+        let initial_score = 1.0 / n as f64;
+        for venue in &venues {
+            self.venue_scores.insert(venue.clone(), initial_score);
+        }
 
-            // Initialize scores
-            let initial_score = 1.0 / n as f64;
+        // With every venue dangling, uniform initialization is already the fixed point.
+        if self.venue_graph.is_empty() {
+            return Ok(());
+        }
+
+        // Power iteration
+        for iteration in 0..self.params.max_iterations {
+            let mut new_scores = HashMap::new();
+
+            // Dangling venues have no entry in the sparse forward graph.
+            let dangling_mass: f64 = venues
+                .iter()
+                .filter(|venue| !self.venue_graph.contains_key(*venue))
+                .map(|venue| self.venue_scores[venue])
+                .sum();
+            let base = (1.0 - self.params.damping_factor
+                + self.params.damping_factor * dangling_mass)
+                / n as f64;
             for venue in &venues {
-                self.venue_scores.insert(venue.clone(), initial_score);
+                new_scores.insert(venue.clone(), base);
             }
 
-            // Power iteration
-            for iteration in 0..self.params.max_iterations {
-                let mut new_scores = HashMap::new();
-
-                // Dangling venues have no entry in the sparse forward graph.
-                let dangling_mass: f64 = venues
-                    .iter()
-                    .filter(|venue| !self.venue_graph.contains_key(*venue))
-                    .map(|venue| self.venue_scores[venue])
-                    .sum();
-                let base = (1.0 - self.params.damping_factor
-                    + self.params.damping_factor * dangling_mass)
-                    / n as f64;
-                for venue in &venues {
-                    new_scores.insert(venue.clone(), base);
-                }
-
-                // Add contributions from incoming links
-                for (from_venue, edges) in &self.venue_graph {
-                    let from_score = self.venue_scores[from_venue];
-                    for (to_venue, weight) in edges {
-                        let contribution = self.params.damping_factor * from_score * weight;
-                        *new_scores.get_mut(to_venue).unwrap() += contribution;
-                    }
-                }
-
-                // Check convergence
-                let mut max_diff = 0.0;
-                for venue in &venues {
-                    let old_score = self.venue_scores.get(venue).unwrap_or(&0.0);
-                    let new_score = new_scores.get(venue).unwrap_or(&0.0);
-                    let diff = (new_score - old_score).abs();
-                    if diff > max_diff {
-                        max_diff = diff;
-                    }
-                }
-
-                self.venue_scores = new_scores;
-
-                if max_diff < self.params.tolerance {
-                    debug!("PageRank converged after {} iterations", iteration + 1);
-                    break;
+            // Add contributions from incoming links
+            for (from_venue, edges) in &self.venue_graph {
+                let from_score = self.venue_scores[from_venue];
+                for (to_venue, weight) in edges {
+                    let contribution = self.params.damping_factor * from_score * weight;
+                    *new_scores.get_mut(to_venue).unwrap() += contribution;
                 }
             }
 
-            // Normalize scores
-            let sum: f64 = venues.iter().map(|venue| self.venue_scores[venue]).sum();
-            if sum > 0.0 {
-                for score in self.venue_scores.values_mut() {
-                    *score /= sum;
+            // Check convergence
+            let mut max_diff = 0.0;
+            for venue in &venues {
+                let old_score = self.venue_scores.get(venue).unwrap_or(&0.0);
+                let new_score = new_scores.get(venue).unwrap_or(&0.0);
+                let diff = (new_score - old_score).abs();
+                if diff > max_diff {
+                    max_diff = diff;
                 }
             }
-        } else {
-            // No citation data - use alternative scoring based on paper count and venue prestige
-            info!("No citation data available, using prestige-based scoring");
 
-            for (venue_id, venue) in &self.graph.venues {
-                let mut score = 0.0;
+            self.venue_scores = new_scores;
 
-                // Base score from paper count (logarithmic scale)
-                let paper_count = self.venue_paper_count(venue_id) as f64;
-                if paper_count > 0.0 {
-                    score = (paper_count + 1.0).ln() / 10.0;
-                }
-
-                // Adjust based on CSRankings status
-                if is_csrankings_venue(&venue.name) {
-                    score *= 2.0; // Boost CSRankings venues
-                }
-
-                // Add some variation based on venue name hash to avoid identical scores
-                let name_hash = venue
-                    .name
-                    .chars()
-                    .fold(0u32, |acc, c| acc.wrapping_add(c as u32));
-                let variation = ((name_hash % 100) as f64) / 10000.0;
-                score += variation;
-
-                self.venue_scores.insert(venue_id.clone(), score);
+            if max_diff < self.params.tolerance {
+                debug!("PageRank converged after {} iterations", iteration + 1);
+                break;
             }
+        }
 
-            // Normalize scores
-            let sum: f64 = venues.iter().map(|venue| self.venue_scores[venue]).sum();
-            if sum > 0.0 {
-                for score in self.venue_scores.values_mut() {
-                    *score /= sum;
-                }
+        // Normalize scores
+        let sum: f64 = venues.iter().map(|venue| self.venue_scores[venue]).sum();
+        if sum > 0.0 {
+            for score in self.venue_scores.values_mut() {
+                *score /= sum;
             }
         }
 
@@ -331,29 +291,6 @@ impl<'a> PageRankCalculator<'a> {
         }
 
         Ok(())
-    }
-
-    fn apply_tier_bonus(&mut self) {
-        for (venue_id, score) in self.venue_scores.iter_mut() {
-            if let Some(venue) = self.graph.venues.get(venue_id) {
-                if let Some(bonus) = self.params.tier_bonus.get(&venue.tier) {
-                    *score *= bonus;
-                }
-            }
-        }
-
-        // Re-normalize after applying bonuses
-        let sum: f64 = self
-            .graph
-            .venues
-            .keys()
-            .filter_map(|id| self.venue_scores.get(id))
-            .sum();
-        if sum > 0.0 {
-            for score in self.venue_scores.values_mut() {
-                *score /= sum;
-            }
-        }
     }
 
     fn calculate_scholar_scores(&mut self) {
@@ -421,12 +358,7 @@ impl<'a> PageRankCalculator<'a> {
             .h_index(self.eligible_scholar_papers(scholar))
     }
 
-    pub fn get_top_venues(
-        &self,
-        n: usize,
-        field: Option<&str>,
-        tier: Option<&str>,
-    ) -> Vec<VenueRanking> {
+    pub fn get_top_venues(&self, n: usize, field: Option<&str>) -> Vec<VenueRanking> {
         let mut rankings: Vec<VenueRanking> = self
             .graph
             .venues
@@ -435,7 +367,6 @@ impl<'a> PageRankCalculator<'a> {
                 // Only include CSRankings conferences
                 is_csrankings_venue(&v.name)
                     && field.map_or(true, |f| v.field.to_lowercase().contains(&f.to_lowercase()))
-                    && tier.map_or(true, |t| v.tier == t)
             })
             .map(|venue| {
                 let score = self.venue_scores.get(&venue.id).unwrap_or(&0.0);
@@ -445,7 +376,6 @@ impl<'a> PageRankCalculator<'a> {
                 VenueRanking {
                     id: venue.id.clone(),
                     name: venue.name.clone(),
-                    tier: venue.tier.clone(),
                     field: venue.field.clone(),
                     pagerank: *score,
                     impact_factor,

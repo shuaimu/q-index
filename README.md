@@ -4,7 +4,7 @@ A high-performance academic quality index calculator built in Rust, using PageRa
 
 ## 🚀 Features
 
-- **PageRank-based Venue Scoring**: Calculates prestige scores for academic venues using citation networks
+- **PageRank-based Venue Scoring**: Calculates normalized, unadjusted venue centrality from citation networks, without manual prestige boosts
 - **Scholar QIndex**: Computes quality-weighted publication scores for researchers
 - **Scoped H-Index**: Snapshot h-index over the indexed or ranking-eligible works
 - **Static Website**: Pre-rendered HTML and browser-side JSON; no application server
@@ -57,7 +57,7 @@ python3 -m http.server -d site 8080    # then open http://localhost:8080
 Pages); `mdbook build docs` first to include the design book under `/book/`.
 The site includes:
 - 📊 Dashboard with rankings and a field distribution chart
-- 🏛️ Venue rankings (filter by field and tier) and per-venue paper listings
+- 🏛️ Venue rankings (filter by field) and per-venue paper listings
 - 👩‍🔬 Scholar rankings and profiles
 - 🔍 In-browser search with autocomplete
 - 📥 Rankings as JSON files under `/data/`
@@ -74,7 +74,7 @@ qindex calculate
 
 ```bash
 qindex venues --top 30
-qindex venues --field Systems --tier "A*"
+qindex venues --field Systems
 ```
 
 #### View Top Scholars
@@ -188,12 +188,15 @@ The algorithm builds a directed graph where:
 Key parameters:
 - Damping factor: 0.85
 - Citation-edge age: `max(citing_year - cited_year, 0)`, with weight `0.95^age`
-- Tier bonuses: A* (2.0x), A (1.5x), B (1.2x), C (1.0x)
 
-Dangling venues redistribute mass uniformly. Published venue scores are
-tier-adjusted and renormalized, not raw PageRank. The JSON field `pagerank`
-contains that adjusted score; `impact_factor` is its paper-count scaling
+Dangling venues redistribute mass uniformly. Published Venue Score is normalized,
+unadjusted PageRank, serialized as `pagerank`, with no manual prestige, name or
+venue-eligibility boosts. Without usable cross-venue edges, each of the N venues
+has score 1/N. `impact_factor` is its paper-count scaling
 `score × ln(unique venue works + 1)`, not a journal impact factor.
+
+Venue tier labels, filters and metadata have been removed from the CLI, website
+and JSON/CSV exports.
 
 ### Scholar QIndex
 
@@ -201,7 +204,7 @@ contains that adjusted score; `impact_factor` is its paper-count scaling
 raw_score = Σ(paper_score) × ln(eligible_unique_papers + 1)
 QIndex = 100 × raw_score / max_scholar_raw_score
 
-paper_score = adjusted_venue_score × 0.95^(age / 5) × author_position_weight
+paper_score = venue_score × 0.95^(age / 5) × author_position_weight
 ```
 
 Author position weights:
@@ -215,9 +218,9 @@ the reference year comes from the loaded snapshot release, or the current UTC
 year without a valid release. Future and unknown-year works are undecayed.
 
 This is a relative score for a curated bibliography, **not a global scholar
-leaderboard or full-career h-index**. The manual tier dictionary is systems/theory-
-heavy: ICML, NeurIPS, ICLR and CVPR currently fall back to C. Authorship positions
-are heuristics, not verified contributions. Names preserve DBLP disambiguators,
+leaderboard or full-career h-index**. Automatic field taxonomy is separate from
+the CSRankings eligibility allowlist; neither boosts venue scores. Authorship
+positions are heuristics, not verified contributions. Names preserve DBLP disambiguators,
 but remaining name collisions/aliases are not resolved by an author-ID service.
 
 ## 🌐 Website Features
@@ -231,8 +234,7 @@ the browser against JSON files, so no server is needed:
 - Field distribution chart
 
 ### Venues
-- Filterable by field and tier
-- Color-coded tier badges
+- Filterable by automatically classified field
 - A page per venue with its papers (newest first), top authors and links
 
 ### Scholars
@@ -325,8 +327,7 @@ cargo bench
 - Intuitive search functionality
 
 ### Data Quality
-- Automatic venue tier classification
-- Field categorization (Systems, Database, Theory, etc.)
+- Automatic field categorization, separate from the CSRankings scholar-eligibility allowlist
 - Author name normalization
 - Citation cycle detection
 

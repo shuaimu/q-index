@@ -69,9 +69,9 @@ The default CLI and site load the local S2AG count and graph artifacts described
 in Chapter 6. The parser alone supplies no references; the snapshot integration
 populates the internal graph before scoring. Directed cross-venue citations feed
 PageRank once each, with year-decayed edge weights. Dangling venues distribute
-their mass uniformly. Tier bonuses (`A*`=2.0, `A`=1.5, `B`=1.2, `C`=1.0)
-are applied afterwards and the scores re-normalised. The paper-count prestige
-fallback is reserved for an input graph without usable cross-venue citations.
+their mass uniformly. Published Venue Score is normalized, unadjusted PageRank,
+without manual prestige, name or eligibility boosts. With no usable
+cross-venue citations, every venue receives 1/N.
 
 ## 2.2 The h-index and Its Limitations
 
@@ -212,19 +212,19 @@ dead. Crossref also underpins the largely stubbed reference extractor
 
 The CLI and website use the same count artifact and graph release. Whole-S2
 counts supply reported totals and h-indices; bibliography-only directed edges
-drive venue PageRank. After tier multiplication and normalization, the published
-`pagerank` field is **Venue Score**, not raw PageRank. Paper citation counts are
-not an additional direct QIndex term. The `impact_factor` compatibility field
-is adjusted venue score times $\ln(\text{unique venue works}+1)$, labelled
+drive venue PageRank. The published `pagerank` field is normalized, unadjusted
+PageRank (**Venue Score**). Paper citation counts are not an additional direct
+QIndex term. The `impact_factor` field is venue score times
+$\ln(\text{unique venue works}+1)$, labelled
 **Count-Scaled Score**, not a journal impact factor.
 
 ## 2.5 Summary
 
-QIndex combines real citation-derived venue prestige with manual tier bonuses,
-a CSRankings-style allowlist, position credit and gentle recency decay. Scholar
-credit and productivity scaling share one unique eligible publication set.
-The tier dictionary is incomplete and systems/theory-heavy: ICML, NeurIPS,
-ICLR and CVPR fall back to C despite being eligible. Neither this prior nor
-the byline heuristic is an objective fairness guarantee. Name identity,
+QIndex combines normalized, unadjusted citation-derived venue centrality with
+a separate CSRankings-style scholar allowlist, position credit and gentle recency
+decay. Scholar credit and productivity scaling share one unique eligible
+publication set. Without usable cross-venue edges, venue PageRank is uniform
+1/N. Neither eligibility nor the byline heuristic is an objective fairness
+guarantee. Name identity,
 partial bibliography coverage and snapshot matching constrain interpretation.
 Chapters 3–6 explain the model, algorithm and local integration in detail.

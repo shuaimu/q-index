@@ -87,21 +87,6 @@ main {
     font-weight: bold;
 }
 
-/* Venue Tier Colors */
-.venue-tier-a-star {
-    color: var(--danger-color);
-    font-weight: bold;
-}
-
-.venue-tier-a {
-    color: var(--warning-color);
-    font-weight: bold;
-}
-
-.venue-tier-b {
-    color: var(--success-color);
-}
-
 /* Scholar QIndex Display */
 .qindex-score {
     font-size: 1.2rem;

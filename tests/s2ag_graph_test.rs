@@ -72,7 +72,7 @@ fn forward_direction_and_dangling_mass_determine_rank() {
     let metrics = PageRankCalculator::with_citations(&graph, &counts)
         .calculate()
         .unwrap();
-    // All three venues have the same tier. For A -> B with two dangling
+    // For A -> B with two dangling
     // venues, p(B)=1.85/3.85, p(A)=p(C)=1/3.85 at damping 0.85.
     assert!((metrics.venue_scores["OSDI"] - 1.85 / 3.85).abs() < 1e-5);
     assert!((metrics.venue_scores["SOSP"] - 1.0 / 3.85).abs() < 1e-5);

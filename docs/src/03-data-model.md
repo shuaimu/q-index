@@ -96,7 +96,6 @@ pub enum VenueType {
 | `techreport` | `TechnicalReport` |
 | anything else | `Unknown` |
 
-Note this is an *independent* signal from the tier classifier in 3.4, which separately string-matches `WORKSHOP`/`HOT` to assign tier B. The two can disagree (a `@inproceedings` entry at a "HotX" venue is `VenueType::Conference` but tier B).
 
 Technical reports use their cleaned `institution` as the venue when no explicit
 venue is supplied. The institution is retained in full rather than shortened
@@ -113,12 +112,11 @@ pub struct Venue {
     pub papers: Vec<String>,   // paper IDs
     pub pagerank: f64,
     pub impact_factor: f64,
-    pub tier: String,          // "A*" | "A" | "B" | "C"
     pub field: String,
 }
 ```
 
-The parser creates `name` and `full_name` from the venue string and initializes score fields to zero. `get_venue_tier` and `get_venue_field` classify it. The calculator returns computed metrics and ranking structs rather than mutating these model score fields. In published rankings `pagerank` is post-tier Venue Score and `impact_factor` is Count-Scaled Score, not raw PageRank or a journal impact factor.
+The parser creates `name` and `full_name` from the venue string and initializes score fields to zero. `get_venue_field` classifies its field. The calculator returns computed metrics and ranking structs rather than mutating these model score fields. In published rankings `pagerank` is normalized, unadjusted PageRank (Venue Score), and `impact_factor` is Venue Score times `ln(unique venue works + 1)` (Count-Scaled Score), not a journal impact factor.
 
 ### Scholar
 
@@ -151,11 +149,10 @@ Model score fields start at zero and are not overwritten by the calculator, whic
 | `venue_weight` | `0.7` | venue-vs-other weight (declared) |
 | `year_decay` | `0.95` | recency decay base |
 | `reference_year` | current UTC year; valid loaded snapshot release year overrides it | scholar recency reference |
-| `tier_bonus` | `{A*:2.0, A:1.5, B:1.2, C:1.0}` | per-tier multiplier |
 
 `venue_weight` is retained but unused by the current algorithm. `year_decay` discounts citation age directly and scholar age divided by five. `QIndexMetrics` carries scores, processing timestamp, algorithm name and effective parameters. Snapshot release date is separate provenance.
 
-`VenueRanking` carries id, name, tier, field, adjusted `pagerank`, count-scaled `impact_factor` and unique paper count. `ScholarRanking` carries id, name, QIndex, eligible publication count, snapshot citation total, eligible h-index and top venues. The eligible set is deduplicated before checking representative author membership and CSRankings venue eligibility. Profiles distinguish broader `all_indexed` metrics from this `ranking` scope; ranking/search consumers use computed rankings, not the metadata graph's zero-initialized fields.
+`VenueRanking` carries id, name, field, normalized `pagerank`, count-scaled `impact_factor` and unique paper count. `ScholarRanking` carries id, name, QIndex, eligible publication count, snapshot citation total, eligible h-index and top venues. The eligible set is deduplicated before checking representative author membership and CSRankings venue eligibility. Profiles distinguish broader `all_indexed` metrics from this `ranking` scope; ranking/search consumers use computed rankings, not the metadata graph's initial score fields.
 
 ## 3.4 Identity, normalization, and classification
 
@@ -182,21 +179,6 @@ This is purely lexical. It does not disambiguate distinct people who share a nor
 
 `normalize_venue_id` (`src/parser.rs:489-495`) produces the venue map key: trim, uppercase, replace ` ` and `-` with `_`, and strip apostrophes. Example: `USENIX ATC` → `USENIX_ATC`. Before this runs, the raw `booktitle`/`journal` value passes through `expand_string` and `extract_venue_name` (3.5), so the quality of venue grouping depends on those producing a consistent surface name.
 
-### Venue tier
-
-`get_venue_tier` (`src/models.rs:359-389`) uppercases the venue and assigns a tier by **substring** match against two hardcoded lists, with journal and workshop fallbacks:
-
-| Tier | Rule |
-| --- | --- |
-| **A\*** | venue contains any of: SOSP, OSDI, SIGMOD, VLDB, PLDI, POPL, SIGCOMM, NSDI, ASPLOS, ISCA, MICRO, FAST, EUROSYS, ATC, PODC, SPAA, CCS, SECURITY, OAKLAND, STOC, FOCS, SODA (22 tokens) |
-| **A** | else contains any of: SOCC, DSN, ICDCS, IPDPS, CIDR, ICDE, EDBT, VEE, PPOPP, PACT, HPDC, SC, CONEXT, INFOCOM, IMC, OOPSLA, ECOOP, ICSE, DISC, OPODIS (20 tokens); or contains JOURNAL/TRANSACTIONS *and* ACM/IEEE |
-| **B** | else contains JOURNAL/TRANSACTIONS (without ACM/IEEE); or contains WORKSHOP/HOT |
-| **C** | everything else (default) |
-
-Because matching is `contains()` on the uppercased name, short tokens can false-match longer venue strings (for example `SC` or `EC`). The `C` default absorbs anything unmatched.
-
-The dictionary is incomplete and systems/theory-heavy: ICML, NeurIPS, ICLR and CVPR currently default to C even though they are scholar-ranking eligible. Tier, field and eligibility are separate policies; these priors do not establish objective fairness.
-
 ### Venue field
 
 `get_venue_field` (`src/models.rs:391-468`) classifies a venue into a CSRankings-style subarea by returning the first field whose keyword list has a substring match. There are 35 keyword→field rows covering roughly 90 venue tokens; a representative subset:
@@ -214,7 +196,7 @@ The dictionary is incomplete and systems/theory-heavy: ICML, NeurIPS, ICLR and C
 | Parallel & Distributed Computing | PODC, SPAA, DISC |
 | Software Engineering | FSE, ICSE, ASE, ISSTA |
 
-If no keyword matches but the venue contains JOURNAL/TRANSACTIONS, a secondary sub-keyword pass maps DATABASE→Databases, NETWORK→Computer Networks, PARALLEL/DISTRIBUTED→Parallel & Distributed Computing, SOFTWARE→Software Engineering, COMPUTER→Computer Systems (`src/models.rs:452-465`). The final fallback for anything unmatched is `"General"`. As with the tier classifier, substring matching means short keywords can mis-fire.
+If no keyword matches but the venue contains JOURNAL/TRANSACTIONS, a secondary sub-keyword pass maps DATABASE→Databases, NETWORK→Computer Networks, PARALLEL/DISTRIBUTED→Parallel & Distributed Computing, SOFTWARE→Software Engineering, COMPUTER→Computer Systems. The final fallback for anything unmatched is `"General"`. Substring matching means short keywords can mis-fire. This automatic field taxonomy is separate from the CSRankings scholar-eligibility allowlist; neither supplies venue-score boosts.
 
 ## 3.5 From BibTeX entry to `Paper`
 

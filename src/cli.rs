@@ -48,10 +48,6 @@ pub enum Commands {
         /// Filter by field (e.g., Systems, Database, Theory)
         #[arg(short, long)]
         field: Option<String>,
-
-        /// Filter by tier (A*, A, B, C)
-        #[arg(short = 't', long)]
-        tier: Option<String>,
     },
 
     /// Show top scholars by QIndex score

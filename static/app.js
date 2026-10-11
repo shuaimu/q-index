@@ -79,7 +79,7 @@ function shardOf(id) {
 
 let searchIndexPromise = null;
 
-// { venues: [{id, name, full_name, field, tier, pagerank, url}],
+// { venues: [{id, name, full_name, field, pagerank, url}],
 //   scholars: [[id, name, eligible_qindex, eligible_h_index, eligible_paper_count], ...] }
 function loadSearchIndex() {
     if (!searchIndexPromise) {
@@ -115,14 +115,6 @@ function errorAlert(message) {
         </div>`;
 }
 
-function tierBadge(tier) {
-    const cls = tier === 'A*' ? 'bg-danger'
-        : tier === 'A' ? 'bg-warning text-dark'
-        : tier === 'B' ? 'bg-info text-dark'
-        : 'bg-secondary';
-    return `<span class="badge ${cls}">${escapeHtml(tier)}</span>`;
-}
-
 // Same windowing as the pagination() template in src/site/templates.rs
 function paginationHtml(current, total, urlFor) {
     if (total <= 1) return '';
@@ -144,19 +136,16 @@ function paginationHtml(current, total, urlFor) {
 }
 
 // ---------------------------------------------------------------------------
-// Venues page: ?field= and ?tier= filters
+// Venues page: ?field= filter
 
 function initVenueFilters() {
     const params = new URLSearchParams(window.location.search);
     const field = params.get('field') || '';
-    const tier = params.get('tier') || '';
     document.getElementById('field').value = field;
-    document.getElementById('tier').value = tier;
 
     let rank = 0;
     document.querySelectorAll('#venues-table tbody tr').forEach(row => {
-        const show = (!field || row.dataset.field.toLowerCase().includes(field.toLowerCase())) &&
-            (!tier || row.dataset.tier === tier);
+        const show = !field || row.dataset.field.toLowerCase().includes(field.toLowerCase());
         row.style.display = show ? '' : 'none';
         if (show) row.querySelector('.rank').textContent = ++rank;
     });
@@ -199,13 +188,12 @@ function renderSearchPage() {
                         <h3><i class="bi bi-building me-2"></i>Venues</h3>
                         <div class="card"><div class="card-body"><div class="table-responsive">
                         <table class="table table-hover">
-                            <thead><tr><th>Venue</th><th>Tier</th><th>Field</th><th>Venue Score</th></tr></thead>
+                            <thead><tr><th>Venue</th><th>Field</th><th>Venue Score</th></tr></thead>
                             <tbody>`;
                 venues.forEach(venue => {
                     html += `
                         <tr>
                             <td><a href="${escapeHtml(siteUrl(venue.url))}">${escapeHtml(venue.name)}</a></td>
-                            <td><span class="badge bg-secondary">${escapeHtml(venue.tier)}</span></td>
                             <td>${escapeHtml(venue.field)}</td>
                             <td>${venue.pagerank.toFixed(4)}</td>
                         </tr>`;
@@ -329,7 +317,7 @@ function scholarHtml(scholar, pagePapers, page, totalPages, id) {
                 ${stat('Indexed H-Index', all.h_index)}
             </div>
             <h2 class="h5 mt-4">CSRankings-eligible ranking scope</h2>
-            <p class="text-muted">Only eligible indexed works contribute to QIndex and these ranking metrics. QIndex uses the internal venue citation graph with tier, age and author-order assumptions; it is not a measure of objective scholar quality. Matched citation counts cover the whole S2 snapshot, not just this graph; unmatched counts are internal lower bounds and unknown counts remain n/a.</p>
+            <p class="text-muted">Only eligible indexed works contribute to QIndex and these ranking metrics. QIndex uses normalized, unadjusted PageRank on the local cross-venue citation graph, with publication-age and author-order assumptions; it is not a measure of objective scholar quality. Matched citation counts cover the whole S2 snapshot, not just this graph; unmatched counts are internal lower bounds and unknown counts remain n/a.</p>
             ${rankingHtml}
         </div></div>
         <div class="row">
@@ -498,7 +486,7 @@ function showSearchSuggestions(data, inputElement) {
             const item = document.createElement('a');
             item.className = 'dropdown-item';
             item.href = siteUrl(venue.url);
-            item.innerHTML = `${escapeHtml(venue.name)} <span class="badge bg-secondary">${escapeHtml(venue.tier)}</span>`;
+            item.textContent = venue.name;
             suggestions.appendChild(item);
         });
     }

@@ -40,9 +40,8 @@ fn main() -> Result<()> {
             bib_dir,
             top,
             field,
-            tier,
         } => {
-            run_venues(&bib_dir, top, field.as_deref(), tier.as_deref())?;
+            run_venues(&bib_dir, top, field.as_deref())?;
         }
         Commands::Scholars {
             bib_dir,
@@ -156,7 +155,7 @@ fn run_calculate(bib_dir: &str, top: usize, output: Option<&str>, export: bool) 
     Ok(())
 }
 
-fn run_venues(bib_dir: &str, top: usize, field: Option<&str>, tier: Option<&str>) -> Result<()> {
+fn run_venues(bib_dir: &str, top: usize, field: Option<&str>) -> Result<()> {
     let mut parser = BibParser::new();
     let mut graph = parser.parse_directory(bib_dir)?;
     let citations = load_snapshot(&mut graph)?;
@@ -165,7 +164,7 @@ fn run_venues(bib_dir: &str, top: usize, field: Option<&str>, tier: Option<&str>
 
     calculator.calculate()?;
 
-    let venues = calculator.get_top_venues(top, field, tier);
+    let venues = calculator.get_top_venues(top, field);
     display_venues(&venues);
 
     Ok(())
@@ -200,7 +199,7 @@ fn run_search(bib_dir: &str, query: &str) -> Result<()> {
     // Search venues
     let query_lower = query.to_lowercase();
     let matching_venues: Vec<_> = calculator
-        .get_top_venues(usize::MAX, None, None)
+        .get_top_venues(usize::MAX, None)
         .into_iter()
         .filter(|ranking| {
             let venue = &graph.venues[&ranking.id];
@@ -288,13 +287,12 @@ fn run_stats(bib_dir: &str) -> Result<()> {
 fn display_top_venues(calculator: &PageRankCalculator, top: usize) {
     use comfy_table::{presets::UTF8_FULL, Table};
 
-    let venues = calculator.get_top_venues(top, None, None);
+    let venues = calculator.get_top_venues(top, None);
 
     let mut table = Table::new();
     table.load_preset(UTF8_FULL).set_header(vec![
         "Rank",
         "Venue",
-        "Tier",
         "Field",
         "Venue Score",
         "Count-Scaled",
@@ -305,7 +303,6 @@ fn display_top_venues(calculator: &PageRankCalculator, top: usize) {
         table.add_row(vec![
             (i + 1).to_string(),
             venue.name.clone(),
-            venue.tier.clone(),
             venue.field.clone(),
             format!("{:.4}", venue.pagerank),
             format!("{:.4}", venue.impact_factor),
@@ -349,18 +346,13 @@ fn display_venues(venues: &[models::VenueRanking]) {
     use comfy_table::{presets::UTF8_FULL, Table};
 
     let mut table = Table::new();
-    table.load_preset(UTF8_FULL).set_header(vec![
-        "Venue",
-        "Tier",
-        "Field",
-        "Venue Score",
-        "Papers",
-    ]);
+    table
+        .load_preset(UTF8_FULL)
+        .set_header(vec!["Venue", "Field", "Venue Score", "Papers"]);
 
     for venue in venues {
         table.add_row(vec![
             venue.name.clone(),
-            venue.tier.clone(),
             venue.field.clone(),
             format!("{:.4}", venue.pagerank),
             venue.paper_count.to_string(),

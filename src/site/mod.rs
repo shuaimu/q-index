@@ -320,7 +320,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
 
     let mut calculator = PageRankCalculator::with_citations(&graph, &citations.s2ag);
     calculator.calculate()?;
-    let venue_rankings = calculator.get_top_venues(usize::MAX, None, None);
+    let venue_rankings = calculator.get_top_venues(usize::MAX, None);
     let scholar_rankings = calculator.get_top_scholars(usize::MAX, None);
     let scholar_by_id: HashMap<&str, &ScholarRanking> = scholar_rankings
         .iter()
@@ -621,15 +621,12 @@ fn stats_json(graph: &CitationGraph, citations: &Citations) -> serde_json::Value
             *papers_by_year.entry(year).or_insert(0usize) += 1;
         }
     }
-    let mut papers_by_tier = BTreeMap::new();
     let mut papers_by_field = BTreeMap::new();
     for paper in &papers {
         let venue = graph
             .venues
             .get(&crate::parser::normalize_venue_id(&paper.venue));
-        let tier = venue.map_or("Unknown", |venue| venue.tier.as_str());
         let field = venue.map_or("Unknown", |venue| venue.field.as_str());
-        *papers_by_tier.entry(tier).or_insert(0usize) += 1;
         *papers_by_field.entry(field).or_insert(0usize) += 1;
     }
     serde_json::json!({
@@ -639,7 +636,6 @@ fn stats_json(graph: &CitationGraph, citations: &Citations) -> serde_json::Value
         "total_scholars": graph.scholars.len(),
         "total_citations": citations.total(graph.papers.values()),
         "papers_by_year": papers_by_year,
-        "papers_by_tier": papers_by_tier,
         "papers_by_field": papers_by_field,
     })
 }
@@ -658,7 +654,6 @@ struct SearchVenue {
     name: String,
     full_name: String,
     field: String,
-    tier: String,
     pagerank: f64,
     url: String,
 }
@@ -677,7 +672,6 @@ fn search_index(
             name: display_venue(&v.name).to_string(),
             full_name: display_venue(&v.full_name).to_string(),
             field: v.field.clone(),
-            tier: v.tier.clone(),
             pagerank: venue_rank_by_id
                 .get(v.id.as_str())
                 .map_or(0.0, |r| r.pagerank),

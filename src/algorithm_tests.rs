@@ -32,7 +32,6 @@ fn venue(name: &str) -> Venue {
         papers: Vec::new(),
         pagerank: 0.0,
         impact_factor: 0.0,
-        tier: "A".into(),
         field: "systems".into(),
     }
 }
@@ -99,7 +98,7 @@ fn aliases_and_repeated_ids_leave_scores_and_ranked_counts_unchanged() {
     let citations = counts(&[("a", 1), ("alias", 1), ("b", 2)]);
     let mut baseline = PageRankCalculator::with_citations(&graph, &citations);
     let metrics = baseline.calculate().unwrap();
-    let venues = baseline.get_top_venues(10, None, None);
+    let venues = baseline.get_top_venues(10, None);
     let scholars = baseline.get_top_scholars(10, None);
 
     let mut alias = graph.papers["a"].clone();
@@ -128,7 +127,7 @@ fn aliases_and_repeated_ids_leave_scores_and_ranked_counts_unchanged() {
         assert_eq!(before.h_index, after.h_index);
         assert_eq!(before.top_venues, after.top_venues);
     }
-    for (before, after) in venues.iter().zip(duplicated.get_top_venues(10, None, None)) {
+    for (before, after) in venues.iter().zip(duplicated.get_top_venues(10, None)) {
         assert_eq!(before.id, after.id);
         assert_eq!(before.paper_count, after.paper_count);
         close(before.impact_factor, after.impact_factor);
@@ -262,6 +261,71 @@ fn dangling_pagerank_conserves_mass_and_matches_two_node_solution() {
 }
 
 #[test]
+fn equally_connected_venues_receive_equal_unadjusted_pagerank() {
+    let mut graph = CitationGraph::new();
+    let mut source = paper("source", "Unlisted Venue", 2026, &["Alice"]);
+    source.citations = vec!["sosp".into(), "socc".into()];
+    add(&mut graph, source);
+    add(&mut graph, paper("sosp", "SOSP", 2026, &["Bob"]));
+    add(&mut graph, paper("socc", "SOCC", 2026, &["Carol"]));
+
+    let mut calculator = PageRankCalculator::new(&graph);
+    calculator.params.reference_year = 2026;
+    calculator.params.tolerance = 1e-12;
+    let metrics = calculator.calculate().unwrap();
+    // One source splits its outgoing mass equally between two dangling venues.
+    close(
+        metrics.venue_scores[&normalize_venue_id("Unlisted Venue")],
+        1.0 / 3.85,
+    );
+    close(metrics.venue_scores["SOSP"], 1.425 / 3.85);
+    close(metrics.venue_scores["SOCC"], 1.425 / 3.85);
+    close(metrics.venue_scores.values().sum(), 1.0);
+
+    let rankings = calculator.get_top_venues(10, None);
+    assert_eq!(
+        rankings.iter().map(|v| v.id.as_str()).collect::<Vec<_>>(),
+        ["SOCC", "SOSP"]
+    );
+    for ranking in rankings {
+        close(ranking.pagerank, 1.425 / 3.85);
+    }
+}
+
+#[test]
+fn edgeless_pagerank_is_uniform_despite_names_eligibility_and_paper_counts() {
+    let mut graph = CitationGraph::new();
+    let mut sosp = paper("sosp", "SOSP", 2026, &["Alice"]);
+    sosp.citations.push("sosp".into());
+    add(&mut graph, sosp);
+    for id in ["socc1", "socc2", "socc3"] {
+        let mut socc = paper(id, "SOCC", 2026, &["Bob"]);
+        socc.citations.push("socc1".into());
+        add(&mut graph, socc);
+    }
+    graph.add_venue(venue("Unlisted Venue"));
+
+    let mut calculator = PageRankCalculator::new(&graph);
+    calculator.params.reference_year = 2026;
+    let metrics = calculator.calculate().unwrap();
+    assert_eq!(metrics.venue_scores.len(), 3);
+    for score in metrics.venue_scores.values() {
+        close(*score, 1.0 / 3.0);
+    }
+    close(metrics.venue_scores.values().sum(), 1.0);
+
+    let rankings = calculator.get_top_venues(10, None);
+    assert_eq!(
+        rankings.iter().map(|v| v.id.as_str()).collect::<Vec<_>>(),
+        ["SOCC", "SOSP"]
+    );
+    assert_eq!(rankings[0].paper_count, 3);
+    assert_eq!(rankings[1].paper_count, 1);
+    close(rankings[0].impact_factor, 4.0_f64.ln() / 3.0);
+    close(rankings[1].impact_factor, 2.0_f64.ln() / 3.0);
+}
+
+#[test]
 fn extreme_and_future_citation_years_do_not_create_nan_edges() {
     let mut graph = CitationGraph::new();
     let mut source = paper("source", "SOSP", u32::MAX, &["Alice"]);
@@ -305,7 +369,7 @@ fn ranking_ties_use_stable_identity_order_and_top_venue_order() {
     assert!(scholars.iter().all(|s| s.top_venues == ["OSDI", "SOSP"]));
     assert_eq!(
         calculator
-            .get_top_venues(10, None, None)
+            .get_top_venues(10, None)
             .iter()
             .map(|v| v.id.as_str())
             .collect::<Vec<_>>(),

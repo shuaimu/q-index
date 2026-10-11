@@ -250,18 +250,14 @@ of slow link/codegen; for iteration use debug builds. See Chapter 10,
 - **Scholar.** Name-based identity keyed by `generate_scholar_id` over the
   normalized name. DBLP numeric disambiguators are preserved; this is not a
   globally verified S2 author-id mapping. Affiliations are not fabricated.
-- **Tier.** Manual coarse rank (`A*`, `A`, `B`, `C`) from `get_venue_tier`
-  (`src/models.rs`); bonuses remain `2.0`, `1.5`, `1.2`, `1.0`. The dictionary is
-  systems/theory-heavy; ICML, NeurIPS, ICLR and CVPR currently fall back to C.
 - **CSRankings.** Venue taxonomy and allowlist used by `is_csrankings_venue`
   (`src/algorithm.rs`). QIndex and ranked/search scholar metrics use eligible
   unique works. All-indexed profile metrics also include excluded venues.
 - **PageRank.** Directed cross-venue link analysis over the internal matched
   bibliography graph, with dangling mass and nonnegative citation-age decay.
-  It is active when usable cross-venue citations exist; otherwise the prestige
-  heuristic is the fallback.
-- **Venue Score.** PageRank after tier adjustment and renormalization, serialized
-  under the retained `pagerank` field.
+  With no usable cross-venue citations it yields uniform 1/N.
+- **Venue Score.** Normalized, unadjusted PageRank, serialized under the retained
+  `pagerank` field; no manual prestige, name or venue-eligibility boosts.
 - **Count-scaled score.** Venue Score times `ln(unique venue works + 1)`,
   serialized as `impact_factor`; not a journal impact factor.
 - **Corpus id.** S2 work identifier used to deduplicate matched BibTeX aliases.

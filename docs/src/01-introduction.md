@@ -49,7 +49,7 @@ If papers cite papers, and each paper belongs to a venue, then citations induce 
 **venue-to-venue graph**: an edge from venue *A* to venue *B* every time a paper in *A*
 cites a paper in *B*. PageRank over this graph yields a prestige score in which being
 cited by already-prestigious venues counts for more — a recursive definition that a
-flat tier list cannot express. The scholar QIndex is then layered on top: an author's
+flat venue list cannot express. The scholar QIndex is then layered on top: an author's
 score is built from the PageRank scores of the venues they publish in, decayed by paper
 age and scaled by their authorship position on each paper.
 
@@ -63,10 +63,10 @@ QIndex produces two ranked outputs, and the second is defined in terms of the fi
 
 ### Venue Score
 
-Raw venue PageRank is computed by `calculate_venue_pagerank` in
-`src/algorithm.rs`, then multiplied by manual tier weights and renormalized.
-The published JSON field `pagerank` is this **post-tier Venue Score**, not raw
-PageRank. `AlgorithmParams::default` in `src/models.rs` supplies:
+Venue Score is normalized, unadjusted PageRank computed by
+`calculate_venue_pagerank` in `src/algorithm.rs`. The published JSON field
+`pagerank` contains this score, without manual prestige, venue-name or
+eligibility boosts. `AlgorithmParams::default` in `src/models.rs` supplies:
 
 ```text
 damping_factor  = 0.85
@@ -75,7 +75,6 @@ tolerance       = 1e-6
 venue_weight    = 0.7 (retained, unused)
 year_decay      = 0.95
 reference_year  = current UTC year (valid snapshot release year when loaded)
-tier_bonus      = { "A*": 2.0, "A": 1.5, "B": 1.2, "C": 1.0 }
 ```
 
 The update rule for non-dangling sources is
@@ -85,13 +84,11 @@ $$
 $$
 
 with damping `d = 0.85` and `n = |venues|`, iterating until the maximum per-venue change
-drops below `1e-6` or 100 iterations elapse, then re-normalizing to sum 1.0. After
-PageRank, `apply_tier_bonus` (`src/algorithm.rs:380`) multiplies each score by the
-`tier_bonus` for its tier and re-normalizes.
+drops below `1e-6` or 100 iterations elapse, then re-normalizing to sum 1.0.
 
 Default rankings use the committed local graph. Dangling venues redistribute
-their mass uniformly. A prestige fallback exists for inputs with no usable
-cross-venue edges; it is not a replacement for extracting the snapshot graph.
+their mass uniformly. With no usable cross-venue edges, every venue receives
+the mathematical PageRank result 1/N; no prestige fallback is used.
 
 ### Scholar QIndex
 
@@ -111,9 +108,9 @@ indexed papers. Decay is $0.95^{\max(Y_{\mathrm{ref}}-y_p,0)/5}$, with
 unknown-year papers undecayed. The reference year is the valid snapshot release
 year, otherwise current UTC year. Position credit is 1 for sole/first author,
 0.8 for last author, and `0.6/(author_count-2)` for middle authors.
-The default venue input is citation-derived, then tier-adjusted. The incomplete
-systems/theory-heavy tier dictionary leaves ICML, NeurIPS, ICLR and CVPR at C;
-these and byline-role assumptions are policy limitations, not objective fairness.
+The venue input is normalized, unadjusted PageRank. The separate eligibility
+allowlist and byline-role assumptions remain policy limitations, not objective
+fairness guarantees.
 Chapter 5 covers the formula, deduplication and zero-score cases.
 
 The relationship is therefore strict layering: **venue score is the primitive; scholar
@@ -128,7 +125,7 @@ CSRankings publications.** Improving the venue graph improves both outputs at on
   access at ranking time.
 - Keep a CSRankings-style venue allowlist (`is_csrankings_venue` in
   `src/algorithm.rs`) and QIndex's own position heuristic while weighting
-  eligible publications by graph-derived, tier-adjusted venue scores.
+  eligible publications by normalized, unadjusted graph-derived venue scores.
 - Expose results through both a CLI (`qindex venues`, `qindex scholars`, `qindex
   calculate`, …) and a static website with downloadable JSON data files.
 - Support exporting rankings to JSON and CSV for downstream use
