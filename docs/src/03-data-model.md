@@ -2,7 +2,7 @@
 
 QIndex is two things at once: the project (a static bibliographic analytics tool) and the *QIndex score*, a per-scholar prestige metric described in Chapter 5, "The Ranking Algorithm." This chapter is about neither the score nor the user interface. It describes the *data model* — the in-memory structures the entire system reads and writes, how a raw BibTeX entry becomes a `Paper`, and the identity and classification rules that decide how papers, venues, and scholars are grouped.
 
-The model is defined in `src/models.rs` (467 lines) and populated by `src/parser.rs` (502 lines). Everything downstream — the ranking pipeline (`src/algorithm.rs`), the static site generator (`src/site/`), and the export module (`src/export.rs`) — operates on the `CitationGraph` produced here. There is no database: the corpus is re-parsed from disk into memory at every process start (see Chapter 7, "System Architecture").
+The model is defined in `src/models.rs` and populated by `BibParser` in `src/parser.rs`. Ranking, site generation and exports consume its `CitationGraph`. There is no database: each invocation reparses the bibliography.
 
 ## 3.1 The in-memory graph
 
@@ -18,11 +18,11 @@ pub struct CitationGraph {
 }
 ```
 
-Three `IndexMap`s (from the `indexmap` crate) hold the entities; a fourth field holds citation edges. `IndexMap` preserves insertion order, so iteration order is the order in which entries were first seen during parsing — relevant because some downstream code (e.g. the `top_venues` selection in 3.6) relies on iteration order rather than an explicit sort.
+Three `IndexMap`s hold entities and a vector holds citation edges. Insertion order is not a semantic ranking order: staging maps are hash maps. Ranking outputs explicitly sort score descending then id ascending; parser indexes are rebuilt in paper-id order.
 
 `CitationGraph` is the one struct in `models.rs` that does **not** derive `Serialize`/`Deserialize`; it derives only `Clone` and provides a hand-written `Debug` impl (`src/models.rs:69-78`) that prints only the four counts to avoid dumping the whole corpus. The graph is therefore not serializable as a single blob; persistence happens at a coarser granularity through the export module (Chapter 9, "The Command-Line Interface").
 
-A live parse of the corpus in this session produced roughly **19,954 papers, 44 venues, and 43,942 scholars** (observed via `qindex stats` and the site's `data/stats.json`). Chapter 4, "The Bibliographic Database," covers the on-disk corpus behind these counts.
+Use current parser exports and generated `data/stats.json` for roster totals. Older counts describe earlier corpus versions, not the cleaned current bibliography.
 
 ### Keys
 
@@ -34,9 +34,9 @@ The three maps are keyed by three different identity schemes, all computed at pa
 | `venues` | `normalize_venue_id(paper.venue)` | `src/parser.rs:332-334`, `:489-495` |
 | `scholars` | `generate_scholar_id(normalize_author_name(author))` | `src/parser.rs:353-356`, `:497-503` |
 
-Paper identity is whatever the BibTeX author chose as the cite key; QIndex does no de-duplication across keys, so two entries for the same paper under different keys become two `Paper`s. Venue and scholar identity are *derived* by the normalization functions in 3.4.
+Local `Paper.id` remains the cite key. Different keys can describe the same work; downstream `S2agCitations::unique_papers` groups matched aliases by corpus id and unmatched papers by local id. It prefers a nonempty venue, DOI presence, year presence, then author count, finally smallest id. The same identity policy supports graph endpoints, scoring, counts and publication cards. Without a corpus match, different local keys cannot be recognized as aliases.
 
-### Edges (declared, not populated)
+### Edges populated by snapshot integration
 
 ```rust
 pub struct CitationEdge {
@@ -48,7 +48,7 @@ pub struct CitationEdge {
 }
 ```
 
-`CitationGraph.edges` is initialized empty in `CitationGraph::new()` (`src/models.rs:151-156`) and **is never populated** anywhere in `models.rs` or `parser.rs`; the `weight`, `year`, and `cross_venue` fields are consequently dead on the parser path. The dashboard, the statistics page, and the site's `data/stats.json` report `total_citations = graph.edges.len()`, which is why they show `total_citations = 0` against a 20k-paper corpus. Real citation *counts* enter the system through a separate module (`src/s2ag_citations.rs`), covered in Chapter 6, "Citation Data Integration"; they do not become edges in this graph.
+The parser initializes `CitationGraph.edges` empty because BibTeX supplies no references. Before default CLI or site ranking, the local S2AG graph loader populates edges and both paper adjacency lists. It deterministically canonicalizes BibTeX aliases for each corpus id and inserts unique directed edges once. Whole-S2 citation totals come from the separate count artifact, not `graph.edges.len()`; see Chapter 6.
 
 ## 3.2 The entity structs
 
@@ -68,23 +68,24 @@ pub struct Paper {
     pub abstract_text: Option<String>,
     pub keywords: Vec<String>,
     pub doi: Option<String>,
+    pub dblp_id: Option<String>, // exact DBLP record key from BibTeX dblp
     pub url: Option<String>,
     pub bib_key: String,        // duplicate of id
     pub source_file: String,    // e.g. "sosp.bib"
 }
 ```
 
-(`src/models.rs:5-22`.) Two fields warrant emphasis. `authors` stores the *raw* display strings split from the BibTeX `author` field; normalization happens only when scholars are built (3.4), so the display name and the scholar key can differ. `citations` and `cited_by` are both initialized empty and stay empty on the parser path (3.5). `bib_key` is a redundant copy of `id`, and `source_file` records the originating filename for provenance.
+`authors` contains cleaned human-order display names, not raw BibTeX syntax. `parse_authors` handles `Last, First` and `Last, Suffix, First`, preserves grouped corporate names and numeric DBLP disambiguators, and splits `and` only outside brace groups. Scholar-key normalization remains a separate lexical step. Citation lists start empty and are enriched by snapshot loading; `bib_key` duplicates `id`, while `source_file` records provenance.
 
 ### VenueType
 
 ```rust
 pub enum VenueType {
-    Conference, Journal, Workshop, Symposium, Unknown,
+    Conference, Journal, Workshop, Symposium, TechnicalReport, Unknown,
 }
 ```
 
-(`src/models.rs:24-31`; derives `Copy`, `PartialEq`, `Eq`, `Hash`.) It is set in `parse_entry` from the BibTeX *entry type* string (`src/parser.rs:205-211`):
+(`src/models.rs`; derives `Copy`, `PartialEq`, `Eq`, `Hash`.) `parse_entry` sets it from the BibTeX *entry type* string:
 
 | BibTeX entry type | `VenueType` |
 | --- | --- |
@@ -92,9 +93,14 @@ pub enum VenueType {
 | `article` | `Journal` |
 | `inworkshop`, `workshop` | `Workshop` |
 | `symposium` | `Symposium` |
+| `techreport` | `TechnicalReport` |
 | anything else | `Unknown` |
 
 Note this is an *independent* signal from the tier classifier in 3.4, which separately string-matches `WORKSHOP`/`HOT` to assign tier B. The two can disagree (a `@inproceedings` entry at a "HotX" venue is `VenueType::Conference` but tier B).
+
+Technical reports use their cleaned `institution` as the venue when no explicit
+venue is supplied. The institution is retained in full rather than shortened
+as if it were a conference name.
 
 ### Venue
 
@@ -112,7 +118,7 @@ pub struct Venue {
 }
 ```
 
-(`src/models.rs:33-44`.) On first creation (`src/parser.rs:334-346`) `name` and `full_name` are both set to `paper.venue` (there is no separate long form); `pagerank` and `impact_factor` are `0.0`; `tier` and `field` come from `get_venue_tier`/`get_venue_field` (3.4). The zero-initialized score fields are filled later by the ranking step; until then, sorting by `pagerank` ranks every venue equally — and would panic on a NaN, since the comparator uses `partial_cmp().unwrap()` (see 3.6).
+The parser creates `name` and `full_name` from the venue string and initializes score fields to zero. `get_venue_tier` and `get_venue_field` classify it. The calculator returns computed metrics and ranking structs rather than mutating these model score fields. In published rankings `pagerank` is post-tier Venue Score and `impact_factor` is Count-Scaled Score, not raw PageRank or a journal impact factor.
 
 ### Scholar
 
@@ -131,11 +137,11 @@ pub struct Scholar {
 }
 ```
 
-(`src/models.rs:46-58`.) At creation (`src/parser.rs:356-368`) `qindex`, `h_index`, and `citation_count` are zero, and they stay zero: the ranking step (Chapter 5) returns its results in separate `ScholarRanking` structs and never writes them back into the graph. `name` is the *first* raw display string seen for that scholar key, so a scholar who appears as both "J. Smith" and "John Smith" keeps whichever was parsed first. `affiliations` is declared but **never populated** by the parser — it is always an empty `Vec`. `publications_by_venue` groups the scholar's papers by venue ID, and `coauthors` accumulates collaboration counts (3.4).
+Model score fields start at zero and are not overwritten by the calculator, which returns separate ranking structs. Display names are chosen while rebuilding indexes from final records in paper-id order. Affiliations remain unpopulated. Publication and coauthor indexes include each normalized author once per local paper; overwritten cite-key records cannot leave ghost scholars or stale venue memberships.
 
 ## 3.3 Parameters and ranking output structs
 
-`AlgorithmParams` (`src/models.rs:98-106`) carries the tunables for the ranking pipeline; its `Default` impl (`src/models.rs:108-125`) is the configuration actually used (`PageRankCalculator::new`, `src/algorithm.rs:75`):
+`AlgorithmParams` and its `Default` implementation in `src/models.rs` configure `PageRankCalculator`:
 
 | Field | Default | Meaning |
 | --- | --- | --- |
@@ -144,11 +150,12 @@ pub struct Scholar {
 | `tolerance` | `1e-6` | convergence threshold |
 | `venue_weight` | `0.7` | venue-vs-other weight (declared) |
 | `year_decay` | `0.95` | recency decay base |
+| `reference_year` | current UTC year; valid loaded snapshot release year overrides it | scholar recency reference |
 | `tier_bonus` | `{A*:2.0, A:1.5, B:1.2, C:1.0}` | per-tier multiplier |
 
-The semantics and the (partly dead) code paths that consume these values are Chapter 5's subject. `QIndexMetrics` (`src/models.rs:89-96`) is a snapshot container (`venue_scores`, `scholar_scores`, `timestamp`, `algorithm`, `parameters`).
+`venue_weight` is retained but unused by the current algorithm. `year_decay` discounts citation age directly and scholar age divided by five. `QIndexMetrics` carries scores, processing timestamp, algorithm name and effective parameters. Snapshot release date is separate provenance.
 
-Two flattened "ranking" structs are the CLI and website surface of the model. `VenueRanking` (`src/models.rs:127-136`: `id`, `name`, `tier`, `field`, `pagerank`, `impact_factor`, `paper_count`) and `ScholarRanking` (`src/models.rs:138-147`: `id`, `name`, `qindex`, `h_index`, `paper_count`, `citation_count`, `top_venues`) are produced by `PageRankCalculator::get_top_venues`/`get_top_scholars` (Chapter 5) with computed scores, and by `search_venues`/`search_scholars` (3.6) with the graph's never-filled score fields.
+`VenueRanking` carries id, name, tier, field, adjusted `pagerank`, count-scaled `impact_factor` and unique paper count. `ScholarRanking` carries id, name, QIndex, eligible publication count, snapshot citation total, eligible h-index and top venues. The eligible set is deduplicated before checking representative author membership and CSRankings venue eligibility. Profiles distinguish broader `all_indexed` metrics from this `ranking` scope; ranking/search consumers use computed rankings, not the metadata graph's zero-initialized fields.
 
 ## 3.4 Identity, normalization, and classification
 
@@ -188,6 +195,8 @@ This is purely lexical. It does not disambiguate distinct people who share a nor
 
 Because matching is `contains()` on the uppercased name, short tokens can false-match longer venue strings (for example `SC` or `EC`). The `C` default absorbs anything unmatched.
 
+The dictionary is incomplete and systems/theory-heavy: ICML, NeurIPS, ICLR and CVPR currently default to C even though they are scholar-ranking eligible. Tier, field and eligibility are separate policies; these priors do not establish objective fairness.
+
 ### Venue field
 
 `get_venue_field` (`src/models.rs:391-468`) classifies a venue into a CSRankings-style subarea by returning the first field whose keyword list has a substring match. There are 35 keyword→field rows covering roughly 90 venue tokens; a representative subset:
@@ -209,12 +218,13 @@ If no keyword matches but the venue contains JOURNAL/TRANSACTIONS, a secondary s
 
 ## 3.5 From BibTeX entry to `Paper`
 
-The parser is staged. `BibParser` (`src/parser.rs:15-20`) holds plain `HashMap`s for papers, venues, scholars, plus a `strings` map for `@string` macro definitions. `parse_directory` (`src/parser.rs:32-97`) drives the flow:
+`BibParser::parse_directory` stages records and then builds indexes:
 
-1. If `strings.bib` or `title.bib` exist, parse their `@string` macros via `parse_strings` (`src/parser.rs:99-114`, a regex over `@string{key="value"}`).
-2. Recursively collect every `.bib` file under the directory, then **filter out** any file whose name *contains* the substring `title` or `strings` (a substring test, not an exact-filename test, so an unrelated file like `my_titles.bib` would also be skipped).
-3. Parse each surviving file with `parse_file` (`src/parser.rs:116-149`), which uses `nom_bibtex` and calls `parse_entry` per entry. Parse failures are logged as warnings, not treated as fatal.
-4. Copy the staging `HashMap`s into the `CitationGraph` `IndexMap`s via `build_graph` (`src/parser.rs:390-409`), then call `build_citation_network` (3.6).
+1. Clear parser state so reuse starts a fresh bibliography; load `strings.bib` and `title.bib` macros if present.
+2. Collect `.bib` paths recursively, excluding filenames containing `title` or `strings`, then sort paths.
+3. Parse records in source order. The last valid record for a repeated cite key wins, with a warning. Rejected later entries do not replace valid records.
+4. `rebuild_indexes` clears venue/scholar indexes and rebuilds from final papers sorted by id, deduplicating normalized authors and coauthors per paper. Thus replaced records leave no stale membership.
+5. `build_graph` copies staging maps into the runtime graph; parser citation adjacency is initially empty.
 
 `parse_entry` (`src/parser.rs:151-219`) sets `id` = `bib_key` = the cite key, then maps tags:
 
@@ -233,21 +243,21 @@ The parser is staged. `BibParser` (`src/parser.rs:15-20`) holds plain `HashMap`s
 
 All other tags are ignored. Crucially, **no tag maps to `Paper.citations`** — there is no BibTeX field for "papers this cites" in the corpus, so `citations` stays the empty vec it was initialized to (`src/parser.rs:166`).
 
-A `Paper` is returned only if **both `title` and `authors` are non-empty** (`src/parser.rs:214-218`); otherwise the entry is silently dropped. This is the principal reason the parsed paper count is below the on-disk entry count: minimal entries with only a `booktitle` and `year` (common in this corpus, per Chapter 4) lack an `author` field and are discarded.
+`parse_entry` requires nonempty title and authors. It also rejects `@proceedings` and obvious volume titles: a first word “Proceedings”, or an event word (conference/symposium/workshop) together with a four-digit year and full month name. This targeted heuristic prevents proceedings editors from becoming research-paper authors; it is not a comprehensive research-paper classifier.
 
 Three helpers support the venue resolution chain:
 
 - `expand_string` (`src/parser.rs:221-325`) first looks up the value in the `@string` map, then in a hardcoded table of ~70 lowercase abbreviations (e.g. `pvldb`→`VLDB`, `nips`→`NeurIPS`, `sp`/`s&p`→`Oakland`), defaulting to the trimmed input.
 - `extract_venue_name` (`src/parser.rs:446-487`) cleans the string, strips a trailing 4-digit year (`CHI 2019`→`CHI`), and — if the result is ≤20 characters and contains neither "Proceedings" nor "Conference" — returns it as-is. Longer strings fall back to pulling an abbreviation from parentheses or the token after `" of "`. The ≤20-char shortcut means already-abbreviated venues bypass the heavier logic, which keeps common cases clean but can leave longer raw venue strings inconsistent, affecting `normalize_venue_id` keying.
-- `clean_bibtex_string` (`src/parser.rs:412-434`) trims, strips one level of outer braces, and applies LaTeX replacements. It replaces `\'` with a bare quote *before* the accent rules (`\'a`→`á`, etc.), so the accent replacements are largely unreachable — a known wart.
+- `clean_bibtex_string` interprets supported TeX accents before removing grouping braces, unescapes common punctuation, handles selected ligatures/dashes, and decodes HTML entities. It is not a general TeX interpreter.
 
-After a paper is built, `add_to_venue` (`src/parser.rs:327-349`) and `add_scholars` (`src/parser.rs:351-388`) update the aggregates. `add_to_venue` keys on `normalize_venue_id(paper.venue)`, creating the `Venue` (with tier/field computed) on first sight and appending the paper ID. `add_scholars` normalizes each author, creates the `Scholar` on first sight (storing the raw author string as `name`), appends the paper to `papers` and to `publications_by_venue[venue_id]`, and increments `coauthors[other_author_id]` for every co-author. Neither de-duplicates, so an author listed twice on one entry is double-counted.
+Venue and scholar indexes are created only after all valid final records are selected, via `rebuild_indexes`, `add_to_venue` and `add_scholars`.
 
 ## 3.6 The citation network and search methods
 
-`build_citation_network` (`src/models.rs:174-192`) runs at the end of `parse_directory`. For each `cited_id` in each paper's `citations` that resolves to an existing paper, it pushes the citing paper's ID into the cited paper's `cited_by`. Because `citations` is always empty after BibTeX parsing, this loop traverses nothing and `cited_by` stays empty. Citation data must therefore be injected from outside the parser; today that is the S2AG per-paper *count* path of Chapter 6, which does not feed this graph.
+`build_citation_network` derives reverse adjacency from paper references. Immediately after BibTeX parsing those references are empty. The local S2AG integration subsequently supplies `Paper.citations`, `Paper.cited_by` and `CitationGraph.edges`, using only matched bibliography endpoints. Both artifacts must refer to the same snapshot release.
 
-`search_venues` (`src/models.rs:194-216`) filters venues by a query substring and emits `VenueRanking`s sorted descending by `pagerank` via `partial_cmp().unwrap()` — safe while all values are real numbers, but a latent panic on NaN. `search_scholars` (`src/models.rs:218-251`) does the analogous thing for scholars, sorted by `qindex`. Its `top_venues` field is built by iterating `scholar.publications_by_venue` — a `HashMap`, hence unordered — and breaking after three entries that resolve in `self.venues`. Despite the name, these are *arbitrary* venues, not the scholar's most-published or highest-ranked ones (`src/models.rs:225-235`). Both methods copy `pagerank`, `qindex`, and `h_index` from the graph, where they are always zero (3.2), so their scores are zero too. Today only the CLI `search` subcommand calls them; the website's search (Chapter 8) runs in the browser over an index built from the computed rankings instead.
+The low-level metadata helpers `CitationGraph::search_venues` and `search_scholars` still read graph score fields and use `partial_cmp().unwrap()`; the scholar helper picks up to three venues from a hash map, not ranked top venues. They are not the computed ranking/search surface: consumers use calculator ranking structs, with deterministic score/id ordering and eligible metrics. This distinction matters if adding callers to these helpers.
 
 ## 3.7 On-disk corpus versus runtime graph
 
@@ -255,9 +265,9 @@ The relationship between disk and memory is deliberately simple and one-directio
 
 ```
 bib/*.bib  --(BibParser::parse_directory)-->  CitationGraph (in memory)
-   ~21k entries                                  ~19,954 papers / 44 venues / 43,942 scholars
+   metadata records                         final-record paper/venue/scholar indexes
 ```
 
-The `bib/` directory holds roughly 21,000 `@inproceedings`/`@article`/`@techreport` entries across ~44 venue files (Chapter 4 details the layout and per-venue counts). Parsing is performed fresh at every CLI invocation and every site build; the `CitationGraph` is never written back to disk. The gap between on-disk entries and in-memory papers is explained by the `title`-and-`authors`-required filter in `parse_entry` (3.5) plus the `title`/`strings` filename filter in `parse_directory`.
+Disk counts need not equal runtime paper counts: macro files, missing essential fields, proceedings exclusions and repeated cite keys affect the roster. Venue grouping depends on normalized metadata, not the number of files. Consult generated statistics for current totals.
 
-External citation artifacts in `cache/citations/*.json` are a *separate* concern, loaded by other modules at different points (Chapters 5 and 6), and are not part of the `CitationGraph` produced here. The score fields on `Venue` and `Scholar` (`pagerank`, `impact_factor`, `qindex`, `h_index`, `citation_count`) look like the seams where the ranking step (Chapter 5) would write its results back into this model, but nothing writes them: computed scores live only in the `VenueRanking`/`ScholarRanking` values the calculator returns.
+The parser-produced graph contains metadata only. Default ranking consumers load `cache/citations/s2ag_paper_citations.json` and `cache/citations/s2ag_citation_graph.json` before scoring. The latter enriches the runtime `CitationGraph`; the former supplies whole-S2 counts. Computed rankings remain distinct from the model's initial score fields. Chapters 5 and 6 describe the ranking and integration boundaries.

@@ -80,7 +80,7 @@ function shardOf(id) {
 let searchIndexPromise = null;
 
 // { venues: [{id, name, full_name, field, tier, pagerank, url}],
-//   scholars: [[id, name, qindex, h_index, paper_count], ...] }
+//   scholars: [[id, name, eligible_qindex, eligible_h_index, eligible_paper_count], ...] }
 function loadSearchIndex() {
     if (!searchIndexPromise) {
         searchIndexPromise = fetchJson('data/search-index.json').catch(error => {
@@ -199,7 +199,7 @@ function renderSearchPage() {
                         <h3><i class="bi bi-building me-2"></i>Venues</h3>
                         <div class="card"><div class="card-body"><div class="table-responsive">
                         <table class="table table-hover">
-                            <thead><tr><th>Venue</th><th>Tier</th><th>Field</th><th>PageRank</th></tr></thead>
+                            <thead><tr><th>Venue</th><th>Tier</th><th>Field</th><th>Venue Score</th></tr></thead>
                             <tbody>`;
                 venues.forEach(venue => {
                     html += `
@@ -218,6 +218,7 @@ function renderSearchPage() {
                 html += `
                     <div class="row mb-4"><div class="col-12">
                         <h3><i class="bi bi-people me-2"></i>Scholars</h3>
+                        <p class="text-muted">QIndex, h-index and paper counts use unique CSRankings-eligible indexed works only, not complete scholar CVs.</p>
                         <div class="card"><div class="card-body">`;
                 if (shown.length < scholars.length) {
                     html += `<p class="text-muted">Showing the top ${shown.length} of ${scholars.length} matching scholars. Refine your search to see more.</p>`;
@@ -225,7 +226,7 @@ function renderSearchPage() {
                 html += `
                         <div class="table-responsive">
                         <table class="table table-hover">
-                            <thead><tr><th>Scholar</th><th>QIndex</th><th>H-Index</th><th>Papers</th></tr></thead>
+                            <thead><tr><th>Scholar</th><th>Eligible QIndex</th><th>Eligible H-Index</th><th>Eligible Papers</th></tr></thead>
                             <tbody>`;
                 shown.forEach(scholar => {
                     html += `
@@ -303,18 +304,33 @@ function scholarHtml(scholar, pagePapers, page, totalPages, id) {
         <div class="col-md-3"><div class="stat-box text-center">
             <h5>${label}</h5><div class="display-6">${value}</div>
         </div></div>`;
+    const all = scholar.all_indexed;
+    const ranking = scholar.ranking;
+    const rankingHtml = ranking
+        ? `<div class="row">
+            ${stat('Eligible QIndex', ranking.qindex.toFixed(2))}
+            ${stat('Eligible Papers', ranking.paper_count)}
+            ${stat('Eligible Citations', ranking.citations)}
+            ${stat('Eligible H-Index', ranking.h_index)}
+        </div>`
+        : '<p class="text-muted">No eligible ranking metrics are available for this scholar.</p>';
 
     let html = `
         <div class="card mb-4 shadow-sm"><div class="card-body">
             <h1 class="card-title mb-3">${escapeHtml(scholar.name)}</h1>
+            <p class="text-muted">All indexed publications in this curated bibliography, not a complete CV. Identity follows bibliography names and DBLP disambiguators, not verified author IDs.</p>
+            <h2 class="h5">All indexed works</h2>
             <div class="row">
                 <div class="col-md-3"><div class="stat-box text-center">
                     <h5>Affiliation</h5><p class="lead">${affiliations}</p>
                 </div></div>
-                ${stat('Papers', scholar.papers.length)}
-                ${stat('Citations', scholar.citations)}
-                ${stat('H-Index', scholar.h_index)}
+                ${stat('Indexed Papers', all.paper_count)}
+                ${stat('Indexed-Work Citations', all.citations)}
+                ${stat('Indexed H-Index', all.h_index)}
             </div>
+            <h2 class="h5 mt-4">CSRankings-eligible ranking scope</h2>
+            <p class="text-muted">Only eligible indexed works contribute to QIndex and these ranking metrics. QIndex uses the internal venue citation graph with tier, age and author-order assumptions; it is not a measure of objective scholar quality. Matched citation counts cover the whole S2 snapshot, not just this graph; unmatched counts are internal lower bounds and unknown counts remain n/a.</p>
+            ${rankingHtml}
         </div></div>
         <div class="row">
             <div class="col-md-4 mb-4"><div class="card h-100 shadow-sm">
@@ -327,7 +343,7 @@ function scholarHtml(scholar, pagePapers, page, totalPages, id) {
         scholar.venues.forEach(([venue, count]) => {
             html += `
                 <li class="list-group-item d-flex justify-content-between">
-                    ${escapeHtml(venue)}<span class="badge bg-secondary">${count} papers</span>
+                    ${escapeHtml(venue || 'Unknown')}<span class="badge bg-secondary">${count} papers</span>
                 </li>`;
         });
         html += '</ul>';
@@ -339,7 +355,7 @@ function scholarHtml(scholar, pagePapers, page, totalPages, id) {
                 <div class="card-header bg-primary text-white">
                     <div class="d-flex justify-content-between align-items-center">
                         <h5 class="mb-0">Publications (Page ${page} of ${totalPages})</h5>
-                        <small>Showing ${pagePapers.length} of ${scholar.papers.length} papers</small>
+                        <small>Showing ${pagePapers.length} of ${all.paper_count} indexed papers</small>
                     </div>
                 </div>
                 <div class="card-body">`;
@@ -385,7 +401,7 @@ function paperHtml(paper) {
         <div class="list-group-item">
             <h6 class="mb-2">${escapeHtml(paper.title)}</h6>
             <p class="mb-1 text-muted small">
-                Venue: ${escapeHtml(paper.venue)}${paper.year ? ` (${paper.year})` : ''}
+                Venue: ${escapeHtml(paper.venue || 'Unknown')}${paper.year ? ` (${paper.year})` : ''}
             </p>
             <div class="d-flex justify-content-between align-items-center mb-2">
                 <small class="text-muted">${citations}</small>
@@ -498,7 +514,7 @@ function showSearchSuggestions(data, inputElement) {
             const item = document.createElement('a');
             item.className = 'dropdown-item';
             item.href = scholarUrl(scholar.id);
-            item.innerHTML = `${escapeHtml(scholar.name)} <span class="badge bg-primary">${scholar.qindex.toFixed(1)}</span>`;
+            item.innerHTML = `${escapeHtml(scholar.name)} <span class="badge bg-primary" title="QIndex for CSRankings-eligible indexed works">Eligible QIndex ${scholar.qindex.toFixed(1)}</span>`;
             suggestions.appendChild(item);
         });
     }

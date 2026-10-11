@@ -191,8 +191,13 @@ pub fn base_template(ctx: &Ctx, title: &str, page: &str, content: Markup) -> Mar
                             div class="col-lg-6 col-md-12 mb-4 mb-md-0" {
                                 h5 class="text-uppercase" { "QIndex" }
                                 p {
-                                    "Academic quality index calculator using PageRank algorithm. "
-                                    "Evaluating conferences, journals, and scholars based on citation networks."
+                                    "Citation-network scores within a curated computer-science bibliography, "
+                                    "not an objective measure of scholar quality or a global leaderboard."
+                                }
+                                p.small.text-muted {
+                                    "Profiles cover indexed publications only, not complete CVs. "
+                                    "Names and DBLP numeric disambiguators define identities; "
+                                    "these are not verified Semantic Scholar author IDs."
                                 }
                             }
                             div class="col-lg-3 col-md-6 mb-4 mb-md-0" {
@@ -206,12 +211,17 @@ pub fn base_template(ctx: &Ctx, title: &str, page: &str, content: Markup) -> Mar
                                 h5 class="text-uppercase" { "Info" }
                                 p {
                                     "Static site generated with Rust and Maud on " (ctx.generated) "."
+                                    " S2AG snapshot release: "
+                                    (ctx.snapshot_release.as_deref().unwrap_or("unknown / not loaded"))
+                                    ". Matched counts include citations from all of S2; "
+                                    "ranking edges include only works in this bibliography. "
+                                    "Unmatched counts are internal lower bounds; n/a means unknown."
                                 }
                             }
                         }
                     }
                     div class="text-center p-3 bg-dark text-white" {
-                        "© 2024 QIndex. MIT License."
+                        "QIndex. MIT License."
                     }
                 }
 
@@ -255,7 +265,7 @@ pub fn index_page(
                         "QIndex Dashboard"
                     }
                     p class="lead" {
-                        "Academic quality metrics powered by PageRank algorithm"
+                        "Citation-network metrics for the curated indexed bibliography"
                     }
                 }
             }
@@ -315,7 +325,7 @@ pub fn index_page(
                         div class="card-header bg-primary text-white" {
                             h5 class="mb-0" {
                                 i class="bi bi-trophy me-2" {}
-                                "Top Venues by PageRank"
+                                "Top Indexed Venues by Venue Score"
                             }
                         }
                         div class="card-body" {
@@ -326,7 +336,7 @@ pub fn index_page(
                                             th { "#" }
                                             th { "Venue" }
                                             th { "Tier" }
-                                            th { "PageRank" }
+                                            th { "Venue Score" }
                                         }
                                     }
                                     tbody {
@@ -363,6 +373,7 @@ pub fn index_page(
                             }
                         }
                         div class="card-body" {
+                            p.small.text-muted { "QIndex and h-index use CSRankings-eligible indexed works only." }
                             div class="table-responsive" {
                                 table class="table table-hover" {
                                     thead {
@@ -370,7 +381,7 @@ pub fn index_page(
                                             th { "#" }
                                             th { "Scholar" }
                                             th { "QIndex" }
-                                            th { "H-Index" }
+                                            th { "Eligible H-Index" }
                                         }
                                     }
                                     tbody {
@@ -517,7 +528,7 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                         i class="bi bi-building me-3" {}
                         "Academic Venues"
                     }
-                    p class="lead" { "Conferences and journals ranked by PageRank algorithm" }
+                    p class="lead" { "Indexed conferences and journals ranked by tier-adjusted internal-graph venue score" }
                 }
             }
 
@@ -575,8 +586,8 @@ pub fn venues_page(ctx: &Ctx, venues: &[VenueRanking]) -> Markup {
                                             th { "Venue" }
                                             th { "Tier" }
                                             th { "Field" }
-                                            th { "PageRank" }
-                                            th { "Impact Factor" }
+                                            th { "Venue Score" }
+                                            th { "Count-Scaled Score" }
                                             th { "Papers" }
                                         }
                                     }
@@ -623,7 +634,12 @@ pub fn scholars_page(ctx: &Ctx, scholars: &[ScholarRanking]) -> Markup {
                         i class="bi bi-people me-3" {}
                         "Academic Scholars"
                     }
-                    p class="lead" { "Researchers ranked by QIndex (quality-weighted publication score)" }
+                    p class="lead" { "QIndex for CSRankings-eligible indexed publications, not a global ranking of researchers" }
+                    p.text-muted {
+                        "All metrics in this table use unique CSRankings-eligible works in our bibliography. "
+                        "Profiles also show all indexed publications, including non-eligible venues. "
+                        "Citation counts cover the whole S2 snapshot when matched; QIndex uses the internal venue graph."
+                    }
                 }
             }
 
@@ -775,7 +791,7 @@ pub fn venue_detail_page(ctx: &Ctx, data: &VenuePage, citations: &Citations) -> 
     let venue = data.venue;
     base_template(
         ctx,
-        &venue.name,
+        super::display_venue(&venue.name),
         "venue",
         html! {
             .container.py-5 {
@@ -789,7 +805,7 @@ pub fn venue_detail_page(ctx: &Ctx, data: &VenuePage, citations: &Citations) -> 
                             a href=(ctx.url("venues/")) { "Venues" }
                         }
                         li class="breadcrumb-item active" {
-                            (venue.name)
+                            (super::display_venue(&venue.name))
                         }
                     }
                 }
@@ -797,7 +813,7 @@ pub fn venue_detail_page(ctx: &Ctx, data: &VenuePage, citations: &Citations) -> 
                 // Venue header
                 .card.mb-4.shadow-sm {
                     .card-body {
-                        h1.card-title.mb-3 { (venue.name) }
+                        h1.card-title.mb-3 { (super::display_venue(&venue.name)) }
 
                         .row {
                             .col-md-3 {
@@ -826,7 +842,7 @@ pub fn venue_detail_page(ctx: &Ctx, data: &VenuePage, citations: &Citations) -> 
                             }
                             .col-md-3 {
                                 .stat-box.text-center {
-                                    h5 { "Total Citations" }
+                                    h5 { "Indexed-Work Citations" }
                                     .display-6 { (data.total_citations) }
                                 }
                             }
@@ -954,6 +970,7 @@ pub fn statistics_page(ctx: &Ctx, data: &StatisticsData) -> Markup {
         html! {
             .container.py-5 {
                 h1.mb-4 { "Dataset Statistics" }
+                p.text-muted { "Unique works in the curated bibliography, not all computer-science publications. Matched citation counts cover the whole S2 snapshot; unmatched counts use internal citations." }
 
                 // Overview cards
                 .row.mb-4 {
@@ -1064,10 +1081,17 @@ pub fn statistics_page(ctx: &Ctx, data: &StatisticsData) -> Markup {
                                     }
                                 }
                                 tbody {
-                                    @for (title, count) in &data.top_cited {
+                                    @for (title, cites) in &data.top_cited {
                                         tr {
                                             td { (title) }
-                                            td { (count) }
+                                            td {
+                                                @if cites.unknown() {
+                                                    "n/a"
+                                                } @else {
+                                                    (cites.count)
+                                                    @if cites.s2ag { " (S2AG)" } @else { " (internal)" }
+                                                }
+                                            }
                                         }
                                     }
                                 }
@@ -1095,9 +1119,9 @@ pub fn about_page(ctx: &Ctx) -> Markup {
                             .card-body {
                                 h5.card-title { "What is QIndex?" }
                                 p.card-text {
-                                    "QIndex is an academic quality index calculator that uses the PageRank algorithm "
-                                    "to evaluate the quality and impact of academic conferences, journals, and scholars. "
-                                    "It analyzes citation networks to determine the relative importance of venues and researchers."
+                                    "QIndex is a relative publication score within a curated computer-science bibliography. "
+                                    "It is not a complete scholar CV, a global leaderboard, or an objective assessment of "
+                                    "researcher quality. Coverage, venue selection and scoring assumptions affect results."
                                 }
                             }
                         }
@@ -1106,11 +1130,14 @@ pub fn about_page(ctx: &Ctx) -> Markup {
                             .card-body {
                                 h5.card-title { "How It Works" }
                                 ul {
-                                    li { "Parses bibliography data from BibTeX files" }
-                                    li { "Builds citation networks between papers, venues, and scholars" }
-                                    li { "Applies PageRank algorithm to calculate importance scores" }
-                                    li { "Computes QIndex scores for scholars based on venue quality" }
-                                    li { "Provides rankings and analytics for academic venues and researchers" }
+                                    li { "Each matched S2 corpus work is counted once; unmatched works remain distinct by local bibliography ID." }
+                                    li { "PageRank is computed over the internal citation graph between indexed venues, not the full S2 citation network." }
+                                    li { "The displayed venue score is tier-adjusted and renormalized, not raw PageRank: A* × 2.0, A × 1.5, B × 1.2, C × 1.0." }
+                                    li { "Venue tiers are manual priors, not independent quality measurements. The current dictionary is systems/theory-heavy; ICML, NeurIPS, ICLR and CVPR are unlisted and fall back to C. This affects cross-field comparisons." }
+                                    li { "The count-scaled venue score multiplies this adjusted score by ln(unique indexed paper count + 1); it is not a journal impact factor." }
+                                    li { "Scholar QIndex sums CSRankings-eligible venue scores, with age decay 0.95^(age / 5), then multiplies by ln(eligible unique paper count + 1) and normalizes the largest score to 100." }
+                                    li { "Author-order assumptions: sole/first author × 1.0, last author × 0.8, each middle author × 0.6 / (author count − 2). These heuristics do not infer actual contribution and can be inappropriate for alphabetical authorship." }
+                                    li { "If no internal citation edges are available, venue scores use the existing paper-count/venue heuristic, not measured citation PageRank." }
                                 }
                             }
                         }
@@ -1119,9 +1146,17 @@ pub fn about_page(ctx: &Ctx) -> Markup {
                             .card-body {
                                 h5.card-title { "Data Sources" }
                                 p.card-text {
-                                    "QIndex uses bibliography data from major computer science conferences and journals, "
-                                    "including venues tracked by CSRankings.org. Citation data can be enriched using "
-                                    "APIs from Semantic Scholar, CrossRef, and other academic databases."
+                                    "BibTeX supplies titles, authors, years and venues. Identity is name-based, preserving "
+                                    "DBLP numeric disambiguators when present; we do not claim verified author-ID disambiguation "
+                                    "and unresolved name collisions or aliases may remain. No affiliation is inferred."
+                                }
+                                p.card-text {
+                                    "S2AG snapshot release: "
+                                    (ctx.snapshot_release.as_deref().unwrap_or("unknown / not loaded"))
+                                    ". Matched per-work counts include citations from the whole S2 snapshot. "
+                                    "Unmatched works use internal citation counts, or n/a if unknown. Totals and h-index "
+                                    "therefore reflect coverage limits and are not full-career metrics. Profiles show all "
+                                    "indexed works; ranking and search scholar metrics use only the CSRankings venue whitelist."
                                 }
                             }
                         }
@@ -1137,6 +1172,11 @@ pub fn about_page(ctx: &Ctx) -> Markup {
                                     li { a href=(ctx.url("data/scholars.json")) { "data/scholars.json" } " — top scholars" }
                                     li { a href=(ctx.url("data/stats.json")) { "data/stats.json" } " — dataset statistics" }
                                     li { a href=(ctx.url("data/search-index.json")) { "data/search-index.json" } " — every venue and scholar with scores" }
+                                }
+                                p.small.text-muted {
+                                    "The JSON field pagerank retains its name but contains the tier-adjusted, "
+                                    "renormalized venue score, not raw PageRank. Scholar search tuples and "
+                                    "rankings use eligible metrics; profile shards separate all_indexed from ranking."
                                 }
                             }
                         }

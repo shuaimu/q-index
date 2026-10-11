@@ -1,6 +1,6 @@
 use indexmap::IndexMap;
 use serde::{Deserialize, Serialize};
-use std::collections::{HashMap, HashSet};
+use std::collections::HashMap;
 
 #[derive(Debug, Clone, Serialize, Deserialize)]
 pub struct Paper {
@@ -16,6 +16,7 @@ pub struct Paper {
     pub abstract_text: Option<String>,
     pub keywords: Vec<String>,
     pub doi: Option<String>,
+    pub dblp_id: Option<String>,
     pub url: Option<String>,
     pub bib_key: String,
     pub source_file: String,
@@ -27,6 +28,7 @@ pub enum VenueType {
     Journal,
     Workshop,
     Symposium,
+    TechnicalReport,
     Unknown,
 }
 
@@ -102,6 +104,8 @@ pub struct AlgorithmParams {
     pub tolerance: f64,
     pub venue_weight: f64,
     pub year_decay: f64,
+    /// Snapshot year when citation data is loaded; current UTC year otherwise.
+    pub reference_year: u32,
     pub tier_bonus: HashMap<String, f64>,
 }
 
@@ -119,6 +123,7 @@ impl Default for AlgorithmParams {
             tolerance: 1e-6,
             venue_weight: 0.7,
             year_decay: 0.95,
+            reference_year: chrono::Datelike::year(&chrono::Utc::now()) as u32,
             tier_bonus,
         }
     }

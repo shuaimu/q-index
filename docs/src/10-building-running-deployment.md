@@ -148,10 +148,9 @@ cargo run --release -- build-site       # writes ./site with base URL "/"
 python3 -m http.server -d site 8080     # browse http://localhost:8080/
 ```
 
-The build prints a summary line (HTML/JSON/other file counts and total size); on
-the reference corpus it was 1,030 HTML pages, 260 JSON files, and 59 other files,
-about 62 MB, in about 13 seconds. It also prints a reminder when no rendered book
-was found.
+The build prints HTML/JSON/other file counts and total size, plus a reminder
+when no rendered book was found. Use the actual build report for current counts
+and timing rather than a previous corpus's measurements.
 
 ### The base URL must match where the site is served
 
@@ -188,30 +187,29 @@ build is normally run from the repository root:
 | --- | --- | --- |
 | `./bib` | BibTeX corpus | the build fails with "Directory … does not exist" (overridable with `--bib-dir`) |
 | `./static` | `app.js`, `style.css` | the build fails while copying assets (overridable with `--static-dir`) |
-| `./cache/citations/s2ag_paper_citations.json` | S2AG citation counts, keyed by paper id | a warning is logged and every paper shows "Citations: n/a" (overridable with `--citations-file`) |
+| `./cache/citations/s2ag_paper_citations.json` | snapshot counts keyed by paper id | missing data cannot establish external counts; unmatched papers display internal evidence or n/a (overridable with `--citations-file`) |
+| `./cache/citations/s2ag_citation_graph.json` | matched-bibliography directed graph | citation-based ranking needs this artifact (overridable with `--citation-graph-file`) |
 | `./docs/book` | rendered book for `book/` | skipped with a warning; the navbar's "Book" link then points nowhere and the link checker fails |
 
-`--bib-dir`, `--static-dir`, `--book-dir`, and `--citations-file` relocate their
-inputs; their defaults are all relative to the CWD. If you run the build from
-anywhere other than the repo root without `--citations-file`, the S2AG file is
-not found, the build still succeeds, and every paper shows "Citations: n/a" with
-every citation total and h-index at zero (Chapter 6). The build log line
-"Loaded S2AG citation counts for N papers (fetched DATE)" confirms the file was
-read.
-
-The S2AG file feeds citation *counts* only — every citation figure the site
-shows is derived from it — but no citation *graph* was extracted, so it does not
-feed the PageRank computation. That divergence is the subject of Chapter 6.
+`--bib-dir`, `--static-dir`, `--book-dir`, `--citations-file` and
+`--citation-graph-file` relocate inputs; defaults are relative to the CWD.
+Use both S2AG artifacts from the same release. The count artifact supplies
+whole-S2 totals and h-indices; the graph artifact populates the internal
+bibliography graph for PageRank. Snapshot `release_id` identifies citation
+provenance; `generated` and site build time identify processing, not fresher counts.
+The published `data/stats.json` records this provenance as `snapshot_release`.
+Its paper totals and breakdowns are unique-work statistics, not raw BibTeX
+record counts. Scholar profiles distinguish all-indexed unique works from
+CSRankings-eligible ranking metrics; search and ranking lists use the latter.
 
 ## 10.6 Data Layout: `data/` versus `cache/`
 
 QIndex keeps raw inputs and derived artifacts in two separate trees with
 different version-control policies:
 
-- `data/` — raw bulk downloads (the partial S2AG dataset, about 139 GB, and any
-  S2ORC placeholders) plus the S2AG matcher's work files (`data/s2ag/work/`).
-  This tree is gitignored and not committed; only the *derived* results are
-  tracked.
+- `data/` — raw complete S2AG release `2026-10-06`, including 60 paper shards,
+  395 citation shards and matcher work in `data/s2ag/2026-10-06/work/`.
+  This tree is gitignored; only derived results are tracked.
 - `cache/citations/` — the parsed and derived JSON artifacts. These are
   committed, so a fresh clone (and CI) has working citation counts without
   re-running the download pipeline.
@@ -220,14 +218,14 @@ Do not confuse the repository's `data/` with the site's `site/data/`: the latter
 is the generated JSON published with the website (Chapter 8), and like the rest
 of `site/` it is gitignored.
 
-The single artifact the site build consumes from the cache is
-`cache/citations/s2ag_paper_citations.json` (Semantic Scholar citation counts
-keyed by paper id). It is regenerated offline with `qindex export-papers` and
-`scripts/match_s2ag.py`, then committed, because CI has no access to the bulk
-download; see Chapter 6 for the pipeline, its schema, and the other, partly
-orphaned, cache files in the same directory. The `S2_API_KEY` for the download
-scripts and for `match_s2ag.py`'s title matching is read from the environment
-and templated in `.env.example`:
+The CLI and site consume two committed artifacts:
+`cache/citations/s2ag_paper_citations.json` and
+`cache/citations/s2ag_citation_graph.json`. Regenerate both with `qindex
+export-papers` and the local-only `scan`, `resolve`, `graph` stages using
+`--snapshot-dir data/s2ag/2026-10-06`; see Chapter 6. CI needs no raw shards or
+network extraction. `S2_API_KEY` is needed only for dataset downloads, not for
+matching titles, resolving counts, extracting edges or building the website.
+The download key is templated in `.env.example`:
 
 ```bash
 # .env.example
@@ -302,13 +300,11 @@ python3 scripts/check_site_links.py site /     # same base URL as the build
 `static/` is copied into the output on every build, so asset edits also need a
 rebuild (or a manual copy into `site/static/` while experimenting).
 
-After changing the BibTeX corpus, rebuild the site and sanity-check the counts. In
-this book's reference session the corpus parsed to roughly 19,954 papers, 44
-venues, and 43,942 scholars (`qindex stats`; also the `total_*` fields of
-`site/data/stats.json`). The same file's `total_citations` is the S2AG-based
-total (about 1.8 million); new papers added to the corpus show "Citations: n/a"
-until `qindex export-papers` and `scripts/match_s2ag.py` are rerun and the
-regenerated `cache/citations/s2ag_paper_citations.json` is committed (Chapter 6).
+After changing BibTeX, rerun export and the local `scan`, `resolve`, `graph`
+pipeline, commit both derived artifacts, then rebuild the site. Read current
+coverage and edge counts from extraction summaries and citation totals from
+`site/data/stats.json`; do not carry forward numbers from the previous API run.
+New unmatched papers show unknown counts rather than verified zero citations.
 The CLI subcommands
 (`calculate`, `venues`, `scholars`, `search`, `stats`) are the fastest way to
 verify parsing without building the site — see Chapter 9.
@@ -408,7 +404,7 @@ The generated directory is self-contained apart from the Bootstrap, Bootstrap
 Icons, and Chart.js files it loads from the jsDelivr CDN, so any static host
 works. There is no process to keep running, no port to bind, and no
 authentication to configure — and correspondingly, everything in the build is
-public once published. Remember that the rankings on the site are computed from
-the internal BibTeX-derived graph and the S2AG count cache, not from a live
-citation graph; the honest current-state limitations of those inputs are
-documented in Chapter 11 (Limitations, Known Issues, and Roadmap).
+public once published. Rankings use the internal directed graph extracted from
+the local S2AG snapshot; displayed counts include citations from all of S2.
+Neither is fetched live during a build. Chapter 11 documents the limitations of
+the bibliography-only graph and the retained ranking policies.

@@ -6,11 +6,11 @@ A high-performance academic quality index calculator built in Rust, using PageRa
 
 - **PageRank-based Venue Scoring**: Calculates prestige scores for academic venues using citation networks
 - **Scholar QIndex**: Computes quality-weighted publication scores for researchers
-- **H-Index Calculation**: Traditional h-index alongside the novel QIndex metric
-- **High Performance**: Leverages Rust's performance and parallelism with Rayon
+- **Scoped H-Index**: Snapshot h-index over the indexed or ranking-eligible works
+- **Static Website**: Pre-rendered HTML and browser-side JSON; no application server
 - **Rich CLI**: Beautiful terminal interface with colored output and progress bars
 - **Multiple Export Formats**: JSON and CSV export for further analysis
-- **Comprehensive Dataset**: Includes papers from top CS venues with recent additions
+- **Curated Dataset**: Selected CS venues; incomplete coverage, not full scholar CVs
 
 ## 📦 Installation
 
@@ -104,6 +104,56 @@ qindex calculate --output results.json --export
 qindex calculate --output results.csv --export
 ```
 
+### Local S2AG Snapshot Extraction
+
+The complete release `2026-10-06` is downloaded under
+`data/s2ag/2026-10-06/` (`papers/`: 60 gzip JSONL shards; `citations/`: 395).
+Re-extract after changing the bibliography:
+
+```bash
+./target/release/qindex export-papers
+python3 -I scripts/match_s2ag.py scan --snapshot-dir data/s2ag/2026-10-06
+python3 -I scripts/match_s2ag.py resolve --snapshot-dir data/s2ag/2026-10-06
+python3 -I scripts/match_s2ag.py graph --snapshot-dir data/s2ag/2026-10-06
+./target/release/qindex build-site
+```
+
+Every extraction stage is local-only: no Semantic Scholar search, live count API
+or API key is used. `S2_API_KEY` is required only for dataset downloads.
+`--snapshot-dir ROOT` is required; `--work-dir` defaults to `ROOT/work` and scan
+writes `scan_matches.json` there. `--workers` defaults to 16, capped by available
+CPUs. `--papers` defaults to `cache/citations/papers.jsonl`.
+Matching prefers exact DOI, then a verified, case-sensitive DBLP record key
+(`dblp` in BibTeX, `dblp_id` in the export), then conservative normalized
+title/year matching. This can recover shortened or misspelled S2 titles without
+fuzzy matching or an online search.
+
+Commit both generated artifacts (`--out` and `--graph-out` override their paths):
+
+- `cache/citations/s2ag_paper_citations.json`: exact paper-id matches and
+  **whole-S2 snapshot counts**, including citations outside this bibliography.
+- `cache/citations/s2ag_citation_graph.json`: unique directed corpus-id pairs
+  with **both endpoints in the matched bibliography**, excluding self edges.
+
+Default ranking CLI commands and the website use these same local inputs.
+BibTeX aliases for one corpus id do not multiply graph edges, publication credit,
+paper listings, counts or h-indices. Unmatched works remain distinct by local id.
+The internal graph drives venue scores and scholar QIndex; whole-S2 counts drive
+reported citation totals and h-indices, not internal graph in-degree.
+Read current coverage and edge totals from generated extraction summaries.
+`release_id` is the snapshot provenance date; `generated` and site build date
+are processing dates, not count refresh dates. Loaded graph/count releases must
+agree. Raw shards and work files are gitignored; CI uses the committed artifacts.
+
+Custom site inputs:
+
+```bash
+qindex build-site \
+  --citations-file cache/citations/s2ag_paper_citations.json \
+  --citation-graph-file cache/citations/s2ag_citation_graph.json
+```
+
+
 ## 🔧 Command-Line Options
 
 ```
@@ -128,31 +178,47 @@ OPTIONS:
 
 ## 📊 Algorithm Details
 
-### Venue PageRank
+### Venue Score
 
 The algorithm builds a directed graph where:
 - **Nodes**: Academic venues (conferences/journals)
-- **Edges**: Citation relationships between papers
-- **Weights**: Year-decay adjusted citation counts
+- **Edges**: Directed citations between different venues, extracted from the local bibliography-only graph
+- **Weights**: Year-decay adjusted citation-edge weights (each unique edge counted once)
 
 Key parameters:
 - Damping factor: 0.85
-- Year decay: 0.95 per year
+- Citation-edge age: `max(citing_year - cited_year, 0)`, with weight `0.95^age`
 - Tier bonuses: A* (2.0x), A (1.5x), B (1.2x), C (1.0x)
+
+Dangling venues redistribute mass uniformly. Published venue scores are
+tier-adjusted and renormalized, not raw PageRank. The JSON field `pagerank`
+contains that adjusted score; `impact_factor` is its paper-count scaling
+`score × ln(unique venue works + 1)`, not a journal impact factor.
 
 ### Scholar QIndex
 
 ```
-QIndex = Σ(paper_score) × log(total_papers + 1)
+raw_score = Σ(paper_score) × ln(eligible_unique_papers + 1)
+QIndex = 100 × raw_score / max_scholar_raw_score
 
-where:
-  paper_score = venue_pagerank × year_decay × author_position_weight
+paper_score = adjusted_venue_score × 0.95^(age / 5) × author_position_weight
 ```
 
 Author position weights:
 - First author: 1.0
 - Last author: 0.8
 - Middle authors: 0.6/(n-2)
+
+Only unique authored works in the CSRankings venue whitelist enter the sum,
+productivity multiplier and ranking metrics. `age = max(reference_year - year, 0)`;
+the reference year comes from the loaded snapshot release, or the current UTC
+year without a valid release. Future and unknown-year works are undecayed.
+
+This is a relative score for a curated bibliography, **not a global scholar
+leaderboard or full-career h-index**. The manual tier dictionary is systems/theory-
+heavy: ICML, NeurIPS, ICLR and CVPR currently fall back to C. Authorship positions
+are heuristics, not verified contributions. Names preserve DBLP disambiguators,
+but remaining name collisions/aliases are not resolved by an author-ID service.
 
 ## 🌐 Website Features
 
@@ -170,8 +236,9 @@ the browser against JSON files, so no server is needed:
 - A page per venue with its papers (newest first), top authors and links
 
 ### Scholars
-- Top 100 scholars by QIndex with H-index and top venues
-- A profile page for every scholar, loaded from `data/scholars/*.json`
+- Top 100 by QIndex, with citation totals/h-index/paper counts over eligible unique works
+- Profiles separate **all indexed works** from **ranking-eligible works**, with
+  deduplicated publication cards and visible snapshot provenance
 
 ### Search
 - Searches every venue and scholar in the browser (`data/search-index.json`)
@@ -182,6 +249,33 @@ the browser against JSON files, so no server is needed:
 - `data/scholars.json` - Top scholars with metrics
 - `data/stats.json` - Dataset statistics
 - `data/search-index.json` - Every venue and scholar with scores
+
+### Publication audit (2026-10-11)
+
+The publication audit compares displayed counts with raw local snapshot records
+and adjudicates metadata conflicts against publisher records. It corrected
+duplicate-inflated credit, unsafe frozen-2024 age arithmetic, stale indices after
+cite-key replacement, editor credits from proceedings volumes, wrong-author
+aliases, missing coauthors, SGLang's incorrect OSDI attribution (NeurIPS 2024),
+and 16 BPOE workshop papers incorrectly stored as ASPLOS research papers.
+Publisher PDF bylines take precedence when web/BibTeX exports omit authors;
+S2 author metadata is not blindly copied into the bibliography.
+The top-ten audit also reconciled publisher-verified name variants (including
+Haibo Chen, Amin Vahdat, M. Frans Kaashoek and Remzi H. Arpaci-Dusseau), removed
+duplicate FlexGen/Brainstorm/Diamond/Arrakis/TAOBench records, corrected NeuroCard's
+byline, and moved the XStore journal article and MemServe preprint out of the
+conference corpus. Unsupported SOSP records and an ICDE workshop paper were
+removed. TAPIR's extended version is retained as a University of Washington
+technical report, with its institutional publication link.
+The ranking-boundary audit removed additional SIGCOMM demos and
+HotMiddlebox/BiDEDE/ApPLIED/MobiHeld/EuroMLSys/FFSPIN/NAI workshop records mislabeled
+as main-conference papers. It corrected Syrup and Sky Computing attributions,
+Faa$T's year and μTree's title, retained the SIGMOD Record article in its journal
+file, and excluded an unsafe Octopus/Octopus+ citation association. Title fallback
+cannot override a conflicting known published DBLP record; an unresolved version
+is shown as `n/a`, not assigned another version's citations.
+Redundant CCFS, Protocol-Aware Recovery and malformed Deepview records were
+consolidated into the publisher-verified FAST and NSDI originals.
 
 ## 🏗️ Architecture
 
@@ -220,7 +314,6 @@ cargo bench
 ## 🎨 Features Highlights
 
 ### Performance Optimizations
-- Parallel processing with Rayon for multi-core utilization
 - Efficient graph representation with IndexMap
 - Memory-efficient BibTeX parsing
 - Optimized PageRank convergence checking
@@ -236,13 +329,6 @@ cargo bench
 - Field categorization (Systems, Database, Theory, etc.)
 - Author name normalization
 - Citation cycle detection
-
-## 📈 Performance
-
-On a modern multi-core system:
-- Parses ~10,000 papers in < 2 seconds
-- Calculates PageRank for 100+ venues in < 100ms
-- Computes QIndex for 1,000+ scholars in < 500ms
 
 ## 🤝 Contributing
 
@@ -278,36 +364,6 @@ MIT License - see LICENSE file for details
 - BibTeX parsing powered by nom-bibtex
 - CLI interface using clap
 - Inspired by PageRank and h-index algorithms
-
-## 📊 Sample Output
-
-```
-╔═══════════════════════════════════════════════════════╗
-║                      QIndex v0.1.0                    ║
-╚═══════════════════════════════════════════════════════╝
-
-📚 Loaded 5,234 papers, 89 venues, 3,421 scholars
-🔄 Calculating QIndex scores...
-✅ Calculation complete!
-
-📊 Top 10 Venues:
-┌──────┬─────────┬──────┬────────────┬──────────┬────────┬────────┐
-│ Rank │ Venue   │ Tier │ Field      │ PageRank │ Impact │ Papers │
-├──────┼─────────┼──────┼────────────┼──────────┼────────┼────────┤
-│ 1    │ SOSP    │ A*   │ Systems    │ 0.0523   │ 0.234  │ 142    │
-│ 2    │ OSDI    │ A*   │ Systems    │ 0.0498   │ 0.218  │ 128    │
-│ 3    │ SIGMOD  │ A*   │ Database   │ 0.0456   │ 0.203  │ 156    │
-└──────┴─────────┴──────┴────────────┴──────────┴────────┴────────┘
-
-🎓 Top 10 Scholars:
-┌──────┬─────────────────┬────────┬─────────┬────────┬───────────┐
-│ Rank │ Scholar         │ QIndex │ H-Index │ Papers │ Citations │
-├──────┼─────────────────┼────────┼─────────┼────────┼───────────┤
-│ 1    │ Barbara Liskov  │ 98.45  │ 42      │ 67     │ 4,231     │
-│ 2    │ Butler Lampson  │ 96.23  │ 38      │ 54     │ 3,892     │
-│ 3    │ Michael Stonebraker │ 94.67 │ 45   │ 89     │ 5,123     │
-└──────┴─────────────────┴────────┴─────────┴────────┴───────────┘
-```
 
 ## 🚀 Future Enhancements
 

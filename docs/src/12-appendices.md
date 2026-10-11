@@ -8,7 +8,7 @@ the on-disk JSON cache formats (Appendix A), BibTeX corpus conventions
 (Appendix B), configuration and runtime environment (Appendix C), a glossary
 (Appendix D), and external references (Appendix E). All claims here are
 grounded in the source tree; file paths are absolute-from-repo-root and code
-citations use `path:line`. Where a feature is a fallback, stub, or
+references name files and symbols. Where a feature is a fallback, stub, or
 aspirational, it is labelled as such rather than presented as working.
 
 ## Appendix A: cache/citations JSON file formats
@@ -16,49 +16,36 @@ aspirational, it is labelled as such rather than presented as working.
 Every file discussed here lives under `cache/citations/`. The directory is
 committed to the repository; the multi-gigabyte raw S2AG bulk download and the
 S2AG matcher's work files under `data/` are gitignored and are *not* the subject
-of this appendix. Several of these files are produced by competing Python
-pipelines (see Chapter 6, "Citation Data Integration") and only one of them is
-read by Rust: `s2ag_paper_citations.json` (per-paper S2AG counts, loaded by
-`S2agCitations::load` in `src/s2ag_citations.rs` when the static site is built).
-`combined_cache.json` was also read, by the removed web server's citation-status
-endpoint, until that server was replaced by the static site generator.
+of this appendix. Rust consumes two local snapshot artifacts:
+`s2ag_paper_citations.json` and `s2ag_citation_graph.json`. Legacy pipeline files
+are not inputs to default rankings or site builds.
 
 ### A.1 `s2ag_paper_citations.json` (consumed by Rust)
 
-Written by `scripts/match_s2ag.py resolve` (Chapter 6). A JSON object with
-provenance fields and a `papers` map keyed by **paper id** — the cite key the
-Rust parser assigns, as exported by `qindex export-papers` — so the site build
-looks papers up exactly, with no title matching. 16,462 of 19,954 papers have an
-entry (about 3.3 MB).
+Written by local-only `scripts/match_s2ag.py resolve` (Chapter 6). Provenance
+fields are `release_id` (`2026-10-06`), `generated` (processing date) and `source`
+(local snapshot). Coverage fields are `matched`, `total` and `by_method`; consult
+the generated file for observed values.
 
-```json
-{
-  "generated": "2026-10-08",
-  "source": "Semantic Scholar Graph API citation counts; S2AG papers dataset for title matching",
-  "matched": 16462,
-  "total": 19954,
-  "by_method": { "local-doi": 6981, "local-title": 3171, "doi": 6310 },
-  "papers": {
-    "000110": {
-      "corpus_id": 50626,
-      "citations": 91,
-      "influential": 7,
-      "s2_title": "Higher-order multi-parameter tree transducers and recursion schemes for program verification",
-      "s2_year": 2010,
-      "match": "local-doi"
-    }
-  }
-}
-```
+The `papers` map is keyed by the Rust parser's paper id. Each entry has integer
+`corpus_id`, `citations` from the snapshot's `citationcount`, `influential` where
+available, `s2_title`, `s2_year` and `match` (`local-doi`, `local-dblp` or `local-title`). Counts
+include citations from all of S2, not just our bibliography. Builds use exact
+paper-id lookup, not title search. Corpus ids let consumers deduplicate aliases.
+`release_id`, not `generated`, is the count provenance date.
 
-`citations` is Semantic Scholar's `citationCount` at the `generated` date and
-`influential` its `influentialCitationCount`. `match` records how the paper was
-found: `doi` (Graph API lookup by DOI), `local-doi` or `local-title` (found in the
-downloaded S2AG `papers` files by DOI, or by normalized title and year within
-±1), or `api-title` (title-match endpoint; only with an API key).
-`src/s2ag_citations.rs` deserializes only `generated` and, per paper,
-`corpus_id` and `citations` (into `S2agPaper`); the rest is kept for auditing.
-`corpus_id` lets the site count duplicate BibTeX entries for the same paper once.
+### A.1.1 `s2ag_citation_graph.json` (consumed by Rust)
+
+Written by local-only `scripts/match_s2ag.py graph`. It has `release_id`,
+`generated`, `source`, scan metadata and `edges`: sorted unique arrays
+`[citing_corpus_id, cited_corpus_id]` of unsigned integers. Both endpoints must be
+matched bibliography corpus ids. External endpoints and same-corpus self edges
+are excluded. Alias and repeated-row deduplication prevents inflated edges.
+The release must agree with the count artifact.
+
+Rust canonicalizes corpus ids to deterministic bibliography ids and populates
+the internal adjacency lists and edge vector. Venue PageRank uses these edges,
+not a synthetic graph inferred from whole-S2 counts.
 
 ### A.2 `s2ag_citations.json` and `s2ag_summary.json` (superseded)
 
@@ -66,8 +53,8 @@ Outputs of the superseded `scripts/parse_s2ag.py`; no code reads them any more.
 `s2ag_citations.json` maps a normalized title to an S2AG record
 (`title`, `year`, `venue`, `corpus_id`, `s2ag_title`, `s2ag_year`, `doi`,
 `citation_count`, `reference_count`, `authors`, `venue_info`, `fields`,
-`abstract`, `url`) for 731 papers; the Rust site build used to fuzzy-match titles
-against it, which misattributed counts (Chapter 6, §6.3.3).
+`abstract`, `url`) from the old partial extraction; the Rust site used to
+fuzzy-match titles against it, which could misattribute counts (Chapter 6).
 `s2ag_summary.json` holds aggregate statistics. Top-level keys
 (confirmed from the file): `total_papers_matched`, `total_citations`,
 `papers_by_venue`, `citations_by_venue`, `top_cited_papers`.
@@ -121,7 +108,6 @@ This is a verbatim entry from the committed file.
 | File | Shape | Count | Status |
 |---|---|---|---|
 | `s2ag_id_mapping.json` | `{normalized_title: corpus_id}` | 731 | superseded (old `parse_s2ag.py`); read by nothing |
-| `s2ag_citation_graph.json` | `{corpus_id_str: {cites:[], cited_by:[]}}` | 190 nodes | orphan; only 1 cites + 1 cited_by edge total; written by no script |
 | `paper_cache.json` | `{md5: {title,authors,year,doi,ss_id,citation_count,venue,fetched_at}}` | 103 | read by no Rust (formerly the removed `/api/citation-status` fallback) |
 | `citation_data.json` | `{papers:[...], citations:[], metadata:{...}}` | 103 papers, 0 links | read by no Rust |
 | `citation_graph.json` | `{}` | empty | read by no Rust |
@@ -147,15 +133,17 @@ PageRank graph; see Chapter 5, "The Ranking Algorithm."
 ## Appendix B: BibTeX entry conventions
 
 The corpus lives in `bib/`, one file per venue named `{venue}.bib` lowercase
-(Chapter 4, "The Bibliographic Database"). The directory holds 49 `.bib`
-files. Entry-type totals across all files: 20,898 `@inproceedings`, 122
-`@article`, 47 `@string`, 8 `@techreport`.
+(Chapter 4, "The Bibliographic Database"). Historical counts from the earlier
+book snapshot, before the 2026-10-10 cleanup and new `tos.bib`, were 49 `.bib`
+files, 20,898 `@inproceedings`, 122 `@article`, 47 `@string`, and 8 `@techreport`.
+These are not current publication counts; use parser exports and site statistics.
 
 - **Entry types.** Conference papers use `@inproceedings`; journal papers use
   `@article` (e.g. `bib/tods.bib`, `bib/jacm.bib`). `parse_entry` maps the
-  entry type to `VenueType` (`src/parser.rs:205-211`): `inproceedings`/
+  entry type to `VenueType` (`src/parser.rs`): `inproceedings`/
   `conference` -> Conference, `article` -> Journal, `inworkshop`/`workshop` ->
-  Workshop, `symposium` -> Symposium, else Unknown.
+  Workshop, `symposium` -> Symposium, `techreport` -> TechnicalReport, else Unknown.
+  Technical reports retain their issuing institution as their venue.
 - **Cite key.** The BibTeX citation key becomes `Paper.id` (and a duplicate
   `Paper.bib_key`); it is the primary key in the in-memory paper map
   (`src/parser.rs:160-161`).
@@ -189,9 +177,8 @@ files. Entry-type totals across all files: 20,898 `@inproceedings`, 122
   all other tags are ignored (`src/parser.rs:151-219`). Authors are split on
   the literal ` and ` and the token `others` is dropped
   (`src/parser.rs:436-444`). There is **no** field that populates
-  `Paper.citations`; that vector is always initialized empty
-  (`src/parser.rs:166-167`), which is why the BibTeX-derived citation graph is
-  empty (Chapter 5).
+  `Paper.citations`; parsing initializes that vector empty. The local S2AG
+  integration enriches the graph before default ranking (Chapters 5 and 6).
 - **Working artifacts.** `bib/` also contains non-database files such as
   `bib/sigcomm.bib.backup` and `bib/sigcomm.removed`, produced by the
   SIGCOMM workshop cleaner; tooling should glob `*.bib` and ignore these.
@@ -202,7 +189,7 @@ files. Entry-type totals across all files: 20,898 `@inproceedings`, 122
 
 | Variable | Used by | Default / notes |
 |---|---|---|
-| `S2_API_KEY` | `scripts/download_s2ag.py:258`, `scripts/fetch_citations_multi_api.py`, `scripts/match_s2ag.py` (`Api`) | Semantic Scholar key; read via `os.environ.get('S2_API_KEY')`. Required for the S2AG datasets download and `match_s2ag.py --title-match`; optional for its batch lookups. No Rust code reads it. |
+| `S2_API_KEY` | dataset download scripts and legacy API fetchers | Required for dataset downloading only in the snapshot workflow. Local `match_s2ag.py scan/resolve/graph` and Rust builds do not need or use it. |
 | `RUST_LOG` | `env_logger` in `main()` | Defaults to `info` (`src/main.rs:25`). |
 
 `.env.example` contains exactly the template `S2_API_KEY=your-api-key-here`.
@@ -234,12 +221,12 @@ working directory, so QIndex effectively must be run from the repository root.
 | `./docs/book` | rendered book copied to `book/` if present (`--book-dir`) | `src/cli.rs` (`BuildSite`) |
 | `cache/citations/s2ag_paper_citations.json` | S2AG citation counts keyed by paper id (`--citations-file`) | `s2ag_citations::DEFAULT_PATH`, `src/cli.rs` (`BuildSite`) |
 | `./cache/citations/papers.jsonl` | paper list for S2AG matching (`export-papers --output`) | `src/cli.rs` (`ExportPapers`) |
-| `./cache/citations.json` | citation cache for CLI `calculate`/`venues`/`scholars`/`search` | `src/main.rs:117` etc. (file does not exist; load is a silent no-op) |
+| `cache/citations/s2ag_citation_graph.json` | internal matched-bibliography graph (`--citation-graph-file`) | `s2ag_citations::DEFAULT_GRAPH_PATH`, `src/main.rs` (`load_snapshot`) |
 
-If `build-site` is run from any other directory with the default flags, it fails
-to find `./bib` and `./static`; with explicit `--bib-dir`/`--static-dir` it
-succeeds, but unless `--citations-file` is also given the S2AG file is not
-found, a warning is logged, and every paper shows "Citations: n/a".
+When running from another directory, relocate all required inputs explicitly,
+including both snapshot artifacts. Their releases must agree. Missing count
+data cannot establish zero external citations; a missing graph does not provide
+citation-based venue ranking. See Chapter 10 for missing-input behavior.
 
 ### C.4 Build configuration
 
@@ -255,35 +242,40 @@ of slow link/codegen; for iteration use debug builds. See Chapter 10,
 
 - **QIndex (project).** This system: a BibTeX-driven ranking tool with a CLI
   and a generated static website.
-- **QIndex (metric).** The per-scholar prestige score in `[0, 100]` computed
-  in `calculate_scholar_scores` (`src/algorithm.rs:405-476`), normalized
-  against the maximum scholar score. Distinct from the h-index.
-- **Venue.** A publication forum (conference or journal), keyed by
-  `normalize_venue_id` (uppercase, spaces/hyphens to `_`, apostrophes
-  stripped; `src/parser.rs:489-495`). Modeled by `Venue`
-  (`src/models.rs:33-44`).
-- **Scholar.** An author identity, keyed by `generate_scholar_id` over the
-  normalized display name (`src/parser.rs:497-503`). Modeled by `Scholar`
-  (`src/models.rs:46-58`). Affiliations are declared but never populated.
-- **Tier.** A coarse venue rank (`A*`, `A`, `B`, `C`) assigned by substring
-  matching in `get_venue_tier` (`src/models.rs:359-389`); `A*` has 22 venues,
-  `A` has 20. Tiers feed `tier_bonus` (`A*=2.0, A=1.5, B=1.2, C=1.0`).
-- **CSRankings.** A community venue taxonomy (csrankings.org) whose subarea
-  list QIndex mirrors in `get_venue_field` (`src/models.rs:391-468`) and whose
-  venue allowlist gates scoring in `is_csrankings_venue`
-  (`src/algorithm.rs:15-60`). Only CSRankings venues contribute to QIndex and
-  h-index.
-- **PageRank.** Brin and Page's link-analysis algorithm. QIndex has a venue
-  PageRank implementation (`src/algorithm.rs:255-378`), but it is **dead code
-  at runtime today** because the venue graph is always empty; a prestige
-  fallback runs instead (`src/algorithm.rs:334-367`). See Chapter 5.
+- **QIndex (metric).** Per-scholar prestige score in `[0, 100]`, normalized
+  against the maximum scholar score (`src/algorithm.rs`,
+  `calculate_scholar_scores`), using unique eligible authored works.
+- **Venue.** Publication forum keyed by `normalize_venue_id` (`src/parser.rs`),
+  modeled by `Venue` (`src/models.rs`).
+- **Scholar.** Name-based identity keyed by `generate_scholar_id` over the
+  normalized name. DBLP numeric disambiguators are preserved; this is not a
+  globally verified S2 author-id mapping. Affiliations are not fabricated.
+- **Tier.** Manual coarse rank (`A*`, `A`, `B`, `C`) from `get_venue_tier`
+  (`src/models.rs`); bonuses remain `2.0`, `1.5`, `1.2`, `1.0`. The dictionary is
+  systems/theory-heavy; ICML, NeurIPS, ICLR and CVPR currently fall back to C.
+- **CSRankings.** Venue taxonomy and allowlist used by `is_csrankings_venue`
+  (`src/algorithm.rs`). QIndex and ranked/search scholar metrics use eligible
+  unique works. All-indexed profile metrics also include excluded venues.
+- **PageRank.** Directed cross-venue link analysis over the internal matched
+  bibliography graph, with dangling mass and nonnegative citation-age decay.
+  It is active when usable cross-venue citations exist; otherwise the prestige
+  heuristic is the fallback.
+- **Venue Score.** PageRank after tier adjustment and renormalization, serialized
+  under the retained `pagerank` field.
+- **Count-scaled score.** Venue Score times `ln(unique venue works + 1)`,
+  serialized as `impact_factor`; not a journal impact factor.
+- **Corpus id.** S2 work identifier used to deduplicate matched BibTeX aliases.
+  Unmatched records deduplicate only by local paper id. The representative
+  prefers complete venue/DOI/year/authors, then smallest local id.
+- **Reference year.** Current UTC year by default; the calculator uses a valid
+  snapshot release year when present. Future and unknown years are undecayed.
 - **Damping factor.** PageRank's teleportation parameter `d`; default `0.85`
   in `AlgorithmParams` (`src/models.rs:108-125`). The random surfer follows a
   link with probability `d` and jumps to a uniformly random node with
   probability `1-d`.
-- **S2AG.** Semantic Scholar Academic Graph; its bulk `papers` dataset and
-  Graph API are used by `scripts/match_s2ag.py` to match our papers and fetch
-  their citation counts, which `src/s2ag_citations.rs` loads at site-build time.
+- **S2AG.** Semantic Scholar Academic Graph. Local release papers provide whole-S2
+  counts and local citations provide bibliography-only edges through
+  `scripts/match_s2ag.py`. No online API participates in matching or ranking.
 - **OpenAlex.** Open scholarly catalog; one of two sources behind
   `combined_cache.json` (DBLP plus OpenAlex). Provides citation counts and
   work IDs.
@@ -300,20 +292,17 @@ not verifiable from the source tree.
    Hypertextual Web Search Engine" (1998); and L. Page, S. Brin, R. Motwani,
    T. Winograd, "The PageRank Citation Ranking: Bringing Order to the Web"
    (Stanford technical report, 1999). Defines the link-analysis model and the
-   damping factor that QIndex's (currently inactive) venue ranking is modeled
-   on.
+   damping factor underlying QIndex's active venue ranking.
 2. **h-index.** J. E. Hirsch, "An index to quantify an individual's
    scientific research output," *PNAS* (2005). Background for QIndex's
-   h-index computation (`src/algorithm.rs:486-512`), which today returns 0
-   for all scholars because no `cited_by` data is populated, and of the
-   website's S2AG-based h-index (`Citations::h_index`, `src/site/mod.rs`).
+   h-index computation over unique eligible authored works in ranking output
+   and over all-indexed works in the separately labelled profile metrics.
 3. **CSRankings.** E. Berger et al., CSRankings: Computer Science Rankings
    (csrankings.org). Source of the subarea taxonomy and venue allowlist that
    QIndex reproduces.
 4. **Semantic Scholar / S2AG.** Semantic Scholar Academic Graph and its bulk
-   datasets and API, Allen Institute for AI. Source of
-   `s2ag_paper_citations.json`.
-   API access is keyed by `S2_API_KEY`.
+   datasets, Allen Institute for AI. Source of both local snapshot artifacts.
+   `S2_API_KEY` is required for downloads, not offline matching or ranking.
 5. **OpenAlex.** OpenAlex, OurResearch — an open index of scholarly works.
    One of the two backends for `combined_cache.json`.
 6. **DBLP.** dblp computer science bibliography, Schloss Dagstuhl. Source of
@@ -322,6 +311,6 @@ not verifiable from the source tree.
 For implementation-level cross-references, see Chapter 3 ("The Data Model")
 for the structs, Chapter 5 ("The Ranking Algorithm") for the scoring
 formulas and the PageRank/fallback split, Chapter 6 ("Citation Data
-Integration") for the competing pipelines, and Chapter 8 ("The Static Website
+Integration") for the local snapshot pipeline and legacy paths, and Chapter 8 ("The Static Website
 and Its Data Files") for what the website publishes and where its numbers come
 from.

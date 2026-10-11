@@ -45,6 +45,8 @@ pub struct SiteOptions {
     pub book_dir: Option<PathBuf>,
     /// S2AG citation counts from scripts/match_s2ag.py (none if `None`).
     pub citations_file: Option<PathBuf>,
+    /// Directed S2AG corpus edges; must agree with the counts' release.
+    pub citation_graph_file: Option<PathBuf>,
 }
 
 #[derive(Debug, Default)]
@@ -85,6 +87,8 @@ pub struct Ctx {
     base: Base,
     /// Build date shown in the footer.
     pub generated: String,
+    /// S2AG release date, never the site generation or extraction date.
+    pub snapshot_release: Option<String>,
     /// Venue id -> URL slug.
     venue_slugs: HashMap<String, String>,
     /// Scholar ids that exist, so author names are only linked when the
@@ -236,32 +240,15 @@ impl Citations {
     }
 
     pub fn total<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> usize {
-        self.distinct_counts(papers).iter().sum()
+        self.s2ag.total(papers)
     }
 
     pub fn h_index<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> usize {
-        let mut counts = self.distinct_counts(papers);
-        counts.sort_unstable_by(|a, b| b.cmp(a));
-        counts
-            .iter()
-            .enumerate()
-            .take_while(|(i, &c)| c > *i)
-            .count()
+        self.s2ag.h_index(papers)
     }
 
-    /// Per-paper counts, taking each Semantic Scholar paper once: duplicate
-    /// BibTeX entries for the same paper (same corpus id) would otherwise be
-    /// counted several times.
-    fn distinct_counts<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> Vec<usize> {
-        let mut seen = std::collections::HashSet::new();
-        papers
-            .into_iter()
-            .filter(|p| match self.s2ag.get(&p.id).and_then(|s| s.corpus_id) {
-                Some(corpus_id) => seen.insert(corpus_id),
-                None => true,
-            })
-            .map(|p| self.of(p).count)
-            .collect()
+    pub fn unique_papers<'a>(&self, papers: impl IntoIterator<Item = &'a Paper>) -> Vec<&'a Paper> {
+        self.s2ag.unique_papers(papers)
     }
 }
 
@@ -293,7 +280,7 @@ pub struct StatisticsData {
     pub stats: Stats,
     pub papers_by_year: BTreeMap<u32, usize>,
     pub papers_by_venue: Vec<(String, usize)>,
-    pub top_cited: Vec<(String, usize)>,
+    pub top_cited: Vec<(String, PaperCitations)>,
 }
 
 /// Builds the site into `opts.out_dir`, replacing anything already there.
@@ -306,7 +293,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
     );
 
     let mut parser = BibParser::new();
-    let graph = parser
+    let mut graph = parser
         .parse_directory(
             opts.bib_dir
                 .to_str()
@@ -327,19 +314,14 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
         },
     };
 
-    let mut calculator = PageRankCalculator::new(&graph);
+    if let Some(path) = &opts.citation_graph_file {
+        citations.s2ag.load_graph(path, &mut graph)?;
+    }
+
+    let mut calculator = PageRankCalculator::with_citations(&graph, &citations.s2ag);
     calculator.calculate()?;
     let venue_rankings = calculator.get_top_venues(usize::MAX, None, None);
-    let mut scholar_rankings = calculator.get_top_scholars(usize::MAX, None);
-    // Show citation totals and h-indexes computed from the displayed
-    // per-paper counts; the ranking order (QIndex) is left as calculated.
-    for ranking in &mut scholar_rankings {
-        if let Some(scholar) = graph.scholars.get(&ranking.id) {
-            let papers = scholar.papers.iter().filter_map(|id| graph.papers.get(id));
-            ranking.citation_count = citations.total(papers.clone());
-            ranking.h_index = citations.h_index(papers);
-        }
-    }
+    let scholar_rankings = calculator.get_top_scholars(usize::MAX, None);
     let scholar_by_id: HashMap<&str, &ScholarRanking> = scholar_rankings
         .iter()
         .map(|s| (s.id.as_str(), s))
@@ -350,6 +332,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
     let ctx = Ctx {
         base,
         generated: chrono::Utc::now().format("%Y-%m-%d").to_string(),
+        snapshot_release: citations.s2ag.release_id.clone(),
         venue_slugs: venue_slugs(&graph),
         scholar_ids: graph.scholars.keys().cloned().collect(),
     };
@@ -361,7 +344,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
     };
 
     let stats = Stats {
-        total_papers: graph.papers.len(),
+        total_papers: citations.unique_papers(graph.papers.values()).len(),
         total_venues: graph.venues.len(),
         total_scholars: graph.scholars.len(),
         total_citations: citations.total(graph.papers.values()),
@@ -376,7 +359,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
             &venue_rankings,
             top_scholars,
             &stats,
-            &field_counts(&graph),
+            &field_counts(&graph, &citations),
         ),
     )?;
     out.html(
@@ -397,7 +380,7 @@ pub fn build_site(opts: &SiteOptions) -> Result<BuildReport> {
     out.html("404.html", templates::not_found_page(&ctx))?;
     write_venue_pages(&mut out, &ctx, &graph, &citations)?;
 
-    // Data for the browser-side pages, plus the old API responses as files
+    // Data for browser-side pages.
     write_scholar_shards(&mut out, &graph, &scholar_by_id, &citations)?;
     out.json(
         "data/search-index.json",
@@ -495,10 +478,14 @@ fn copy_dir(src: &Path, dst: &Path, report: &mut BuildReport) -> Result<()> {
     Ok(())
 }
 
-fn field_counts(graph: &CitationGraph) -> FieldCounts {
+fn field_counts(graph: &CitationGraph, citations: &Citations) -> FieldCounts {
     let mut counts: HashMap<&str, usize> = HashMap::new();
-    for venue in graph.venues.values() {
-        *counts.entry(venue.field.as_str()).or_insert(0) += venue.papers.len();
+    for paper in citations.unique_papers(graph.papers.values()) {
+        let field = graph
+            .venues
+            .get(&crate::parser::normalize_venue_id(&paper.venue))
+            .map_or("Unknown", |venue| venue.field.as_str());
+        *counts.entry(field).or_insert(0) += 1;
     }
     let mut counts: Vec<_> = counts.into_iter().collect();
     counts.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
@@ -509,9 +496,18 @@ fn field_counts(graph: &CitationGraph) -> FieldCounts {
 }
 
 /// A venue's or scholar's papers, newest first.
-fn papers_newest_first<'a>(graph: &'a CitationGraph, ids: &[String]) -> Vec<&'a Paper> {
-    let mut papers: Vec<&Paper> = ids.iter().filter_map(|id| graph.papers.get(id)).collect();
-    papers.sort_by_key(|p| std::cmp::Reverse(p.year.unwrap_or(0)));
+fn papers_newest_first<'a>(
+    graph: &'a CitationGraph,
+    ids: &[String],
+    citations: &Citations,
+) -> Vec<&'a Paper> {
+    let mut papers = citations.unique_papers(ids.iter().filter_map(|id| graph.papers.get(id)));
+    papers.sort_unstable_by(|a, b| {
+        b.year
+            .unwrap_or(0)
+            .cmp(&a.year.unwrap_or(0))
+            .then(a.id.cmp(&b.id))
+    });
     papers
 }
 
@@ -521,8 +517,19 @@ fn write_venue_pages(
     graph: &CitationGraph,
     citations: &Citations,
 ) -> Result<()> {
+    let unique = citations.unique_papers(graph.papers.values());
     for venue in graph.venues.values() {
-        let papers = papers_newest_first(graph, &venue.papers);
+        let mut papers: Vec<_> = unique
+            .iter()
+            .copied()
+            .filter(|paper| crate::parser::normalize_venue_id(&paper.venue) == venue.id)
+            .collect();
+        papers.sort_unstable_by(|a, b| {
+            b.year
+                .unwrap_or(0)
+                .cmp(&a.year.unwrap_or(0))
+                .then(a.id.cmp(&b.id))
+        });
         let total_citations = citations.total(papers.iter().copied());
 
         let mut author_counts: HashMap<&str, usize> = HashMap::new();
@@ -562,32 +569,40 @@ fn write_venue_pages(
 }
 
 fn statistics_data(graph: &CitationGraph, citations: &Citations) -> StatisticsData {
+    let mut papers = citations.unique_papers(graph.papers.values());
     let mut papers_by_year = BTreeMap::new();
-    for paper in graph.papers.values() {
+    let mut venue_counts: HashMap<&str, usize> = HashMap::new();
+    for paper in &papers {
+        *venue_counts.entry(display_venue(&paper.venue)).or_insert(0) += 1;
         if let Some(year) = paper.year {
             *papers_by_year.entry(year).or_insert(0) += 1;
         }
     }
 
-    let mut papers_by_venue: Vec<(String, usize)> = graph
-        .venues
-        .values()
-        .map(|v| (v.name.clone(), v.papers.len()))
+    let mut papers_by_venue: Vec<(String, usize)> = venue_counts
+        .into_iter()
+        .map(|(venue, count)| (venue.to_string(), count))
         .collect();
     papers_by_venue.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
     papers_by_venue.truncate(10);
 
-    let mut top_cited: Vec<(String, usize)> = graph
-        .papers
-        .values()
-        .map(|p| (p.title.clone(), citations.of(p).count))
+    papers.sort_unstable_by(|a, b| {
+        citations
+            .of(b)
+            .count
+            .cmp(&citations.of(a).count)
+            .then_with(|| b.year.unwrap_or(0).cmp(&a.year.unwrap_or(0)))
+            .then(a.id.cmp(&b.id))
+    });
+    let top_cited = papers
+        .iter()
+        .take(10)
+        .map(|paper| (paper.title.clone(), citations.of(paper)))
         .collect();
-    top_cited.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(&b.0)));
-    top_cited.truncate(10);
 
     StatisticsData {
         stats: Stats {
-            total_papers: graph.papers.len(),
+            total_papers: papers.len(),
             total_venues: graph.venues.len(),
             total_scholars: graph.scholars.len(),
             total_citations: citations.total(graph.papers.values()),
@@ -598,22 +613,28 @@ fn statistics_data(graph: &CitationGraph, citations: &Citations) -> StatisticsDa
     }
 }
 
-/// Same shape as the old `/api/stats` response body.
 fn stats_json(graph: &CitationGraph, citations: &Citations) -> serde_json::Value {
+    let papers = citations.unique_papers(graph.papers.values());
     let mut papers_by_year = BTreeMap::new();
-    for paper in graph.papers.values() {
+    for paper in &papers {
         if let Some(year) = paper.year {
             *papers_by_year.entry(year).or_insert(0usize) += 1;
         }
     }
     let mut papers_by_tier = BTreeMap::new();
     let mut papers_by_field = BTreeMap::new();
-    for venue in graph.venues.values() {
-        *papers_by_tier.entry(venue.tier.clone()).or_insert(0usize) += venue.papers.len();
-        *papers_by_field.entry(venue.field.clone()).or_insert(0usize) += venue.papers.len();
+    for paper in &papers {
+        let venue = graph
+            .venues
+            .get(&crate::parser::normalize_venue_id(&paper.venue));
+        let tier = venue.map_or("Unknown", |venue| venue.tier.as_str());
+        let field = venue.map_or("Unknown", |venue| venue.field.as_str());
+        *papers_by_tier.entry(tier).or_insert(0usize) += 1;
+        *papers_by_field.entry(field).or_insert(0usize) += 1;
     }
     serde_json::json!({
-        "total_papers": graph.papers.len(),
+        "snapshot_release": citations.s2ag.release_id,
+        "total_papers": papers.len(),
         "total_venues": graph.venues.len(),
         "total_scholars": graph.scholars.len(),
         "total_citations": citations.total(graph.papers.values()),
@@ -653,8 +674,8 @@ fn search_index(
         .values()
         .map(|v| SearchVenue {
             id: v.id.clone(),
-            name: v.name.clone(),
-            full_name: v.full_name.clone(),
+            name: display_venue(&v.name).to_string(),
+            full_name: display_venue(&v.full_name).to_string(),
             field: v.field.clone(),
             tier: v.tier.clone(),
             pagerank: venue_rank_by_id
@@ -670,15 +691,15 @@ fn search_index(
         .scholars
         .values()
         .map(|s| {
-            let (qindex, h_index) = scholar_by_id
+            let (qindex, h_index, paper_count) = scholar_by_id
                 .get(s.id.as_str())
-                .map_or((0.0, 0), |r| (r.qindex, r.h_index));
+                .map_or((0.0, 0, 0), |r| (r.qindex, r.h_index, r.paper_count));
             (
                 s.id.clone(),
                 s.name.clone(),
                 round4(qindex),
                 h_index,
-                s.papers.len(),
+                paper_count,
             )
         })
         .collect();
@@ -696,10 +717,8 @@ struct ScholarRecord<'a> {
     name: &'a str,
     #[serde(skip_serializing_if = "<[_]>::is_empty")]
     affiliations: &'a [String],
-    qindex: f64,
-    h_index: usize,
-    /// Displayed per-paper citation counts, summed.
-    citations: usize,
+    all_indexed: PublicationMetrics,
+    ranking: Option<RankingMetrics>,
     /// `[venue name, paper count]`, most papers first.
     venues: Vec<(&'a str, usize)>,
     /// Newest first.
@@ -707,7 +726,33 @@ struct ScholarRecord<'a> {
 }
 
 #[derive(Serialize)]
+struct PublicationMetrics {
+    paper_count: usize,
+    citations: usize,
+    h_index: usize,
+}
+
+#[derive(Serialize)]
+struct RankingMetrics {
+    qindex: f64,
+    paper_count: usize,
+    citations: usize,
+    h_index: usize,
+}
+
+fn display_venue(venue: &str) -> &str {
+    if venue.trim().is_empty() {
+        "Unknown"
+    } else {
+        venue
+    }
+}
+
+#[derive(Serialize)]
 struct PaperRecord<'a> {
+    id: &'a str,
+    #[serde(skip_serializing_if = "Option::is_none")]
+    corpus_id: Option<u64>,
     title: &'a str,
     venue: &'a str,
     #[serde(skip_serializing_if = "Option::is_none")]
@@ -734,33 +779,46 @@ fn write_scholar_shards(
         (0..SCHOLAR_SHARDS).map(|_| BTreeMap::new()).collect();
 
     for scholar in graph.scholars.values() {
-        let papers = papers_newest_first(graph, &scholar.papers);
+        let papers = papers_newest_first(graph, &scholar.papers, citations);
 
         let mut venue_counts: HashMap<&str, usize> = HashMap::new();
         for paper in &papers {
-            *venue_counts.entry(paper.venue.as_str()).or_insert(0) += 1;
+            *venue_counts.entry(display_venue(&paper.venue)).or_insert(0) += 1;
         }
         let mut venues: Vec<(&str, usize)> = venue_counts.into_iter().collect();
         venues.sort_by(|a, b| b.1.cmp(&a.1).then(a.0.cmp(b.0)));
 
-        let qindex = scholar_by_id
+        let ranking = scholar_by_id
             .get(scholar.id.as_str())
-            .map_or(0.0, |r| r.qindex);
+            .map(|ranking| RankingMetrics {
+                qindex: round4(ranking.qindex),
+                paper_count: ranking.paper_count,
+                citations: ranking.citation_count,
+                h_index: ranking.h_index,
+            });
 
         let record = ScholarRecord {
             name: &scholar.name,
             affiliations: &scholar.affiliations,
-            qindex: round4(qindex),
-            h_index: citations.h_index(papers.iter().copied()),
-            citations: citations.total(papers.iter().copied()),
+            all_indexed: PublicationMetrics {
+                paper_count: papers.len(),
+                h_index: citations.h_index(papers.iter().copied()),
+                citations: citations.total(papers.iter().copied()),
+            },
+            ranking,
             venues,
             papers: papers
                 .iter()
                 .map(|p| {
                     let c = citations.of(p);
                     PaperRecord {
+                        id: &p.id,
+                        corpus_id: citations
+                            .s2ag
+                            .get(&p.id)
+                            .and_then(|matched| matched.corpus_id),
                         title: &p.title,
-                        venue: &p.venue,
+                        venue: display_venue(&p.venue),
                         year: p.year,
                         citations: c.count,
                         s2ag: c.s2ag,

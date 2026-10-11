@@ -655,13 +655,17 @@ volume = {13},
 year = {2020}
 }
 
-@inproceedings{yang2020neupipe,
+@article{yang2020neupipe,
 title={NeuroCard: One Cardinality Estimator for All Tables},
-author={Yang, Zongheng and Liang, Eric and Kamsetty, Amog and Wu, Chenggang and Duan, Yan and Chen, Xi and Abbeel, Pieter and Hellerstein, Joseph M and Krishnan, Sanjay and Stoica, Ion},
-booktitle = "VLDB",
+author={Yang, Zongheng and Kamsetty, Amog and Luan, Sifei and Liang, Eric and Duan, Yan and Chen, Xi and Stoica, Ion},
+journal = {PVLDB},
 volume={14},
 number={1},
-year={2020}
+year={2020},
+month = sep,
+pages = {61--73},
+doi = {10.14778/3421424.3421432},
+url = {https://www.vldb.org/pvldb/vol14/p61-yang.pdf},
 }
 
 @inproceedings{li2020tidb,
@@ -1136,11 +1140,13 @@ year={2020}
 }
 
 @inproceedings{chen20treea54,
-  title = {?Tree: a Persistent B+-Tree with Low Tail Latency.},
+  title = {μTree: a Persistent B+-Tree with Low Tail Latency.},
   author = {Youmin Chen and Youyou Lu and Kedong Fang and Qing Wang 0031 and Jiwu Shu},
   booktitle = {VLDB},
   year = {2020},
-  url = {http://www.vldb.org/pvldb/vol13/p2634-chen.pdf},
+  url = {https://www.vldb.org/pvldb/vol13/p2634-chen.pdf},
+  doi = {10.14778/3407790.3407850},
+  dblp = {journals/pvldb/ChenLFWS20},
 }
 
 @inproceedings{chepurko20ardaautomatic55,
@@ -4080,15 +4086,6 @@ year = {2022},
 month = sep,
 }
 
-@article{cheng22taobench,
-author = {Cheng, Audrey and Shi, Xiao and Kabcenell, Aaron and Lawande, Shilpa and Qadeer, Hamza and Chan, Jason and Tin, Harrison and Zhao, Ryan and Bailis, Peter and Balakrishnan, Mahesh and Bronson, Nathan and Crooks, Natacha and Stoica, Ion},
-journal = pvldb,
-month = may,
-number = {9},
-title = {TaoBench: An end-to-end benchmark for social network workloads},
-volume = {15},
-year = {2022}
-}
 
 @article{geng22nezha,
 author = {Geng, Jinkun and Sivaraman, Anirudh and Prabhakar, Balaji and Rosenblum, Mendel},
@@ -4664,13 +4661,18 @@ year={2022}
   doi = {10.14778/3514061.3514074},
 }
 
-@inproceedings{cheng22taobenchan62,
-  title = {TAOBench: An End-to-End Benchmark for Social Networking Workloads.},
-  author = {Audrey Cheng and Xiao Shi and Aaron N. Kabcenell and Shilpa Lawande and Hamza Qadeer and Jason Chan and Harrison Tin and Ryan Zhao and Peter Bailis and Mahesh Balakrishnan 0001 and Nathan Bronson and Natacha Crooks and Ion Stoica},
-  booktitle = {VLDB},
+@article{cheng22taobenchan62,
+  title = {TAOBench: An End-to-End Benchmark for Social Network Workloads},
+  author = {Audrey Cheng and Xiao Shi and Aaron Kabcenell and Shilpa Lawande and Hamza Qadeer and Jason Chan and Harrison Tin and Ryan Zhao and Peter Bailis and Mahesh Balakrishnan 0001 and Nathan Bronson and Natacha Crooks and Ion Stoica},
+  journal = {PVLDB},
   year = {2022},
+  volume = {15},
+  number = {9},
+  pages = {1965--1977},
+  month = may,
   url = {https://www.vldb.org/pvldb/vol15/p1965-cheng.pdf},
   doi = {10.14778/3538598.3538616},
+  dblp = {journals/pvldb/ChengSKLQCTZBBB22},
 }
 
 @inproceedings{chiosa22hardwareacceleration63,
@@ -5879,13 +5881,14 @@ month = "feb",
 }
 
 @article{dong23fine,
-author = {Dong, Zhiyuan and Wang, Zhaoguo and Zhang, Xiaodong and Xu, Xian and Zhao, Changgeng and Chen, Haibo and Panda, Aurojit and Li, Jinyang},
+author = {Dong, Zhiyuan and Wang, Zhaoguo and Zhang, Xiaodong and Xu, Xian and Zhao, Changgeng and Chen 0001, Haibo and Panda, Aurojit and Li, Jinyang},
 title = {Fine-Grained Re-Execution for Efficient Batched Commit of Distributed Transactions},
 journal = "VLDB",
 month = apr,
 number = {8},
 volume = {16},
-year = {2023}
+year = {2023},
+url = {https://www.vldb.org/pvldb/vol16/p1930-dong.pdf},
 }
 
 @inproceedings{li2023clickhouse,
@@ -5993,7 +5996,7 @@ year={2023}
 
 @inproceedings{li23r3record11,
   title = {R3: Record-Replay-Retroaction for Database-Backed Applications.},
-  author = {Qian Li 0027 and Peter Kraft and Michael J. Cafarella and Çagatay Demiralp and Goetz Graefe and Christos Kozyrakis and Michael Stonebraker and Lalith Suresh 0001 and Xiangyao Yu and Matei Zaharia},
+  author = {Qian Li 0027 and Peter Kraft and Michael J. Cafarella and Çağatay Demiralp and Goetz Graefe and Christos Kozyrakis and Michael Stonebraker and Lalith Suresh 0001 and Xiangyao Yu and Matei Zaharia},
   booktitle = {VLDB},
   year = {2023},
   url = {https://www.vldb.org/pvldb/vol16/p3085-li.pdf},

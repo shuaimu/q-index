@@ -86,7 +86,7 @@ pub enum Commands {
         bib_dir: String,
     },
 
-    /// Write every parsed paper (id, title, year, DOI, venue) as JSON lines,
+    /// Write every parsed paper (id, title, year, DOI, DBLP record key, venue) as JSON lines,
     /// for matching against external datasets such as S2AG
     ExportPapers {
         /// Directory containing BibTeX files
@@ -123,6 +123,10 @@ pub enum Commands {
         /// S2AG citation counts written by scripts/match_s2ag.py
         #[arg(long, default_value = crate::s2ag_citations::DEFAULT_PATH)]
         citations_file: String,
+
+        /// Local S2AG directed citation edges from the same snapshot as the counts
+        #[arg(long, default_value = crate::s2ag_citations::DEFAULT_GRAPH_PATH)]
+        citation_graph_file: String,
     },
 
     /// Fetch citation data from Semantic Scholar

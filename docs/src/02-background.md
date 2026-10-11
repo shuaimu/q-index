@@ -7,12 +7,10 @@ throughout the book: **QIndex (the project)** is this codebase and the website i
 on the `Scholar` struct, `src/models.rs:46-58`). When the distinction matters we
 qualify it; elsewhere context disambiguates.
 
-A recurring theme is the gap between the *intended* design and the *implemented*
-behavior. QIndex is built around link-analysis over a citation graph, but the
-graph is empty at runtime. We therefore describe each technique twice: what it
-contributes in principle, and what the code does in its place. Where a feature is
-a fallback, a stub, or aspirational, this chapter says so plainly rather than
-restating the project README's claims.
+The implemented link-analysis path loads a real directed graph from the local
+S2AG snapshot before ranking. It is a bibliography-only graph, not the full
+academic graph; counts and graph edges measure different scopes. Fallbacks and
+unfinished PDF extraction remain separate from this working offline path.
 
 ## 2.1 Eigenvector Centrality and PageRank
 
@@ -34,11 +32,10 @@ $$
                  \mathrm{PR}(f) \cdot \frac{w(f,t)}{\sum_{e} w(f,e)},
 $$
 
-where $n$ is the number of nodes and $w$ are edge weights. The
-$\frac{1-d}{n}$ term is the teleport (random-restart) probability that keeps the
-iteration well-defined even on dangling nodes. PageRank is computed by power
-iteration: initialise every node to $1/n$, apply the update repeatedly, and stop
-when the maximum per-node change falls below a tolerance.
+Here $n$ is the number of nodes and $w$ are edge weights. For dangling sources
+add $dD/n$, where $D$ is their total mass. The teleport term alone does not
+redistribute dangling mass. Power iteration starts at $1/n$ and stops when the
+maximum change is below tolerance or the iteration cap is reached.
 
 ### What "PageRank over an academic graph" means
 
@@ -65,37 +62,16 @@ defaults come from `AlgorithmParams::default()` (`src/models.rs:108-125`):
 | `max_iterations`  | 100     | power-iteration cap                   |
 | `tolerance`       | 1e-6    | convergence threshold on `max_diff`   |
 | `venue_weight`    | 0.7     | (declared; see Chapter 5)             |
-| `year_decay`      | 0.95    | per-year discount on edges/papers     |
+| `year_decay`      | 0.95    | edge-age discount; scholar exponent is age/5 |
+| `reference_year` | UTC year by default | valid loaded snapshot release year takes precedence |
 
-However, **this power-iteration path is dead code at runtime.** The venue graph
-is built from `Paper.citations`, and the BibTeX parser never populates that field
-— every paper is created with `citations: Vec::new()` (`src/parser.rs:166-167`),
-and no BibTeX tag maps to it in `parse_entry` (`src/parser.rs:151-219`).
-`build_citation_network` (`src/models.rs:174-192`) derives `cited_by` by
-traversing `citations`, so it too stays empty. The only on-disk cache the read
-commands try to load is the singular file `./cache/citations.json`, which does not
-exist (the repo has a `cache/citations/` *directory* with differently named
-files). With no edges and no cache, `has_cached_citations` is false and the venue
-graph is empty.
-
-What actually computes venue scores is the **prestige fallback**
-(`src/algorithm.rs:334-367`), confirmed in source above. For each venue it
-assigns a base score $\ln(\text{papers}+1)/10$, doubles it for CSRankings venues,
-adds a small deterministic perturbation from a hash of the venue name (to break
-ties), and normalises so the scores sum to 1:
-
-$$
-\mathrm{score}(v) = \frac{\ln(\text{papers}_v + 1)}{10}
-                    \cdot \big(\mathrm{csrankings}(v)\,?\,2:1\big)
-                    + \frac{\mathrm{hash}(name_v) \bmod 100}{10000}.
-$$
-
-This is a paper-count heuristic dressed in PageRank's clothing: it never consults
-the citation structure. A `tier_bonus` multiplier
-(`A*`=2.0, `A`=1.5, `B`=1.2, `C`=1.0) is then applied and the scores
-re-normalised (`apply_tier_bonus`, `src/algorithm.rs:380-403`). Chapter 5, *The
-Ranking Algorithm*, dissects the full pipeline, including a control-flow brace
-quirk in the dead PageRank branch.
+The default CLI and site load the local S2AG count and graph artifacts described
+in Chapter 6. The parser alone supplies no references; the snapshot integration
+populates the internal graph before scoring. Directed cross-venue citations feed
+PageRank once each, with year-decayed edge weights. Dangling venues distribute
+their mass uniformly. Tier bonuses (`A*`=2.0, `A`=1.5, `B`=1.2, `C`=1.0)
+are applied afterwards and the scores re-normalised. The paper-count prestige
+fallback is reserved for an input graph without usable cross-venue citations.
 
 ## 2.2 The h-index and Its Limitations
 
@@ -112,25 +88,18 @@ weaknesses motivate QIndex's broader metric:
   10,000-citation paper contribute the same to an h of 10).
 - It depends entirely on a reliable citation count per paper.
 
-QIndex computes an h-index per scholar (`calculate_scholar_h_index`,
-`src/algorithm.rs:486-512`): it gathers `cited_by.len()` for the scholar's
-papers, **restricted to CSRankings venues**, sorts descending, and finds the
-largest $h$ with `citations[h-1] >= h`. A second, unused free function
-`calculate_h_index` (`src/algorithm.rs:631-651`) computes the unfiltered version.
-Because `cited_by` is empty for every paper (Section 2.1), **the algorithm's
-h-index is 0 for every scholar**, and its `citation_count` is likewise 0. The
-h-index machinery is correct but starved of input; it will produce meaningful
-values only once a real citation graph is loaded (Chapter 6). The website does
-not show those zeros: it recomputes each scholar's citation total and h-index
-from the per-paper Semantic Scholar counts (`Citations::h_index` in
-`src/site/mod.rs`), so the h-indices displayed on the site are real, while the
-ranking itself still sees none of it.
+An internal-graph h-index measures citations from the bibliography only; it is
+not interchangeable with an h-index based on whole-S2 snapshot citation counts.
+The ranking CLI and website use the local snapshot count artifact for reported
+citation totals and h-indices, deduplicating multiple BibTeX aliases for one S2
+corpus id. QIndex remains venue-weighted publication credit rather than a direct
+function of those citation totals.
 
 ## 2.3 CSRankings Methodology: What QIndex Borrows and Changes
 
 [CSRankings](https://csrankings.org) ranks institutions by counting publications
-in a curated list of top venues, with credit split among authors by position on
-the paper (fractional/position-based attribution rather than whole counting). Its
+in a curated list of top venues, with uniform fractional coauthor credit rather
+than QIndex's first/last-author position heuristic. Its
 deliberate design choices are: a hand-picked venue allowlist (to resist
 gaming via low-quality venues) and per-author fractional credit (so a 20-author
 paper does not inflate everyone equally).
@@ -166,18 +135,17 @@ QIndex departs from CSRankings on two axes:
 
 - **PageRank/prestige weighting instead of equal venue weight.** CSRankings
   treats all listed venues alike (a publication is a publication). QIndex weights
-  each paper by its venue's prestige score (`venue_score`, intended to be the
-  PageRank from Section 2.1, in practice the prestige fallback). A paper in a
+  each paper by its venue's prestige score (`venue_score`, derived from the
+  internal citation graph, with a fallback only when usable edges are absent). A paper in a
   higher-scored venue contributes more.
 
-- **Year decay.** CSRankings uses fixed publication windows; QIndex applies a
-  continuous discount to older papers. The scholar score multiplies each paper by
-  $0.95^{(2024 - \text{year})/5}$ — note the exponent is divided by 5, so this is
-  *not* a plain per-year decay, and `current_year` is **hardcoded to 2024**
-  (`src/algorithm.rs:426-430`), so 2025+ papers receive no decay.
+- **Year decay.** QIndex applies $0.95^{\max(Y_{\mathrm{ref}}-y_p,0)/5}$.
+  `AlgorithmParams.reference_year` defaults to the current UTC year and becomes
+  the valid snapshot release year in `PageRankCalculator::with_citations`.
+  Future and unknown-year papers remain undecayed.
 
-The full QIndex (the metric) for a scholar is, per `calculate_scholar_scores`
-(`src/algorithm.rs:405-476`, read directly above):
+The full QIndex metric is implemented by `calculate_scholar_scores` in
+`src/algorithm.rs`:
 
 $$
 \mathrm{raw}(s) = \!\!\sum_{\substack{v \in \text{CSRankings} \\ p \in s}}\!\!
@@ -186,10 +154,10 @@ $$
 \mathrm{QIndex}(s) = \frac{\mathrm{raw}(s)\cdot \ln(N_s+1)}{\max_{s'}(\cdots)}\cdot 100,
 $$
 
-where $N_s = \texttt{scholar.papers.len()}$ is the scholar's *total* paper count
-across all venues — an inconsistency, since the summation itself includes only
-CSRankings venues. Final scores are normalised to a 0–100 scale. A missing
-venue score defaults to 0.01. Chapter 5 covers the formula in full.
+Here $N_s$ counts the same unique eligible authored publications used in the
+sum. Corpus-id aliases share one representative; unmatched works deduplicate
+only by local id. Missing venue scores contribute zero. All-zero inputs keep
+all QIndices zero; otherwise scores normalize to 0–100 (Chapter 5).
 
 ## 2.4 Citation Data Sources Compared
 
@@ -200,44 +168,34 @@ scripts for most of them; only one feeds the published website today.
 | Source | What it provides | How QIndex uses it |
 | ------ | ---------------- | ------------------ |
 | **DBLP** | Clean conference/journal proceedings metadata (titles, authors, venues, years) via a search API. No citation counts. | Source of the `bib/` corpus. `scripts/fetch_main_conference.py` queries the DBLP `publ` API and filters out workshops/posters. |
-| **Semantic Scholar / S2AG** | Bulk academic-graph corpus: paper records, citation counts, and citation edges. | The only live citation source. `s2ag_paper_citations.json` (16,462 matched papers) supplies every citation figure on the website. |
+| **Semantic Scholar / S2AG** | Bulk academic-graph corpus: paper records, citation counts, and citation edges. | Local release 2026-10-06 supplies snapshot-wide counts and the bibliography-only ranking graph through two committed artifacts. |
 | **OpenAlex** | Open scholarly index with citation counts and IDs. | `scripts/fetch_citations_combined.py` populates `combined_cache.json`; no longer read by any Rust code (it fed the removed server's citation-status endpoint), and never fed rankings. |
 | **Crossref** | DOI registration metadata and reference lists. | Used by the legacy fetcher and the (stubbed) paper extractor for DOI lookups. |
 
 ### DBLP: the metadata backbone
 
-DBLP supplies the bibliographic records but **no citations**. The `bib/` folder
-holds roughly 21,000 BibTeX entries across about 44 venue files (largest: `ccs`
-≈ 2,789, `stoc` ≈ 1,923, `sigcomm` ≈ 1,687). The parser produces
-roughly 19,954 papers, 44 venues, and 43,942 scholars (observed via
-`qindex stats` and the site's `data/stats.json`). DBLP is the right tool for clean proceedings metadata and the
-wrong tool for impact: that gap is exactly why a second source is needed.
+DBLP supplies bibliographic metadata but **no citations**. Corpus size changes
+with cleaning and additions; use the current parser export and generated site
+statistics rather than older chapter figures. DBLP's metadata role is distinct
+from the snapshot citation evidence.
 
-### Semantic Scholar / S2AG: the live citation feed
+### Semantic Scholar / S2AG: local snapshot inputs
 
-S2AG (the Semantic Scholar Academic Graph) is the only citation source the
-site build consults. An offline matcher, `scripts/match_s2ag.py`, pairs each
-parsed paper with its Semantic Scholar record — by DOI, or by normalized title and
-year against the downloaded S2AG `papers` files — and fetches current counts from
-the Semantic Scholar Graph API. It writes `cache/citations/s2ag_paper_citations.json`,
-keyed by our paper ids: 16,462 of 19,954 papers are matched (97 percent of those
-with a DOI, about half of the DOI-less USENIX and ML papers). The loader
-`src/s2ag_citations.rs` reads it into a map, and the site generator looks each
-paper up by id (`Citations::of` in `src/site/mod.rs`), rendering
-`Citations: N (S2AG)` on venue pages and scholar profiles, or "n/a" when a paper
-was not matched. Scholar and venue totals, scholar h-indices, and the dataset total
-are all derived from these counts.
+The complete release `2026-10-06` is stored under
+`data/s2ag/2026-10-06/`: 60 paper shards and 395 citation shards. The local-only
+`scripts/match_s2ag.py` pipeline matches DOI or normalized title/year, resolves
+counts from paper records, and extracts edges whose endpoints both match our
+bibliography. It writes `cache/citations/s2ag_paper_citations.json` and
+`cache/citations/s2ag_citation_graph.json`; both are committed for CLI and CI site
+builds. Coverage and edge totals are recorded by the generated artifacts rather
+than fixed in this chapter.
 
-Crucially, S2AG feeds **per-paper counts, not the ranking graph.** The companion
-`s2ag_citation_graph.json` has 190 nodes but effectively one cites edge and one
-cited_by edge total — graph extraction never succeeded (neither the superseded
-`scripts/parse_s2ag.py` nor `match_s2ag.py` builds a graph). So even the live
-source contributes display numbers, not the venue-to-venue edges PageRank needs.
-The partial S2AG bulk download (32 of 60 `papers` files, 122 of 236 `citations`
-files, about 139 GB) lives under `data/` and is gitignored; only the derived
-`cache/citations/*.json` artifacts are committed. The API key is read
-from the `S2_API_KEY` environment variable (`.env.example`); no real `.env` is
-committed.
+Counts include citations from all of S2; the internal graph includes only matched
+bibliography papers. The graph, not a count-derived synthetic aggregate node,
+feeds venue PageRank. `release_id` identifies the snapshot date; `generated`
+identifies processing time, not a live count refresh. Extraction and site builds
+need no API key or network requests. `S2_API_KEY` is needed only to download
+datasets; raw shards and work files remain gitignored.
 
 ### OpenAlex and Crossref: the secondary pipelines
 
@@ -252,25 +210,21 @@ dead. Crossref also underpins the largely stubbed reference extractor
 
 ### Display numbers versus ranking input
 
-The website's citation figures are now consistent with one another: the
-dashboard, the statistics page, `data/stats.json`, venue and scholar pages all
-derive from the same per-paper S2AG counts. What still does not agree is the
-website and the ranking algorithm. The algorithm sees no citations at all (its
-graph is empty), so a scholar's displayed h-index and citation total have no
-influence on their QIndex. Turning the S2AG data into a citation graph that
-actually drives PageRank is the core open problem; see Chapter 6, *Citation Data
-Integration*, and Chapter 11, *Limitations, Known Issues, and Roadmap*.
+The CLI and website use the same count artifact and graph release. Whole-S2
+counts supply reported totals and h-indices; bibliography-only directed edges
+drive venue PageRank. After tier multiplication and normalization, the published
+`pagerank` field is **Venue Score**, not raw PageRank. Paper citation counts are
+not an additional direct QIndex term. The `impact_factor` compatibility field
+is adjusted venue score times $\ln(\text{unique venue works}+1)$, labelled
+**Count-Scaled Score**, not a journal impact factor.
 
 ## 2.5 Summary
 
-QIndex is designed as a PageRank-over-venues prestige model fused with a
-CSRankings-style venue allowlist and position-weighted, year-decayed authorship
-credit. In its current state the design's link-analysis core does not run:
-absent a populated citation graph, venue scores come from a paper-count prestige
-fallback, and the algorithm's own h-indices and internal citation counts are
-uniformly 0 (the website displays S2AG-based ones instead). The
-techniques surveyed here — eigenvector centrality, the h-index, CSRankings
-methodology, and the DBLP/S2AG/OpenAlex/Crossref data landscape — define both the
-ambition and the honest current limits of the system. The remaining chapters
-trace these from data model (Chapter 3) through algorithm (Chapter 5) and
-integration (Chapter 6) to the website and CLI surfaces.
+QIndex combines real citation-derived venue prestige with manual tier bonuses,
+a CSRankings-style allowlist, position credit and gentle recency decay. Scholar
+credit and productivity scaling share one unique eligible publication set.
+The tier dictionary is incomplete and systems/theory-heavy: ICML, NeurIPS,
+ICLR and CVPR fall back to C despite being eligible. Neither this prior nor
+the byline heuristic is an objective fairness guarantee. Name identity,
+partial bibliography coverage and snapshot matching constrain interpretation.
+Chapters 3–6 explain the model, algorithm and local integration in detail.

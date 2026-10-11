@@ -39,10 +39,9 @@ number of co-authors** (so a paper with `k` authors contributes `1/k`, or its
 adjusted-count variant, to each author). This avoids citation noise but discards
 information about which venues are more central and treats venue membership as binary.
 
-QIndex sits between these. It keeps CSRankings' two good ideas — venue restriction and
-author-position weighting — and adds a **graph-based notion of venue prestige** in place
-of a flat allowlist, so that a venue's score can in principle reflect how it is cited by
-other venues rather than being assigned by hand.
+QIndex borrows CSRankings' venue-restriction philosophy and adds its own
+author-position heuristic and graph-derived venue prestige. Position weighting
+is QIndex policy, not CSRankings' uniform fractional-credit rule.
 
 ### Why a graph / PageRank approach
 
@@ -54,33 +53,32 @@ flat tier list cannot express. The scholar QIndex is then layered on top: an aut
 score is built from the PageRank scores of the venues they publish in, decayed by paper
 age and scaled by their authorship position on each paper.
 
-This is the intended design. The honest caveat, developed in §1.5 and in
-[Chapter 5, The Ranking Algorithm](05-ranking-algorithm.md), is that the venue-to-venue
-graph is **empty in practice today**, so the PageRank path does not run and a prestige
-**fallback** computes venue scores instead.
+The local S2AG release supplies that citation graph. It includes only edges whose
+endpoints match our bibliography, not the entire academic graph; see
+[Chapter 6, Citation Data Integration](06-citation-data-integration.md).
 
 ## 1.2 The two headline outputs
 
 QIndex produces two ranked outputs, and the second is defined in terms of the first.
 
-### Venue PageRank score
+### Venue Score
 
-Each venue receives a single floating-point `pagerank` score, normalized so that all
-venue scores sum to 1.0. The intended computation is the standard PageRank power
-iteration over the venue-to-venue citation graph
-(`PageRankCalculator::calculate_venue_pagerank`, `src/algorithm.rs:255`), with parameters
-from `AlgorithmParams::default()` (`src/models.rs:108-125`):
+Raw venue PageRank is computed by `calculate_venue_pagerank` in
+`src/algorithm.rs`, then multiplied by manual tier weights and renormalized.
+The published JSON field `pagerank` is this **post-tier Venue Score**, not raw
+PageRank. `AlgorithmParams::default` in `src/models.rs` supplies:
 
 ```text
 damping_factor  = 0.85
 max_iterations  = 100
 tolerance       = 1e-6
-venue_weight    = 0.7
+venue_weight    = 0.7 (retained, unused)
 year_decay      = 0.95
+reference_year  = current UTC year (valid snapshot release year when loaded)
 tier_bonus      = { "A*": 2.0, "A": 1.5, "B": 1.2, "C": 1.0 }
 ```
 
-The update rule, were the graph populated, is
+The update rule for non-dangling sources is
 
 $$
 \text{new}(t) \;=\; \frac{1-d}{n} \;+\; d \sum_{f \rightarrow t} \text{score}(f)\,\frac{w(f,t)}{\sum_{e} w(f,e)}
@@ -91,24 +89,16 @@ drops below `1e-6` or 100 iterations elapse, then re-normalizing to sum 1.0. Aft
 PageRank, `apply_tier_bonus` (`src/algorithm.rs:380`) multiplies each score by the
 `tier_bonus` for its tier and re-normalizes.
 
-What actually runs today is the **prestige fallback** at `src/algorithm.rs:334-367`,
-selected because the venue graph is empty. It assigns
-
-$$
-\text{score}(v) \;=\; \Big[\,\tfrac{\ln(\text{papers}_v + 1)}{10}\,\Big]\cdot\big(\text{csrankings}(v)\,?\,2:1\big) \;+\; \frac{\big(\sum \text{charcode}(\text{name}_v)\big) \bmod 100}{10000}
-$$
-
-normalized to sum 1.0, then passed through the same tier bonus. The trailing
-name-hash term exists only to break ties so venues with identical paper counts do not
-get identical scores. This means the venue ranking shown today is essentially a
-log-scaled paper count with a CSRankings doubling and a tier multiplier — not PageRank.
+Default rankings use the committed local graph. Dangling venues redistribute
+their mass uniformly. A prestige fallback exists for inputs with no usable
+cross-venue edges; it is not a replacement for extracting the snapshot graph.
 
 ### Scholar QIndex
 
-The scholar QIndex (`calculate_scholar_scores`, `src/algorithm.rs:405-476`) sums, over a
-scholar's publications **restricted to CSRankings venues**, the venue's score weighted by
-paper-age decay and authorship position, then log-scales by total publication count and
-normalizes the whole population to a 0–100 scale. In outline:
+`calculate_scholar_scores` sums over unique, CSRankings-eligible works whose
+selected representative contains the scholar, weights by venue score, recency
+and author position, and log-scales by the count of that same eligible set
+before normalizing to 0–100. In outline:
 
 $$
 \text{raw}(s) = \sum_{v \in \text{CSR}} \sum_{p} \text{score}(v)\cdot\text{decay}(p)\cdot\text{pos}(p,s),
@@ -116,14 +106,15 @@ $$
 \text{QIndex}(s) = \frac{\text{raw}(s)\cdot\ln(\text{papers}_s + 1)}{\max_{s'}\,[\,\cdots\,]}\times 100
 $$
 
-where the age decay is `0.95^((2024 - year)/5)` (note: a hardcoded current year of 2024
-at `src/algorithm.rs:426`, and division by 5 in the exponent, not a plain power of age;
-the subtraction is also unsigned `u32` math, so papers dated 2025 or later underflow
-rather than skip the decay — see Chapter 5, "The Ranking Algorithm"),
-and the position weight `pos` is 1.0 for the first author, 0.8 for the last author, and
-`0.6/(author_count - 2)` for a middle author. Because the venue score that feeds this is
-the fallback prestige score, the QIndex inherits its limitations directly. Chapter 5
-covers every term, edge case, and the known control-flow and consistency issues.
+Here $\text{papers}_s$ is the number of unique eligible authored works, not all
+indexed papers. Decay is $0.95^{\max(Y_{\mathrm{ref}}-y_p,0)/5}$, with
+unknown-year papers undecayed. The reference year is the valid snapshot release
+year, otherwise current UTC year. Position credit is 1 for sole/first author,
+0.8 for last author, and `0.6/(author_count-2)` for middle authors.
+The default venue input is citation-derived, then tier-adjusted. The incomplete
+systems/theory-heavy tier dictionary leaves ICML, NeurIPS, ICLR and CVPR at C;
+these and byline-role assumptions are policy limitations, not objective fairness.
+Chapter 5 covers the formula, deduplication and zero-score cases.
 
 The relationship is therefore strict layering: **venue score is the primitive; scholar
 QIndex is a position- and age-weighted aggregation of the venue scores of a scholar's
@@ -135,9 +126,9 @@ CSRankings publications.** Improving the venue graph improves both outputs at on
 
 - Rank CS venues and scholars from a local BibTeX corpus with no required network
   access at ranking time.
-- Keep CSRankings' venue restriction (`is_csrankings_venue`, `src/algorithm.rs:15-60`,
-  an allowlist of roughly 85 venue tokens) and author-position weighting, while
-  replacing the flat venue allowlist with a graph-derived prestige score.
+- Keep a CSRankings-style venue allowlist (`is_csrankings_venue` in
+  `src/algorithm.rs`) and QIndex's own position heuristic while weighting
+  eligible publications by graph-derived, tier-adjusted venue scores.
 - Expose results through both a CLI (`qindex venues`, `qindex scholars`, `qindex
   calculate`, …) and a static website with downloadable JSON data files.
 - Support exporting rankings to JSON and CSV for downstream use
@@ -152,9 +143,8 @@ CSRankings publications.** Improving the venue graph improves both outputs at on
   name (`generate_scholar_id`, `src/parser.rs:497-503`); two researchers who share a
   rendered name collide, and one researcher whose name is rendered two ways splits.
   Affiliations are declared on the `Scholar` struct but never populated.
-- **Not** a complete or balanced dataset. Coverage is uneven: the corpus is strong in
-  systems, theory, security, and ML but has stub files for several venues
-  (`ndss.bib` is 269 bytes), so absolute rankings should not be read as authoritative.
+- **Not** a complete or balanced dataset. Venue and year coverage are uneven,
+  and some venues have only a small sample; absolute rankings are not authoritative.
 - **Not** a service. There is no server, no accounts, and no access control: the
   website is a set of static files, and everything it contains is public once
   published.
@@ -172,33 +162,22 @@ the two diverge, it describes the implemented behavior and flags the gap.
 | IV — System | 7–9 | System architecture; the static website and its data files; the CLI |
 | V — Operations and Outlook | 10–12 | Building, running, deployment; limitations and roadmap; appendices |
 
-Suggested paths: to **understand the metric**, read Chapters 1, 2, then 5. To **run the
-tool or publish the website**, read Chapters 9 and 10. To **extend** it — for example to make the
-PageRank path actually fire — read Chapters 3 (data model), 5 (algorithm), and 6
-(citation integration), since the missing piece is a populated citation graph feeding
-`Paper.citations`/`cited_by` and the venue graph.
+Suggested paths: to **understand the metric**, read Chapters 1, 2, then 5. To **run
+the tool or publish the website**, read Chapters 9 and 10. To **extend the citation
+integration**, read Chapters 3, 5 and 6.
 
-## 1.5 Status: production-quality versus prototype
+## 1.5 Status: implemented paths and remaining limitations
 
-To set expectations before later chapters go deep: the **parsing and publishing path is
-solid**, the **ranking path is real but runs on a fallback**, and the **citation graph
-is effectively absent**. Concretely, parsing a directory of BibTeX into an in-memory
-graph, the CLI subcommands, and the static site generator with its maud-rendered pages
-and JSON data files all work — a build reports about 19,954 papers, 44 venues, and
-roughly 43,942 scholars from the `bib/` corpus (`data/stats.json`). However, `Paper.citations` is never
-populated from any BibTeX field (`src/parser.rs:166`), so the venue-to-venue graph is
-empty, the PageRank power iteration is dead code at runtime, and venue scores come from
-the prestige fallback described in §1.2. Consequently every paper's internal `cited_by`
-is empty, so the ranking algorithm's own citation counts and h-indices are zero. The one
-source of real citation numbers is the committed S2AG match
-`cache/citations/s2ag_paper_citations.json` (16,462 of 19,954 papers matched to Semantic
-Scholar, by DOI or by title and year). The website derives every citation figure it shows
-from it — per paper, per scholar (total and h-index), per venue, and the dataset total in
-`data/stats.json` — but it does **not** feed the ranking graph, and no citation *graph*
-was ever extracted (Chapter 6). The raw S2AG bulk
-download lives under `data/` and is gitignored; only the small derived JSON caches are
-committed. Other subsystems are explicitly stubbed: `extract-papers` does not extract
-references (PDF extraction returns an empty vector, `src/paper_extractor.rs:374-382`) and
-most PDF-finder backends return `None`. Finally, the README mentions front-end libraries
-and sample ranking tables that this book does not rely on; treat such README claims as
-aspirational, and trust the source-grounded descriptions here and in later chapters.
+The parser, ranking CLI and static site generator work with the committed
+bibliography and two derived S2AG artifacts. The local release `2026-10-06`
+supplies whole-S2 citation counts and a bibliography-only directed graph; the
+default CLI and website use the same inputs. Counts and h-indices are not the
+internal graph's in-degree. Snapshot `release_id`, not processing `generated` or
+website build date, identifies count provenance. Coverage and edge totals belong
+in the generated extraction summaries, not stale figures from an earlier run.
+
+Raw snapshot shards and work files remain gitignored; the two small derived
+artifacts are committed. Bibliography coverage and matching uncertainty still
+limit the graph's representativeness. Other subsystems remain stubbed:
+`extract-papers` does not extract references and most PDF-finder backends return
+`None`. Those limitations do not apply to local S2AG graph extraction.

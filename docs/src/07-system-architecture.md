@@ -44,7 +44,7 @@ library and as the `qindex` binary. The modules and their responsibilities:
 | `parser` | `src/parser.rs` | `BibParser` — reads `*.bib`, parses entries, builds the `CitationGraph`. |
 | `algorithm` | `src/algorithm.rs` | `PageRankCalculator` — venue PageRank, scholar QIndex, h-index; CSRankings venue allowlist. |
 | `citations` | `src/citations.rs` | Legacy async Semantic Scholar / CrossRef fetcher (`CitationFetcher`). Effectively unused for display today. |
-| `s2ag_citations` | `src/s2ag_citations.rs` | `S2agCitations::load` — reads `cache/citations/s2ag_paper_citations.json` (S2AG counts keyed by paper id) for exact lookups. |
+| `s2ag_citations` | `src/s2ag_citations.rs` | Loads local snapshot counts and the bibliography-only graph, validates releases and joins by paper/corpus ids. |
 | `export` | `src/export.rs` | JSON / CSV export of rankings (`Exporter`). |
 | `cli` | `src/cli.rs` | `clap`-derive command definitions (`Cli`, `Commands`). |
 | `utils` | `src/utils.rs` | Shared helper functions. |
@@ -99,26 +99,24 @@ into files.
      │  (BibParser::parse_directory)
      ▼
   nom_bibtex::Bibtex::parse  per file
-     │  parse_entry → Paper (dropped unless title & authors non-empty)
-     │  add_to_venue, add_scholars  (staging HashMaps in BibParser)
+     │  parse_entry → Paper (valid authored work; volume entries rejected)
+     │  sorted file/source order, last valid duplicate key wins with warning
      ▼
   build_graph → CitationGraph
      │  papers / venues / scholars copied into IndexMaps
-     │  build_citation_network  (derives cited_by from citations — empty today)
+     │  build_citation_network (metadata-only parsing)
      ▼
-  CitationGraph  (papers, venues, scholars, edges=[])
+  CitationGraph + local snapshot integration
+     │  s2ag_paper_citations.json → whole-S2 counts
+     │  s2ag_citation_graph.json → unique internal directed edges
+     │  releases agree; aliases canonicalized by corpus id
      │
-     ├── CLI path: PageRankCalculator::new(&graph)
-     │            .load_citation_cache("./cache/citations.json")  ← file absent
-     │            .calculate()  → venue scores, scholar QIndex, h-index
-     │            → get_top_venues / get_top_scholars → stdout / export
+     ├── CLI: PageRankCalculator → PageRank / QIndex
+     │        snapshot counts → citation totals / h-indices
+     │        → stdout / export
      │
-     └── Site path (qindex build-site → build_site, src/site/mod.rs):
-                  PageRankCalculator::new(&graph).calculate()
-                    (load_citation_cache NOT called)
-                  get_top_venues(all) / get_top_scholars(all)
-                  Citations: S2agCitations::load(s2ag_paper_citations.json)
-                    → per-paper counts; scholar/venue totals and h-indices
+     └── Site: same inputs and ranking policy
+                  computed rankings and snapshot count aggregates
                     │
                     ├── templates.rs → HTML pages   (index, venues, venue/*, …)
                     ├── data/*.json                (search index, rankings, stats)
@@ -128,73 +126,41 @@ into files.
                   site/  ── static host (GitHub Pages) ── browser + static/app.js
 ```
 
-Parsing is the substantive step. `BibParser::parse_directory`
-(`src/parser.rs:32-97`) optionally reads `strings.bib` / `title.bib` for
-`@string` macros, then walks the directory with `walkdir`, keeps files whose
-extension is `bib` and whose name does not *contain* the substrings `title` or
-`strings`, and parses each with `nom_bibtex`. `parse_entry`
-(`src/parser.rs:151-219`) maps BibTeX tags onto a `Paper`, resolving the venue
-through `expand_string` and `extract_venue_name`, and returns `None` (dropping
-the entry) unless both the title and the author list are non-empty. Papers are
-staged in plain `HashMap`s and then copied into the `CitationGraph`'s
-insertion-ordered `IndexMap`s by `build_graph` (`src/parser.rs:390-409`).
-Venues are keyed by `normalize_venue_id` (uppercased, spaces and hyphens to
-underscores); scholars by `generate_scholar_id` applied to a normalized
-display name. The exact field mappings, key derivations, and the resulting
-struct shapes are the subject of Chapter 3.
+`BibParser::parse_directory` (`src/parser.rs`) loads string macros, discovers
+eligible `.bib` files and processes them in sorted order. `parse_entry` cleans
+TeX braces, entities and accents, converts BibTeX names to human order, preserves
+DBLP numeric disambiguators and corporate names, and rejects proceedings volumes
+and entries lacking a title or authors. A later valid duplicate cite key replaces
+the earlier record with a warning. Venue and scholar indices are rebuilt from
+the final records, so overwritten entries cannot leave ghost scholars.
+`build_graph` constructs deterministic `IndexMap`s; venue ids use
+`normalize_venue_id` and scholar ids use `generate_scholar_id` over normalized
+names. These name-based identities are not globally verified author identities.
 
-Two facts about this flow shape everything downstream. First, `Paper.citations`
-is never populated — no BibTeX tag writes it (`src/parser.rs:166-167`), so
-`build_citation_network` (`src/models.rs:174-192`) has nothing to traverse and
-`Paper.cited_by` stays empty as well. The `CitationGraph.edges` vector is
-likewise initialized empty and never filled. The graph that the algorithm
-receives therefore has no real citation edges. Second, because of this, the
-PageRank power-iteration in `src/algorithm.rs` runs against an empty venue
-graph and the code falls through to a *prestige fallback* that scores venues
-from paper counts, a CSRankings membership bonus, and a name-hash perturbation.
-This fallback is what produces the venue ordering you see today. Chapter 5
-documents both the intended PageRank path and the fallback that actually runs.
+BibTeX parsing alone leaves citation adjacency empty. The local S2AG integration
+then populates `Paper.citations`, `Paper.cited_by` and `CitationGraph.edges` before
+default CLI and site scoring. Directed citations are counted once even though
+both adjacency directions are represented. Corpus-id canonicalization prevents
+duplicate bibliography aliases multiplying graph edges.
 
-The runtime numbers observed in the reference session reflect this pipeline:
-the `bib/` corpus parses to roughly 19,954 papers, 44 venues, and about 43,942
-scholars (`qindex stats`, and `total_*` in the generated `data/stats.json`),
-with zero internal citation edges. These are observed values, not targets, and
-they will drift as the corpus changes.
+### Computed rankings and citation figures
 
-### Computed scores are now what the pages show
+The site uses computed venue and scholar rankings rather than initial model
+score fields. Venue PageRank uses directed cross-venue matched-bibliography edges,
+including dangling mass, nonnegative citation age, tier adjustment and final
+normalization. Scholar QIndex, logarithmic publication count, h-index, citations
+and top venues all use unique CSRankings-eligible authored works.
 
-One consequence of the redesign is a behaviour *fix*. The ranking structs that
-`PageRankCalculator` returns (`VenueRanking`, `ScholarRanking`) carry the
-computed PageRank, QIndex, and h-index, but the calculator never writes those
-values back into the `Venue.pagerank`, `Scholar.qindex`, or `Scholar.h_index`
-fields of the graph. The old server's search results and scholar detail pages
-read those graph fields, so they always showed 0. The site generator instead
-looks every venue and scholar up in the computed rankings
-(`venue_rank_by_id`, `scholar_by_id`, `src/site/mod.rs`) when it builds
-the search index and the scholar shards. The rankings' own h-index (which
-counts `cited_by`) is still 0, because internal citation edges are 0 in the
-current corpus; the site replaces it, and each scholar's citation total, with
-values derived from the S2AG per-paper counts described next. QIndex and
-PageRank values are shown as computed.
-
-### A separate, parallel citation path
-
-The citation numbers shown on the site do not come from the graph at all. An
-offline pipeline (`qindex export-papers`, then `scripts/match_s2ag.py`) matches
-each parsed paper to Semantic Scholar and commits
-`cache/citations/s2ag_paper_citations.json`, keyed by paper id (16,462 of 19,954
-papers matched). `build_site` loads it through `S2agCitations::load` (path from
-`SiteOptions::citations_file`) and wraps it in `Citations` (`src/site/mod.rs`):
-`Citations::of(paper)` is an exact `HashMap` lookup returning
-`PaperCitations { count, s2ag }` — the S2AG count when the paper was matched,
-otherwise `paper.cited_by.len()`, which is zero. Pages render this as
-`"N (S2AG)"`, or `"n/a"` for an unmatched paper. Every aggregate the site shows —
-scholar totals and h-indices, venue totals, `data/stats.json`'s
-`total_citations`, the dashboard and `/statistics/` — is derived from the same
-per-paper counts, counting each Semantic Scholar paper once, so the site's
-figures agree with one another. This is a wholly separate ingestion path from the
-BibTeX graph: no citation *graph* was extracted from S2AG, so the ranking
-algorithm still sees no citations. Chapter 6 describes the pipeline in full.
+Reported per-paper counts, scholar and venue totals, and h-indices come from the
+whole-S2 snapshot count artifact, deduplicated by corpus id. These may exceed
+internal in-degree; neither represents a live API query. `release_id` identifies
+the snapshot, while `generated` and build dates identify processing. The two
+artifacts are committed together and consumed by both default ranking CLI and
+website; raw release `2026-10-06` shards and `ROOT/work` stay gitignored.
+Coverage and edge totals are recorded in extraction summaries. `reference_year`
+defaults to the current UTC year and is replaced by a valid snapshot release
+year; future or unknown publication years are undecayed. Chapter 6 describes
+the local-only pipeline. Profiles distinguish all-indexed from eligible metrics.
 
 ## 7.3 Key dependencies and rationale
 
@@ -281,8 +247,8 @@ request. Chapter 8 describes these pages in detail.
 
 With no server there is nothing to bind and no `--host` flag. The published
 site is world-readable wherever it is hosted: every ranking, the full search
-index (all ~44k scholar names and scores), and every scholar shard are plain
-files. This is the same data the old server exposed when bound to `0.0.0.0`,
+index, and every scholar shard are plain files. This is the same kind of data
+the old server exposed when bound to `0.0.0.0`,
 now published deliberately.
 
 ## 7.5 Module-dependency overview
@@ -325,12 +291,12 @@ uses types or functions from which). Arrows point from user to provider.
 them, `export` and `site` consume the ranking structs it emits. `site` also
 calls `parser` and `algorithm` directly (it runs the whole pipeline itself) and
 reuses `generate_scholar_id` and `normalize_author_name` to link author names to
-scholar pages. `s2ag_citations` is reached from `site` only, as a parallel source
-of per-paper counts that bypasses `models`. The legacy `citations` fetcher and
-the `paper_extractor`/`paper_finder` pair sit off to the side: they are
-reachable from the `fetch-citations` and `extract-papers` subcommands but
-contribute nothing to the rankings or the website, and the extractor/finder
-backends are stubs.
+scholar pages. `s2ag_citations` is reached from both `site` and `main`: it supplies
+snapshot counts and populates the model's internal graph before scoring.
+`algorithm` also consumes its shared unique-work helpers. The legacy live
+`citations` fetcher and extractor/finder sit off to the side, reachable through
+their own subcommands but not supplying default rankings. Their genuine
+network/extraction limitations remain as described above.
 
 ## 7.6 Summary
 
@@ -340,12 +306,11 @@ QIndex is a single binary built around one in-memory data structure, the
 a `clap` CLI and a static site generator (`qindex build-site`) — present the
 results. The generator computes everything once and writes HTML and JSON that a
 static host serves, so there is no server process, no shared mutable state,
-and no runtime cache. The honest state of the system is unchanged by the
-redesign: the citation graph carries no edges (the parser never populates
-`Paper.citations`), so the published rankings come from a prestige fallback
-rather than from PageRank, and per-paper citation counts arrive through a
-separate S2AG cache. Two declared dependencies (`petgraph`, `ndarray`) and two
-modules (`paper_finder`, `paper_extractor`) are present but inert. Subsequent
-chapters drill into the algorithm (Chapter 5), citation integration
-(Chapter 6), the website and its data files (Chapter 8), and the CLI
-(Chapter 9).
+and no request-time ranking cache. Local S2AG integration populates directed
+internal edges before scoring; whole-S2 paper counts are a separate input to
+reported totals and h-indices. PageRank is active when usable cross-venue edges
+exist, then tier-adjusted and normalized into Venue Score; only absent usable
+edges trigger the prestige fallback. Eligible unique-work rankings and
+all-indexed profile metrics are deliberately separate. Legacy PDF extraction
+remains incomplete, and name-based identity, manual tiers and partial corpus
+coverage remain limitations. Chapters 5, 6, 8 and 9 detail these surfaces.

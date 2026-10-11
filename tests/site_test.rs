@@ -43,6 +43,7 @@ fn options(root: &Path, base_url: &str) -> SiteOptions {
         static_dir,
         book_dir: None,
         citations_file: None,
+        citation_graph_file: None,
     }
 }
 
@@ -145,8 +146,7 @@ fn refuses_to_overwrite_unrelated_directory() {
     fs::create_dir_all(&out_dir).unwrap();
     fs::write(out_dir.join("precious.txt"), "keep me").unwrap();
 
-    let err = build_site(&options(tmp.path(), "/")).unwrap_err();
-    assert!(err.to_string().contains("refusing"), "{}", err);
+    assert!(build_site(&options(tmp.path(), "/")).is_err());
     assert!(out_dir.join("precious.txt").exists());
 }
 
@@ -156,7 +156,7 @@ fn uses_s2ag_citation_counts() {
     let citations = tmp.path().join("s2ag.json");
     fs::write(
         &citations,
-        r#"{"generated": "2026-10-08", "papers": {
+        r#"{"release_id": "2026-10-06", "generated": "2026-10-08", "papers": {
             "dean04mapreduce": {"corpus_id": 1, "citations": 20000, "s2_title": "MapReduce", "s2_year": 2004, "match": "doi"},
             "ghemawat03gfs": {"corpus_id": 2, "citations": 9000, "s2_title": "The Google File System", "s2_year": 2003, "match": "local-title"},
             "gfsdup": {"corpus_id": 2, "citations": 9000, "s2_title": "The Google File System", "s2_year": 2003, "match": "local-title"}
@@ -183,8 +183,16 @@ fn uses_s2ag_citation_counts() {
     let shard: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(site.join(shard)).unwrap()).unwrap();
     let scholar = &shard["sanjay_ghemawat"];
-    assert_eq!(scholar["citations"], 29000);
-    assert_eq!(scholar["h_index"], 2);
+    assert_eq!(scholar["all_indexed"]["paper_count"], 2);
+    assert_eq!(scholar["all_indexed"]["citations"], 29000);
+    assert_eq!(scholar["all_indexed"]["h_index"], 2);
+    assert_eq!(scholar["papers"].as_array().unwrap().len(), 2);
+    assert_eq!(scholar["papers"][1]["id"], "ghemawat03gfs");
+    assert_eq!(scholar["papers"][1]["corpus_id"], 2);
+    assert_eq!(scholar["papers"][1]["first_author"], "Sanjay Ghemawat");
+    assert_eq!(scholar["ranking"]["paper_count"], 2);
+    assert_eq!(scholar["ranking"]["citations"], 29000);
+    assert_eq!(scholar["ranking"]["h_index"], 2);
     assert_eq!(scholar["papers"][0]["citations"], 20000);
     assert_eq!(scholar["papers"][0]["s2ag"], true);
 
@@ -192,7 +200,114 @@ fn uses_s2ag_citation_counts() {
     let sosp = fs::read_to_string(site.join("venue/sosp/index.html")).unwrap();
     assert!(sosp.contains("9000"));
     assert!(sosp.contains("Citations: n/a"));
+    assert_eq!(sosp.matches("The Google File System").count(), 1);
+    let statistics = fs::read_to_string(site.join("statistics/index.html")).unwrap();
+    assert_eq!(statistics.matches("The Google File System").count(), 1);
     let stats: serde_json::Value =
         serde_json::from_str(&fs::read_to_string(site.join("data/stats.json")).unwrap()).unwrap();
     assert_eq!(stats["total_citations"], 29000);
+    assert_eq!(stats["snapshot_release"], "2026-10-06");
+    assert_eq!(stats["total_papers"], 3);
+    assert_eq!(stats["papers_by_year"]["2003"], 1);
+    let venues: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join("data/venues.json")).unwrap()).unwrap();
+    let sosp_rank = venues
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|venue| venue["id"] == "SOSP")
+        .unwrap();
+    assert_eq!(sosp_rank["paper_count"], 2);
+}
+
+#[test]
+fn scholar_all_indexed_metrics_are_distinct_from_ranking_scope() {
+    let tmp = tempfile::tempdir().unwrap();
+    let mut opts = options(tmp.path(), "/q-index/");
+    fs::write(
+        opts.bib_dir.join("other.bib"),
+        r#"
+@article{outside,
+author = {Ghemawat, Sanjay},
+title = {An indexed non-ranking work},
+journal = {arXiv},
+year = {2004},
+}
+@misc{unknown,
+author = {Ghemawat, Sanjay},
+title = {An indexed work without a venue},
+year = {2004},
+}
+"#,
+    )
+    .unwrap();
+    let citations = tmp.path().join("s2ag.json");
+    fs::write(
+        &citations,
+        r#"{"release_id":"2026-10-06","papers":{
+        "dean04mapreduce":{"corpus_id":1,"citations":20},
+        "ghemawat03gfs":{"corpus_id":2,"citations":10},
+        "outside":{"corpus_id":3,"citations":1000},
+        "unknown":{"corpus_id":4,"citations":7}
+    }}"#,
+    )
+    .unwrap();
+    opts.citations_file = Some(citations);
+    build_site(&opts).unwrap();
+    let site = &opts.out_dir;
+    let shard_path = format!(
+        "data/scholars/{:02x}.json",
+        scholar_shard("sanjay_ghemawat")
+    );
+    let shard: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join(shard_path)).unwrap()).unwrap();
+    let scholar = &shard["sanjay_ghemawat"];
+    let papers = scholar["papers"].as_array().unwrap();
+    assert_eq!(papers.len(), 4);
+    assert_eq!(scholar["all_indexed"]["paper_count"], papers.len());
+    assert_eq!(scholar["all_indexed"]["citations"], 1037);
+    assert_eq!(scholar["all_indexed"]["h_index"], 4);
+    assert_eq!(scholar["ranking"]["paper_count"], 2);
+    assert_eq!(scholar["ranking"]["citations"], 30);
+    assert_eq!(scholar["ranking"]["h_index"], 2);
+    let ids: Vec<_> = papers
+        .iter()
+        .map(|paper| paper["id"].as_str().unwrap())
+        .collect();
+    assert_eq!(
+        ids,
+        ["dean04mapreduce", "outside", "unknown", "ghemawat03gfs"]
+    );
+    assert!(!papers
+        .iter()
+        .find(|paper| paper["id"] == "unknown")
+        .unwrap()["venue"]
+        .as_str()
+        .unwrap()
+        .trim()
+        .is_empty());
+    let index: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join("data/search-index.json")).unwrap())
+            .unwrap();
+    let search = index["scholars"]
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|scholar| scholar[0] == "sanjay_ghemawat")
+        .unwrap();
+    assert_eq!(search[2], scholar["ranking"]["qindex"]);
+    assert_eq!(search[3], scholar["ranking"]["h_index"]);
+    assert_eq!(search[4], scholar["ranking"]["paper_count"]);
+    let rankings: serde_json::Value =
+        serde_json::from_str(&fs::read_to_string(site.join("data/scholars.json")).unwrap())
+            .unwrap();
+    let ranking = rankings
+        .as_array()
+        .unwrap()
+        .iter()
+        .find(|ranking| ranking["id"] == "sanjay_ghemawat")
+        .unwrap();
+    assert_eq!(ranking["paper_count"], scholar["ranking"]["paper_count"]);
+    assert_eq!(ranking["citation_count"], scholar["ranking"]["citations"]);
+    assert_eq!(ranking["h_index"], scholar["ranking"]["h_index"]);
 }

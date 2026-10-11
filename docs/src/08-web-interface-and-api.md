@@ -31,14 +31,11 @@ these steps in order:
 1. Parse the corpus with `BibParser::parse_directory(bib_dir)`
    (`src/site/mod.rs`). Unlike the old server, which `.expect`ed here and
    panicked, a parse failure is returned as an error with context.
-2. Run `PageRankCalculator::new(&graph).calculate()?` once and collect *all*
-   venue and scholar rankings with `get_top_venues(usize::MAX, None, None)` and
-   `get_top_scholars(usize::MAX, None)` (`src/site/mod.rs`). As on the old
-   web path, `load_citation_cache` is not called, so the prestige fallback
-   produces the venue scores (Chapter 5).
-   Before that, load the S2AG citation counts (`S2agCitations::load` on
-   `SiteOptions::citations_file`); after it, overwrite each scholar ranking's
-   `h_index` and `citation_count` with values derived from those counts.
+2. Load local snapshot counts from `SiteOptions::citations_file` and the internal
+   graph from `SiteOptions::citation_graph_file`, validating release agreement
+   and canonicalizing corpus-id aliases. Run the ranking calculator once and
+   collect all venue and scholar rankings. Venue PageRank uses real directed
+   internal citations; reported totals and h-indices use whole-S2 counts.
 3. Wrap the counts in `Citations` (`src/site/mod.rs`), which every page and
    JSON file uses for citation figures (see "Citation display (S2AG)" below).
 4. Build a `Ctx` (link builder; see "URLs and the base path"), then clear and
@@ -55,9 +52,8 @@ contain `.nojekyll` (the marker every build writes), and the build fails instead
 
 `run_build_site` prints a one-line report (`BuildReport`: HTML, JSON, and other
 file counts plus total bytes), warns when no rendered book was found, and suggests
-a local preview command. On the reference corpus a build observed in this
-session wrote 1,030 HTML pages, 260 JSON files, and 59 other files, about 62 MB
-in total, in roughly 13 seconds.
+a local preview command. File counts, size and timing depend on the corpus and
+whether the rendered book is included; read them from the current build report.
 
 ## Output layout
 
@@ -84,7 +80,7 @@ in total, in roughly 13 seconds.
 
 Every page is an `index.html` inside a directory, so links end in `/` and work
 unchanged on GitHub Pages, on `python3 -m http.server`, and on any other static
-host. Detail pages exist for all 44 venues in the graph (not just the
+host. Detail pages exist for every venue in the graph (not just the
 CSRankings venues that appear in the rankings), so every venue name the site can
 show has a page to link to.
 
@@ -152,7 +148,7 @@ behaviour to run.
 **Dashboard (`index.html`).** `index_page` (`src/site/templates.rs`)
 renders the four total cards (papers, venues, scholars, and the dataset's total
 citations — the sum of the per-paper S2AG counts, each Semantic Scholar paper
-once), the top 10 venues by PageRank, the top
+once), the top 10 venues by Venue Score, the top
 10 scholars by QIndex, and the "Venue Distribution by Field" bar chart. The old
 homepage was an empty shell that fetched `/api/homepage` and `/api/stats/fields`
 after load; now everything is in the HTML. The chart data — paper counts per
@@ -162,8 +158,8 @@ embedded as an inline `FIELD_DATA` JSON literal by `json_script`
 close the `<script>` element.
 
 **Venues (`venues/`).** `venues_page` (`src/site/templates.rs`) renders
-every venue returned by `get_top_venues` — the CSRankings venues, in PageRank
-order — with rank, tier badge, field, PageRank, impact factor, and paper count.
+every venue returned by `get_top_venues` — the CSRankings venues, in Venue Score
+order — with rank, tier badge, field, Venue Score, count-scaled score, and paper count.
 Each row carries `data-field` and `data-tier` attributes. The filter form
 submits to the same page as a GET request; `initVenueFilters`
 (`static/app.js`) reads `?field=` and `?tier=`, sets the two `<select>`s
@@ -173,9 +169,9 @@ renumbers the visible ranks. If nothing matches it shows "No venues match these
 filters."
 
 **Venue pages (`venue/<slug>/…`).** `write_venue_pages`
-(`src/site/mod.rs`) sorts each venue's papers newest first, sums their displayed
-citation counts into a total-citations figure (`Citations::total`, each Semantic
-Scholar paper once), counts papers per author for a
+(`src/site/mod.rs`) deduplicates each venue's works, sorts them by descending year
+then local id, sums their displayed citation counts (`Citations::total`), and
+counts these unique works per author for a
 top-10 author list (ties broken alphabetically so builds are deterministic), and
 writes one page per 20 papers. `venue_detail_page` (`src/site/templates.rs`)
 renders the header stats, the top authors, the papers, and the pagination bar;
@@ -194,8 +190,8 @@ graph.
 **Scholars (`scholars/`).** `scholars_page` (`src/site/templates.rs`)
 renders the top 100 scholars by QIndex (the old page showed 50 by default) with
 QIndex, h-index, CSRankings paper count, citation count, and top venues. The
-h-index and citation count are derived from the per-paper S2AG counts over all
-of the scholar's papers (see "Citation display" below); the order is QIndex. Rows
+h-index, citation count, paper count and top venues all use unique authored works
+in CSRankings-eligible venues, the same scope as QIndex; the order is QIndex. Rows
 carry `data-papers`; `initScholarFilters` (`static/app.js`) applies an
 optional `?min_papers=` filter and renumbers the ranks. The old server had no
 form for this parameter, and neither does the static page; it is reachable by
@@ -204,9 +200,9 @@ URL only.
 **Statistics (`statistics/`).** `statistics_page` (`src/site/templates.rs`)
 renders the same tables as before from `statistics_data`
 (`src/site/mod.rs`): totals, the ten most recent years by paper count,
-the ten largest venues, and the ten most cited papers by their displayed citation
-count (`Citations::of`), ties broken alphabetically by title. Duplicate BibTeX
-entries for the same paper each appear in that list.
+the ten largest venues, and the ten most cited unique papers by displayed citation
+count (`Citations::of`), ties broken by descending year then id. Corpus-id aliases appear
+only once; unmatched works are distinct by local id.
 
 **About (`about/`) and 404.** `about_page` (`src/site/templates.rs`)
 keeps the old static content and adds an "Open Data" card (`id="open-data"`,
@@ -216,9 +212,9 @@ renders `404.html`, which GitHub Pages returns for any path that does not exist.
 ## Browser-rendered pages
 
 Two pages cannot reasonably be pre-rendered. Search depends on an arbitrary
-query, and the corpus has about 43,942 scholars, so one HTML file per scholar
-would add tens of thousands of files for profiles that are mostly one or two
-papers long. Both are therefore *shells*: the template renders the page frame and
+query, and generating one HTML file per indexed scholar would add many thousands
+of files for profiles that are mostly one or two papers long. Both are therefore
+*shells*: the template renders the page frame and
 a loading spinner (with a `<noscript>` notice), and `static/app.js` fills in the
 content from JSON.
 
@@ -235,11 +231,10 @@ keeps the old server's matching rules:
   or of the id with `_` turned back into spaces — the id is derived from the
   normalized name, so this covers the old `normalized_name` match.
 
-Venues are listed in PageRank order and scholars in QIndex order, because the
+Venues are listed in Venue Score order and scholars in QIndex order, because the
 index is stored that way. Scholar results are capped at 200 rows
 (`MAX_SEARCH_RESULTS`, `static/app.js`) with a "Showing the top 200 of N"
-notice; a two-letter query such as `li` matches over 5,000 scholars on the
-current corpus. The navbar autocomplete (`initSearchAutocomplete`,
+notice. The navbar autocomplete (`initSearchAutocomplete`,
 `static/app.js`) uses the same index and matcher, debounced by 300 ms,
 and ignores results for a query the user has since changed.
 
@@ -248,10 +243,10 @@ and ignores results for a query the user has since changed.
 `scholar_shell_page` (`src/site/templates.rs`) renders the breadcrumb and
 an empty `#scholar-root`. `renderScholarPage` (`static/app.js`) computes
 the scholar's shard (see "Scholar shards" below), fetches
-`data/scholars/<shard>.json`, looks up the id, and renders the profile with the
-same layout as the old server's scholar page: affiliation, paper count, citation
-count and h-index (both from S2AG counts), a venues list, and the publications,
-20 per page, with the same
+`data/scholars/<shard>.json`, looks up the id, and renders the
+profile: optional affiliation, all-indexed unique paper count, citations and
+h-index, plus separately labelled CSRankings-eligible ranking metrics, a venues
+list and all-indexed publications, 20 per page, with the same
 pagination window as the Rust template (`paginationHtml`,
 `static/app.js`). It updates `document.title` and the breadcrumb, and it
 shows "Scholar not found." for an unknown id or "No scholar selected." when `id`
@@ -265,18 +260,22 @@ envelope any more: each file is the bare value.
 
 | File | Shape | Notes |
 |------|-------|-------|
-| `data/venues.json` | `Vec<VenueRanking>` | every ranked (CSRankings) venue, PageRank order |
-| `data/scholars.json` | `Vec<ScholarRanking>` | top 100 by QIndex |
-| `data/stats.json` | object | `total_papers`, `total_venues`, `total_scholars`, `total_citations`, `papers_by_year`, `papers_by_tier`, `papers_by_field` |
+| `data/venues.json` | `Vec<VenueRanking>` | every ranked (CSRankings) venue, Venue Score order |
+| `data/scholars.json` | `Vec<ScholarRanking>` | top 100 by QIndex; eligible unique works |
+| `data/stats.json` | object | `snapshot_release`, `total_papers`, `total_venues`, `total_scholars`, `total_citations`, `papers_by_year`, `papers_by_tier`, `papers_by_field` |
 | `data/search-index.json` | object | see below |
 | `data/scholars/<xx>.json` | object | see below |
 
-`data/stats.json` (`stats_json`, `src/site/mod.rs`) has the same fields
-as the `Statistics` payload the old `/api/stats` wrapped in its envelope; the
-three maps are now `BTreeMap`s, so their keys come out sorted, and
-`total_citations` is now the S2AG-based total (about 1.8 million on the
-reference build) instead of `graph.edges.len()`, which is always 0.
-`data/scholars.json`'s `h_index` and `citation_count` are S2AG-based as well.
+`data/stats.json` (`stats_json`, `src/site/mod.rs`) counts unique works throughout
+its paper totals and year/tier/field maps; map keys are sorted. `snapshot_release`
+is the S2AG release string (or null without provenance), not the build date.
+`total_citations` sums displayed counts over unique works, not internal edges.
+Read current totals from generated data, not old builds. Scholar ranking JSON
+uses the eligible scope, whereas profile shards also expose all-indexed metrics.
+
+The retained JSON `pagerank` field is the tier-adjusted, renormalized **Venue
+Score**, not raw PageRank. `impact_factor` is that score multiplied by
+`ln(unique venue works + 1)`, a count-scaled score, not a journal impact factor.
 
 ### `data/search-index.json`
 
@@ -284,22 +283,21 @@ reference build) instead of `graph.edges.len()`, which is always 0.
 
 ```json
 {
-  "venues":   [ { "id": "SOSP", "name": "SOSP", "full_name": "...", "field": "Operating Systems",
-                  "tier": "A*", "pagerank": 0.12, "url": "venue/sosp/" }, ... ],
-  "scholars": [ [ "ion_stoica", "Ion Stoica", 61.2345, 42, 114 ], ... ]
+  "venues": [
+    { "id": "SOSP", "name": "SOSP", "full_name": "Symposium on Operating Systems Principles",
+      "field": "Operating Systems", "tier": "A*", "pagerank": 0.12, "url": "venue/sosp/" }
+  ],
+  "scholars": [ ["example_scholar", "Example Scholar", 61.2345, 2, 3] ]
 }
 ```
 
-(values illustrative). `venues` covers all venues in the graph, sorted by
-PageRank, with `pagerank` taken from the computed rankings (0 for venues outside
-the CSRankings list) and `url` relative to the base. `scholars` covers every
-scholar as a compact `[id, name, qindex, h_index, paper_count]` array — about
-44,000 of them, so the array form saves a lot over objects — sorted by QIndex
-descending, then id. `qindex` is rounded to four decimals; `h_index` is the
-S2AG-based one shown on the profile; `paper_count` is the
-scholar's total paper count, as on the old search page. On the reference corpus
-the file is about 2.0 MB, or about 0.73 MB gzip-compressed as GitHub Pages
-serves it.
+(values illustrative). `venues` covers all venues in the graph, sorted by Venue
+Score; `pagerank` is taken from computed rankings (0 outside the ranked venue
+list), and `url` is relative to the base. `scholars` covers every indexed scholar
+as `[id, name, qindex, h_index, paper_count]`, sorted by QIndex descending then
+id. QIndex is rounded to four decimals. The h-index and paper count use unique
+CSRankings-eligible authored works, not the profile's all-indexed scope; scholars
+without a ranking entry receive zero ranking metrics.
 
 ### Scholar shards
 
@@ -309,27 +307,27 @@ split across 256 files named by two hex digits (`data/scholars/00.json` …
 
 ```json
 {
-  "name": "Ion Stoica",
-  "affiliations": [ ... ],          // omitted when empty
-  "qindex": 61.2345,
-  "h_index": 42,                    // from the papers' citation counts
-  "citations": 25929,               // displayed counts summed, each S2 paper once
-  "venues": [ [ "NSDI", 30 ], ... ],// venue name, paper count; most papers first
-  "papers": [                       // newest first
-    { "title": "...", "venue": "NSDI", "year": 2024, "citations": 12,
-      "s2ag": true,                 // omitted when false (citations is then internal)
-      "first_author": "...",        // for the Google Scholar link
-      "doi": "...",                 // omitted when absent
-      "publisher_url": "..." }      // omitted when there is a DOI
+  "name": "Example Scholar",
+  "all_indexed": { "paper_count": 3, "citations": 25, "h_index": 2 },
+  "ranking": { "qindex": 61.2345, "paper_count": 2, "citations": 20, "h_index": 2 },
+  "venues": [ ["NSDI", 2], ["Other", 1] ],
+  "papers": [
+    { "id": "example2024", "corpus_id": 123456, "title": "Example paper",
+      "venue": "NSDI", "year": 2024, "citations": 12, "s2ag": true,
+      "first_author": "Example Scholar", "doi": "10.1234/example" }
   ]
 }
 ```
 
-The browser derives the Google Scholar link from `title` and `first_author`
-and the DOI link from `doi`, so those URLs are not stored. On the reference
-corpus the shards hold about 92,400 paper entries (a paper appears once per
-author) and total about 24 MB; a single shard is 66–139 KB, about 30–50 KB
-compressed, so a profile costs one small download.
+Values are illustrative. `affiliations` is omitted when empty; `ranking` is null
+when no eligible ranking entry exists. Paper `corpus_id`, `year`, `first_author`
+and `doi` are omitted when absent; `s2ag` is omitted when false. A
+`publisher_url` is included only when available without a DOI. Paper cards retain
+the representative local `id` and optional matched S2 `corpus_id`; lists are
+deduplicated and ordered by descending year then id. Venue counts use these same
+unique all-indexed works. The browser derives search and DOI links from the
+stored metadata. Scholar identity remains name-based, not an S2 author-id join;
+empty affiliation metadata is not evidence of a verified identity.
 
 **Shard function.** A scholar's shard is the 32-bit FNV-1a hash of the UTF-8
 bytes of its id, modulo 256 (`scholar_shard`, `src/site/mod.rs`;
@@ -387,34 +385,32 @@ shards store it as `citations` plus an `s2ag` flag, and `paperHtml`
 
 ```text
 Citations: N (S2AG)        the paper was matched in Semantic Scholar
-Citations: N (internal)    not matched, but cited inside the dataset (never today)
+Citations: N (internal)    not matched, but cited inside the dataset
 Citations: n/a             not matched and no internal citations
 ```
 
-The aggregates are computed from these same per-paper numbers:
-`Citations::total` and `Citations::h_index` sum or h-index a set of papers,
-taking each Semantic Scholar corpus id once (`distinct_counts`), so duplicate
-BibTeX entries for the same paper are not counted twice. They feed the scholar
-shards, the top-scholars table and `data/scholars.json` (`build_site` overwrites
-each `ScholarRanking`'s `h_index` and `citation_count`), the search index's
-`h_index`, venue totals, the dashboard and statistics totals, and
-`data/stats.json`. The QIndex scores and the ranking order are not affected.
+Aggregates use `Citations::total` and `Citations::h_index`, deduplicating matched
+corpus ids and unmatched local ids. Profiles expose both all-indexed and eligible
+ranking scopes. Top-scholars rows, ranking JSON and search metrics use only
+unique CSRankings-eligible authored works; venue pages, dashboard and statistics
+use their all-indexed scope. Counts are not a direct QIndex term; the companion
+graph changes venue prestige and therefore QIndex through the existing formula.
 
-The default path is relative, so the build should run from the repository root;
-anywhere else the file is not found, a warning is logged, and every paper shows
-"n/a" without the build failing. On the reference build 16,462 of 19,954 papers
-have an S2AG count; the unmatched remainder is mostly DOI-less USENIX and ML
-papers (Chapter 6).
+Both default artifact paths are relative to the repository root.
+`--citation-graph-file` defaults to `cache/citations/s2ag_citation_graph.json`.
+It must identify the same release as `--citations-file`. The snapshot's
+`release_id` is the count provenance date; processing or site build time is not.
+Read match coverage from the generated artifact rather than an old API run.
 
 ### One source for every citation figure
 
 The server showed citation numbers from three unrelated sources: an internal
 `graph.edges.len()` total (always 0) on the dashboard and statistics page,
 per-paper S2AG counts from a fuzzy title match, and a DBLP/OpenAlex total on
-`/api/citation-status`. Every citation figure on the site now comes from the
-S2AG per-paper counts, so the dashboard total, a venue's total, and a scholar's
-total are consistent with the numbers listed against each paper. The DBLP/OpenAlex
-`combined_cache.json` is no longer read by any Rust code, and the
+`/api/citation-status`. The site now uses the same snapshot-backed per-paper
+count lookup, with internal evidence for unmatched papers and unknown counts
+where neither source is available. Totals are consistent within each explicitly
+labelled scope. `combined_cache.json` is no longer read by ranking/site code, and the
 `/api/citation-status` endpoint — a process monitor that shelled out to `ps aux`
 and reported several hardcoded placeholder metrics — was dropped, since a static
 site has no running fetch process to observe.
@@ -427,10 +423,9 @@ Most pages look and behave as before. The differences, all deliberate:
   pages read `Scholar.qindex`, `Scholar.h_index`, and `Venue.pagerank` from the
   graph, which the calculator never fills in, so they always showed 0. The site
   uses the computed rankings everywhere (Chapter 7).
-- **Citation figures come from Semantic Scholar.** Citation totals and h-indices
-  are derived from the per-paper S2AG counts (the algorithm's own are always 0,
-  because the corpus has no internal citation edges), and an unmatched paper
-  shows "n/a" rather than a misleading 0.
+- **Citation figures use the snapshot.** Reported totals and h-indices use
+  per-paper S2AG counts, with internal counts as unmatched-paper evidence.
+  Unmatched papers with no internal evidence show "n/a", not a verified zero.
 - **Author names link to scholar profiles** on venue pages.
 - **Venue URLs use slugs** (`venue/sosp/`) instead of internal ids.
 - **Page sizes are fixed** at 20 papers; `per_page` and `limit` parameters are
@@ -449,10 +444,8 @@ output (including the copied book), resolves each `href`, `src`, and form
 an internal link leaves the base path or points to a missing file (a trailing `/`
 means `index.html`). For links to `scholar/?id=…` it also opens the right shard,
 using its own copy of the shard function, and checks that the scholar exists.
-On the reference build it checked 124,698 internal links in 1,047 HTML files
-with no failures. CI runs it before every deployment (Chapter 10). It does not
-execute JavaScript, so links that `app.js` builds at runtime are covered only
-indirectly, through the shared base path and shard function.
+CI runs it before deployment (Chapter 10). It does not execute JavaScript, so
+links that `app.js` builds at runtime also require browser verification.
 
 ## Summary
 
@@ -461,11 +454,12 @@ Rankings, venue pages, statistics, and the about page are pre-rendered HTML;
 search and scholar profiles are rendered in the browser from a search index and
 256 scholar shards; and the four public JSON files replace the old HTTP API.
 Every link goes through one base path, so the same build logic serves a GitHub
-Pages project site under `/q-index/` or a local preview at `/`. The honest
-caveats carried over from the server era still apply: venue scores come from the
-prestige fallback because the citation cache is not loaded, and the ranking sees
-no citations at all. The citation figures the site displays are now consistent
-with each other, all derived from per-paper Semantic Scholar counts matched
-offline by DOI or title. What is gone is the server's operational
-risk — panicking handlers, lock poisoning, the shell-out, and the stale-cache
-window — along with any need to run, secure, or monitor a process.
+Pages project site under `/q-index/` or a local preview at `/`. Local matched
+citation edges drive directed venue PageRank, followed by tier adjustment and
+normalization; only a graph without usable cross-venue citations uses the
+prestige fallback. Whole-S2 counts are separate from this restricted graph.
+Profiles expose all-indexed metrics separately from eligible ranking metrics.
+Manual tiers, partial bibliography coverage and name-based identity remain
+limitations, not guarantees of objective fairness. The server's operational
+risks — panicking handlers, lock poisoning, shell-outs and stale request caches —
+are gone, along with any need to run or monitor a server process.

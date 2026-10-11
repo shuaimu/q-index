@@ -71,24 +71,12 @@ freshly fetched corpus.
 
 ## 9.2 The ranking subcommands
 
-The four read-only ranking subcommands (`calculate`, `venues`, `scholars`,
-`search`) share a common prologue: parse `bib_dir` into a `CitationGraph`,
-construct a `PageRankCalculator`, attempt to load a citation cache from the
-hardcoded path `./cache/citations.json`, then call `calculate()`
-(`run_calculate`, `run_venues`, `run_scholars`, `run_search`;
-`src/main.rs:109-219`).
-
-A critical caveat applies to all of them. That cache file does not exist in the
-repository — only the `cache/citations/` *directory* is present — so
-`load_citation_cache` loads nothing (`src/algorithm.rs:84-97`). Combined with
-the fact that the parser never populates `Paper.citations`
-(`src/parser.rs:166-167`), the venue citation graph is empty and the PageRank
-power iteration is dead code. What actually runs is the prestige fallback
-described in Chapter 5: venue scores derive from a log of paper counts, a
-CSRankings 2x multiplier, a small name-hash perturbation, and the tier bonus.
-The numbers printed by these subcommands are this fallback score, not a true
-citation-based PageRank. They can also differ from the website, whose build never calls
-`load_citation_cache` at all (Section 9.8).
+The ranking subcommands parse `bib_dir`, load
+`cache/citations/s2ag_paper_citations.json` and
+`cache/citations/s2ag_citation_graph.json`, validate release agreement, then score.
+These are the same default inputs used by the website. The local graph supplies
+unique directed internal edges; snapshot-wide counts supply reported citation
+totals and h-indices. No live API call or old aggregate citation cache is involved.
 
 ### `calculate`
 
@@ -131,8 +119,8 @@ Flags (`src/cli.rs:39-55`): `-n`/`--top` (default `20`), `-f`/`--field`
 The field and tier values are forwarded to `get_top_venues(top, field, tier)`
 (`src/main.rs:162`); the field filter is a case-insensitive substring match on
 `Venue.field` and the tier filter is an exact match. The result is printed by
-`display_venues`, whose table columns are `Venue, Tier, Field, PageRank, Papers`
-with PageRank formatted as `{:.4}` (`src/main.rs:307-326`).
+`display_venues`, whose table columns are `Venue, Tier, Field, Venue Score, Papers`,
+with Venue Score formatted as `{:.4}` (`src/main.rs`, `display_venues`).
 
 ```bash
 qindex venues -n 30 -t 'A*'
@@ -156,10 +144,8 @@ Flags (`src/cli.rs:58-70`): `-n`/`--top` (default `20`), `-m`/`--min-papers`
 `get_top_scholars(top, min_papers)` (`src/main.rs:180`), which drops scholars
 whose CSRankings-venue paper count falls below the threshold. Output columns are
 `Scholar, QIndex, H-Index, Papers, Citations`, QIndex formatted as `{:.2}`
-(`src/main.rs:328-351`). Because no per-paper `cited_by` data is populated
-through the parser path, the `H-Index` and `Citations` columns are `0` for every
-scholar in the current build (Chapter 5). The CLI does not read the S2AG counts;
-the website does, and shows S2AG-based h-indices and citation totals (Chapter 6).
+(`src/main.rs:328-351`). Reported h-indices and citation totals use the local
+whole-S2 snapshot counts, deduplicated by corpus id, rather than internal in-degree.
 
 ```bash
 qindex scholars -n 50 -m 5
@@ -171,15 +157,13 @@ qindex scholars -n 50 -m 5
 qindex search [-b ./bib] <query>
 ```
 
-`query` is a required positional argument (`src/cli.rs:73-80`). The handler runs
-`graph.search_venues(query)` and `graph.search_scholars(query)`, prints up to 10
-matches of each (`src/main.rs:201-216`), and falls back to a "No results found"
-message when both are empty. Search is a substring match over names; it does not
-rank by relevance. Although the handler runs `calculate()` first, the two search
-methods copy PageRank, QIndex, and h-index from the graph's own score fields,
-which the calculator never fills in (Chapter 3), so the scores printed here are 0.
-The website's search (Chapter 8) uses the same matching rules over an index built
-from the computed rankings, so it shows the real scores.
+`query` is a required positional argument. `run_search` (`src/main.rs`) filters
+computed venue and scholar rankings by case-insensitive substring matches on
+names (also venue full name/field and scholar normalized name), then prints up
+to ten of each in score order. It is not a relevance rank. Scores and scholar
+metrics use the same eligible unique-work scope as the other ranking commands,
+not the graph's unfilled initial score fields. The browser index also includes
+unranked indexed identities, with zero ranking metrics.
 
 ```bash
 qindex search "distributed systems"
@@ -193,14 +177,12 @@ qindex stats [-b ./bib]
 ```
 
 `stats` takes only `--bib-dir` (`src/cli.rs:83-87`). It parses the corpus and
-calls `CitationGraph::print_statistics` (`src/main.rs:244-251`,
-`src/models.rs:253-330`), which prints totals (papers, venues, scholars), a
-breakdown of papers by `VenueType`, by tier, and by field (the field breakdown
-is a top-10 `comfy_table`), the observed year range, and averages for papers per
-scholar and authors per paper. Observed on the current corpus, parsing yields
-roughly 19,954 papers, 44 venues, and 43,942 scholars. Unlike the other ranking
-subcommands, `stats` does not construct a `PageRankCalculator` and so does no
-scoring.
+calls `CitationGraph::print_statistics` (`src/main.rs`, `run_stats`;
+`src/models.rs`, `print_statistics`), which prints parsed-record totals,
+venue type/tier/field breakdowns, observed years and averages. It does no scoring
+or S2 corpus-id deduplication. These raw parsed-record statistics differ from
+the website's unique-work statistics; obtain current totals from actual output
+rather than carrying forward a previous corpus size.
 
 ## 9.3 Terminal output
 
@@ -208,11 +190,11 @@ All tabular output uses the `comfy_table` crate with the `UTF8_FULL` preset,
 which draws boxed tables with Unicode borders (`src/main.rs:253-351`,
 `src/models.rs:254`). The headers are fixed per command:
 
-- `calculate` venues table: `Rank, Venue, Tier, Field, PageRank, Impact, Papers`
-  (`src/main.rs:259-261`); PageRank and Impact formatted `{:.4}`.
-- `calculate` scholars table: `Rank, Scholar, QIndex, H-Index, Papers, Citations`
-  (`src/main.rs:284-291`); QIndex formatted `{:.2}`.
-- `venues` table: `Venue, Tier, Field, PageRank, Papers` (no rank column).
+- `calculate` venues table: `Rank, Venue, Tier, Field, Venue Score, Count-Scaled, Papers`
+  (`src/main.rs`, `display_results`); both scores formatted `{:.4}`.
+- `calculate` scholars table: `Rank, Scholar, QIndex, H-Index, Papers, Citations`;
+  QIndex formatted `{:.2}`.
+- `venues` table: `Venue, Tier, Field, Venue Score, Papers` (no rank column).
 - `scholars` table: `Scholar, QIndex, H-Index, Papers, Citations`.
 
 Surrounding the tables, the subcommands print decorated status lines using emoji
@@ -252,6 +234,7 @@ The JSON document has four top-level keys: `metadata`, `venues`, `scholars`,
       "tolerance": 1e-6,
       "venue_weight": 0.7,
       "year_decay": 0.95,
+      "reference_year": 2026,
       "tier_bonus": { "A*": 2.0, "A": 1.5, "B": 1.2, "C": 1.0 }
     }
   },
@@ -272,23 +255,25 @@ The JSON document has four top-level keys: `metadata`, `venues`, `scholars`,
 }
 ```
 
-(Field types come from `VenueExport`, `ScholarExport`, `DatasetStatistics` and
-`ExportMetadata` at `src/export.rs:24-64`; the example values are illustrative
-placeholders, not observed output.) Note that `metadata.parameters` always
-serializes `AlgorithmParams::default()` (`src/export.rs:203`), so it reflects
-the default configuration regardless of any run-time tuning, and that the
-`damping_factor`/`max_iterations`/`tolerance` it advertises belong to the
-PageRank path that does not actually run today (Chapter 5). The
-`papers_by_tier` and `papers_by_field` counts are sums of `Venue.papers.len()`
-per tier/field (`src/export.rs:224-228`).
+(Types: `VenueExport`, `ScholarExport`, `DatasetStatistics`, `ExportMetadata` in
+`src/export.rs`; values are illustrative.) The retained `pagerank` is the
+tier-adjusted normalized Venue Score, not raw PageRank. `impact_factor` is
+`Venue Score * ln(unique venue works + 1)`, not a journal impact factor.
+`metadata.parameters` currently serializes `AlgorithmParams::default()` in
+`Exporter::prepare_export_data`, including the current UTC `reference_year`;
+it does not capture the calculator's snapshot-year override or runtime tuning.
+Actual scholar decay uses the valid snapshot release year when available,
+`0.95^(max(reference_year - paper_year, 0)/5)`; unknown years are undecayed.
+Exporter dataset statistics remain parsed-record counts, unlike the site's
+corpus-deduplicated unique-work statistics.
 
 ### CSV schema
 
-The venues CSV header is `Rank, Venue, Tier, Field, PageRank, Impact Factor,
-Papers`, with PageRank and Impact Factor formatted `{:.6}`
-(`src/export.rs:122-135`). The scholars CSV header is `Rank, Scholar, QIndex,
-H-Index, Papers, Citations`, with QIndex formatted `{:.2}`
-(`src/export.rs:147-159`). Both are written with the `csv` crate's `Writer`.
+The venues CSV retains the legacy header `Rank, Venue, Tier, Field, PageRank,
+Impact Factor, Papers`, with both scores formatted `{:.6}` (`src/export.rs`,
+`Exporter::export_csv`). Those names have the Venue Score and count-scaled
+semantics above, not raw PageRank or journal impact. The scholars CSV header is
+`Rank, Scholar, QIndex, H-Index, Papers, Citations`, with QIndex formatted `{:.2}`.
 
 ```bash
 # JSON
@@ -322,28 +307,15 @@ per second and caches results, so a full run over the corpus is slow; `-m` is
 provided to cap the number of papers for testing, and `-v` to scope to one
 venue.
 
-Two caveats. First, the path inconsistency: the read-only ranking subcommands
-read the single file `./cache/citations.json`, whereas `fetch-citations` writes
-into the `--cache-dir` *directory* via the legacy `citations::CitationFetcher`
-path. The relationship between the two is not guaranteed; the data actually
-consumed by the website comes from a separate S2AG pipeline (`export-papers`,
-§9.7, then `scripts/match_s2ag.py`) writing
-`cache/citations/s2ag_paper_citations.json` (Chapter 6, *Citation Data
-Integration*).
-Second, the API key: the Semantic Scholar key is read from the `S2_API_KEY`
-environment variable (a template lives in `.env.example`); there is no committed
-`.env`. Set it before fetching:
+This is a legacy live-fetch command, not the local snapshot extraction workflow.
+Its outputs are not consumed by default CLI rankings or the website. Those
+consumers read the two artifacts produced by local `scan`, `resolve` and `graph`
+using `--snapshot-dir data/s2ag/2026-10-06` (Chapter 6). Do not use this command to
+refresh snapshot counts or construct the internal ranking graph. An API key is
+not required for the local workflow; only dataset downloading needs one.
 
-```bash
-export S2_API_KEY=...        # or use a .env consumed by your shell
-qindex fetch-citations -v sigcomm -m 100
-RUST_LOG=info qindex fetch-citations -c ./cache -m 50
-```
-
-The bulk S2AG dataset and the Python pipelines that produced the committed
-`cache/citations/*.json` artifacts are described in Chapter 6; this subcommand
-is the in-binary alternative and is not what populates the website's per-paper
-citation counts.
+Chapter 6 documents the local bulk-snapshot pipeline. This legacy subcommand
+does not populate either of its committed artifacts.
 
 ## 9.6 `extract-papers` (experimental, largely stubbed)
 
@@ -384,19 +356,19 @@ qindex export-papers [-b ./bib] [-o ./cache/citations/papers.jsonl]
 
 Flags (`src/cli.rs:89-99`): `-o`/`--output` (default
 `./cache/citations/papers.jsonl`). The handler `run_export_papers`
-(`src/main.rs:221-242`) parses the corpus exactly as every other subcommand does
-and writes one JSON object per paper — `{"id", "title", "year", "doi", "venue"}`,
-with `null` for a missing year or DOI — then prints the count (19,954 on the
-current corpus). It exists so that external matching works from the same paper
+(`src/main.rs`) parses the corpus exactly as every other subcommand does and
+streams one JSON object per paper — `{"id", "title", "year", "doi", "dblp_id", "venue"}` —
+with `null` for a missing year, DOI or DBLP record key, then prints the observed
+record count. External matching works from the same paper
 ids and cleaned titles the website uses: `scripts/match_s2ag.py` reads this file
-to match papers against Semantic Scholar and writes
-`cache/citations/s2ag_paper_citations.json`, keyed by these ids (Chapter 6). The
-output file is gitignored and can be regenerated at any time.
+to match papers against the local snapshot and writes the two committed count
+and graph artifacts (Chapter 6). The export is gitignored and regenerable.
 
 ```bash
 qindex export-papers
-python3 -I scripts/match_s2ag.py scan      # needs the S2AG bulk files in data/s2ag/papers/
-python3 -I scripts/match_s2ag.py resolve   # Semantic Scholar Graph API
+python3 -I scripts/match_s2ag.py scan --snapshot-dir data/s2ag/2026-10-06
+python3 -I scripts/match_s2ag.py resolve --snapshot-dir data/s2ag/2026-10-06
+python3 -I scripts/match_s2ag.py graph --snapshot-dir data/s2ag/2026-10-06
 ```
 
 ## 9.8 `build-site`
@@ -405,6 +377,7 @@ python3 -I scripts/match_s2ag.py resolve   # Semantic Scholar Graph API
 qindex build-site [-b ./bib] [-o ./site] [--base-url /]
                   [--static-dir ./static] [--book-dir ./docs/book]
                   [--citations-file cache/citations/s2ag_paper_citations.json]
+                  [--citation-graph-file cache/citations/s2ag_citation_graph.json]
 ```
 
 Flags (`src/cli.rs:101-126`): `-o`/`--out-dir` (default `./site`; the directory is
@@ -434,11 +407,10 @@ whole website — pre-rendered pages, a search index, scholar profile shards, an
 public JSON data files — and any static host serves the result. The generated
 site, its URL scheme, and its data files are covered in Chapter 8, *The Static
 Website and Its Data Files*; building, previewing, and the GitHub Pages
-deployment are in Chapter 10. The relevant CLI fact is that `build-site`, like
-the old web path, does not call `load_citation_cache`, so the rankings on the
-website can differ from those printed by `calculate`/`venues`/`scholars` once a
-`./cache/citations.json` file exists. (Today the file is absent, so both paths run
-the same prestige fallback.)
+deployment are in Chapter 10. `--citation-graph-file` selects the local internal
+graph (default `cache/citations/s2ag_citation_graph.json`); its release must agree
+with `--citations-file`. Default CLI and site use the same artifacts and ranking
+policy. `release_id`, not `generated` or build date, identifies count provenance.
 
 ## 9.9 Running from source vs. the release binary
 

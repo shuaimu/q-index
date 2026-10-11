@@ -67,6 +67,7 @@ fn main() -> Result<()> {
             static_dir,
             book_dir,
             citations_file,
+            citation_graph_file,
         } => {
             run_build_site(
                 &bib_dir,
@@ -75,6 +76,7 @@ fn main() -> Result<()> {
                 &static_dir,
                 &book_dir,
                 &citations_file,
+                &citation_graph_file,
             )?;
         }
         Commands::FetchCitations {
@@ -106,12 +108,23 @@ fn main() -> Result<()> {
     Ok(())
 }
 
+fn load_snapshot(graph: &mut models::CitationGraph) -> Result<s2ag_citations::S2agCitations> {
+    let citations =
+        s2ag_citations::S2agCitations::load(std::path::Path::new(s2ag_citations::DEFAULT_PATH))?;
+    citations.load_graph(
+        std::path::Path::new(s2ag_citations::DEFAULT_GRAPH_PATH),
+        graph,
+    )?;
+    Ok(citations)
+}
+
 fn run_calculate(bib_dir: &str, top: usize, output: Option<&str>, export: bool) -> Result<()> {
     info!("Loading bibliography from {}", bib_dir);
 
     // Parse bibliography files
     let mut parser = BibParser::new();
-    let graph = parser.parse_directory(bib_dir)?;
+    let mut graph = parser.parse_directory(bib_dir)?;
+    let citations = load_snapshot(&mut graph)?;
 
     println!(
         "📚 Loaded {} papers, {} venues, {} scholars",
@@ -122,11 +135,7 @@ fn run_calculate(bib_dir: &str, top: usize, output: Option<&str>, export: bool) 
 
     // Calculate PageRank and QIndex
     println!("🔄 Calculating QIndex scores...");
-    let mut calculator = PageRankCalculator::new(&graph);
-
-    // Try to load citation cache
-    let cache_path = std::path::Path::new("./cache/citations.json");
-    calculator.load_citation_cache(cache_path)?;
+    let mut calculator = PageRankCalculator::with_citations(&graph, &citations);
 
     let _metrics = calculator.calculate()?;
 
@@ -149,13 +158,10 @@ fn run_calculate(bib_dir: &str, top: usize, output: Option<&str>, export: bool) 
 
 fn run_venues(bib_dir: &str, top: usize, field: Option<&str>, tier: Option<&str>) -> Result<()> {
     let mut parser = BibParser::new();
-    let graph = parser.parse_directory(bib_dir)?;
+    let mut graph = parser.parse_directory(bib_dir)?;
+    let citations = load_snapshot(&mut graph)?;
 
-    let mut calculator = PageRankCalculator::new(&graph);
-
-    // Try to load citation cache
-    let cache_path = std::path::Path::new("./cache/citations.json");
-    calculator.load_citation_cache(cache_path)?;
+    let mut calculator = PageRankCalculator::with_citations(&graph, &citations);
 
     calculator.calculate()?;
 
@@ -167,13 +173,10 @@ fn run_venues(bib_dir: &str, top: usize, field: Option<&str>, tier: Option<&str>
 
 fn run_scholars(bib_dir: &str, top: usize, min_papers: Option<usize>) -> Result<()> {
     let mut parser = BibParser::new();
-    let graph = parser.parse_directory(bib_dir)?;
+    let mut graph = parser.parse_directory(bib_dir)?;
+    let citations = load_snapshot(&mut graph)?;
 
-    let mut calculator = PageRankCalculator::new(&graph);
-
-    // Try to load citation cache
-    let cache_path = std::path::Path::new("./cache/citations.json");
-    calculator.load_citation_cache(cache_path)?;
+    let mut calculator = PageRankCalculator::with_citations(&graph, &citations);
 
     calculator.calculate()?;
 
@@ -185,27 +188,45 @@ fn run_scholars(bib_dir: &str, top: usize, min_papers: Option<usize>) -> Result<
 
 fn run_search(bib_dir: &str, query: &str) -> Result<()> {
     let mut parser = BibParser::new();
-    let graph = parser.parse_directory(bib_dir)?;
+    let mut graph = parser.parse_directory(bib_dir)?;
+    let citations = load_snapshot(&mut graph)?;
 
-    let mut calculator = PageRankCalculator::new(&graph);
-
-    // Try to load citation cache
-    let cache_path = std::path::Path::new("./cache/citations.json");
-    calculator.load_citation_cache(cache_path)?;
+    let mut calculator = PageRankCalculator::with_citations(&graph, &citations);
 
     calculator.calculate()?;
 
     println!("🔍 Searching for '{}'...\n", query);
 
     // Search venues
-    let matching_venues = graph.search_venues(query);
+    let query_lower = query.to_lowercase();
+    let matching_venues: Vec<_> = calculator
+        .get_top_venues(usize::MAX, None, None)
+        .into_iter()
+        .filter(|ranking| {
+            let venue = &graph.venues[&ranking.id];
+            venue.name.to_lowercase().contains(&query_lower)
+                || venue.full_name.to_lowercase().contains(&query_lower)
+                || venue.field.to_lowercase().contains(&query_lower)
+        })
+        .collect();
     if !matching_venues.is_empty() {
         println!("📍 Venues:");
         display_venues(&matching_venues[..matching_venues.len().min(10)]);
     }
 
     // Search scholars
-    let matching_scholars = graph.search_scholars(query);
+    let matching_scholars: Vec<_> = calculator
+        .get_top_scholars(usize::MAX, None)
+        .into_iter()
+        .filter(|ranking| {
+            let scholar = &graph.scholars[&ranking.id];
+            scholar.name.to_lowercase().contains(&query_lower)
+                || scholar
+                    .normalized_name
+                    .to_lowercase()
+                    .contains(&query_lower)
+        })
+        .collect();
     if !matching_scholars.is_empty() {
         println!("\n👤 Scholars:");
         display_scholars(&matching_scholars[..matching_scholars.len().min(10)]);
@@ -221,19 +242,33 @@ fn run_search(bib_dir: &str, query: &str) -> Result<()> {
 fn run_export_papers(bib_dir: &str, output: &str) -> Result<()> {
     use std::io::Write;
 
+    #[derive(serde::Serialize)]
+    struct MatchingPaper<'a> {
+        id: &'a str,
+        title: &'a str,
+        year: Option<u32>,
+        doi: Option<&'a str>,
+        dblp_id: Option<&'a str>,
+        venue: &'a str,
+    }
+
     let mut parser = BibParser::new();
     let graph = parser.parse_directory(bib_dir)?;
 
     let mut out = std::io::BufWriter::new(std::fs::File::create(output)?);
     for paper in graph.papers.values() {
-        let line = serde_json::json!({
-            "id": paper.id,
-            "title": paper.title,
-            "year": paper.year,
-            "doi": paper.doi,
-            "venue": paper.venue,
-        });
-        writeln!(out, "{}", line)?;
+        serde_json::to_writer(
+            &mut out,
+            &MatchingPaper {
+                id: &paper.id,
+                title: &paper.title,
+                year: paper.year,
+                doi: paper.doi.as_deref(),
+                dblp_id: paper.dblp_id.as_deref(),
+                venue: &paper.venue,
+            },
+        )?;
+        writeln!(out)?;
     }
     out.flush()?;
 
@@ -257,7 +292,13 @@ fn display_top_venues(calculator: &PageRankCalculator, top: usize) {
 
     let mut table = Table::new();
     table.load_preset(UTF8_FULL).set_header(vec![
-        "Rank", "Venue", "Tier", "Field", "PageRank", "Impact", "Papers",
+        "Rank",
+        "Venue",
+        "Tier",
+        "Field",
+        "Venue Score",
+        "Count-Scaled",
+        "Papers",
     ]);
 
     for (i, venue) in venues.iter().enumerate() {
@@ -308,9 +349,13 @@ fn display_venues(venues: &[models::VenueRanking]) {
     use comfy_table::{presets::UTF8_FULL, Table};
 
     let mut table = Table::new();
-    table
-        .load_preset(UTF8_FULL)
-        .set_header(vec!["Venue", "Tier", "Field", "PageRank", "Papers"]);
+    table.load_preset(UTF8_FULL).set_header(vec![
+        "Venue",
+        "Tier",
+        "Field",
+        "Venue Score",
+        "Papers",
+    ]);
 
     for venue in venues {
         table.add_row(vec![
@@ -436,6 +481,7 @@ fn run_build_site(
     static_dir: &str,
     book_dir: &str,
     citations_file: &str,
+    citation_graph_file: &str,
 ) -> Result<()> {
     println!("🏗️  Building static site");
     let report = crate::site::build_site(&crate::site::SiteOptions {
@@ -445,6 +491,7 @@ fn run_build_site(
         static_dir: static_dir.into(),
         book_dir: Some(book_dir.into()),
         citations_file: Some(citations_file.into()),
+        citation_graph_file: Some(citation_graph_file.into()),
     })?;
 
     println!(

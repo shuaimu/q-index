@@ -1,14 +1,13 @@
 use anyhow::Result;
 use log::{debug, info};
 use ordered_float::OrderedFloat;
-use std::collections::HashMap;
+use std::collections::{BTreeMap, HashMap};
 
-use crate::citations::CitationCache;
 use crate::models::{
-    AlgorithmParams, CitationGraph, QIndexMetrics, Scholar, ScholarRanking, VenueRanking,
+    AlgorithmParams, CitationGraph, Paper, QIndexMetrics, Scholar, ScholarRanking, VenueRanking,
 };
-use std::path::Path;
-// CSRankings venue checking will be implemented inline
+use crate::parser::normalize_venue_id;
+use crate::s2ag_citations::S2agCitations;
 
 /// Check if a venue name matches a CSRankings conference
 fn is_csrankings_venue(venue_name: &str) -> bool {
@@ -61,10 +60,11 @@ fn is_csrankings_venue(venue_name: &str) -> bool {
 pub struct PageRankCalculator<'a> {
     graph: &'a CitationGraph,
     params: AlgorithmParams,
-    venue_graph: HashMap<String, HashMap<String, f64>>,
+    venue_graph: BTreeMap<String, BTreeMap<String, f64>>,
     venue_scores: HashMap<String, f64>,
     scholar_scores: HashMap<String, f64>,
-    citation_cache: Option<CitationCache>,
+    citations: Option<&'a S2agCitations>,
+    venue_paper_counts: HashMap<String, usize>,
 }
 
 impl<'a> PageRankCalculator<'a> {
@@ -72,27 +72,25 @@ impl<'a> PageRankCalculator<'a> {
         Self {
             graph,
             params: AlgorithmParams::default(),
-            venue_graph: HashMap::new(),
+            venue_graph: BTreeMap::new(),
             venue_scores: HashMap::new(),
             scholar_scores: HashMap::new(),
-            citation_cache: None,
+            citations: None,
+            venue_paper_counts: HashMap::new(),
         }
     }
 
-    /// Load citation cache from disk if available
-    pub fn load_citation_cache(&mut self, cache_path: &Path) -> Result<()> {
-        if cache_path.exists() {
-            match CitationCache::load_from_file(cache_path) {
-                Ok(cache) => {
-                    info!("Loaded citation cache with {} papers", cache.papers.len());
-                    self.citation_cache = Some(cache);
-                }
-                Err(e) => {
-                    debug!("Could not load citation cache: {}", e);
-                }
-            }
+    pub fn with_citations(graph: &'a CitationGraph, citations: &'a S2agCitations) -> Self {
+        let mut calculator = Self::new(graph);
+        calculator.citations = Some(citations);
+        if let Some(date) = citations
+            .release_id
+            .as_deref()
+            .and_then(|release| chrono::NaiveDate::parse_from_str(release, "%Y-%m-%d").ok())
+        {
+            calculator.params.reference_year = chrono::Datelike::year(&date) as u32;
         }
-        Ok(())
+        calculator
     }
 
     pub fn calculate(&mut self) -> Result<QIndexMetrics> {
@@ -120,152 +118,98 @@ impl<'a> PageRankCalculator<'a> {
         })
     }
 
+    fn unique_papers<'b>(&self, papers: impl IntoIterator<Item = &'b Paper>) -> Vec<&'b Paper> {
+        self.citations
+            .unwrap_or(&S2agCitations::default())
+            .unique_papers(papers)
+    }
+
+    fn eligible_scholar_papers(&self, scholar: &Scholar) -> Vec<&'a Paper> {
+        self.unique_papers(
+            scholar
+                .papers
+                .iter()
+                .filter_map(|id| self.graph.papers.get(id)),
+        )
+        .into_iter()
+        .filter(|paper| {
+            paper.authors.iter().any(|author| {
+                crate::models::normalize_author_name(author) == scholar.normalized_name
+            }) && self
+                .graph
+                .venues
+                .get(&normalize_venue_id(&paper.venue))
+                .is_some_and(|venue| is_csrankings_venue(&venue.name))
+        })
+        .collect()
+    }
+
+    fn venue_paper_count(&self, venue_id: &str) -> usize {
+        self.venue_paper_counts.get(venue_id).copied().unwrap_or(0)
+    }
+
     fn build_venue_graph(&mut self) {
-        // First check if we have citation cache data
-        let has_cached_citations = self
-            .citation_cache
-            .as_ref()
-            .map(|c| !c.papers.is_empty())
-            .unwrap_or(false);
-
-        if has_cached_citations {
-            info!("Using citation data from cache");
-            let cache = self.citation_cache.as_ref().unwrap();
-
-            // Build graph using cached citation data
-            for (paper_id, citation_data) in &cache.papers {
-                if let Some(paper) = self.graph.papers.get(paper_id) {
-                    let from_venue = &paper.venue;
-                    if from_venue.is_empty() {
-                        continue;
-                    }
-
-                    let from_venue_id = normalize_venue_id(from_venue);
-
-                    // Process references (papers this paper cites)
-                    // For venue graph, we count citations between venues
-                    // The citation count gives us the strength of connection
-                    if citation_data.reference_count > 0 {
-                        // Add weight based on reference count
-                        // This is a proxy for how much this venue cites others
-                        let weight = (citation_data.reference_count as f64).ln() + 1.0;
-
-                        // For now, distribute weight uniformly among all venues
-                        // In a more sophisticated version, we'd look up each reference
-                        *self
-                            .venue_graph
-                            .entry(from_venue_id.clone())
-                            .or_insert_with(HashMap::new)
-                            .entry("_aggregate".to_string())
-                            .or_insert(0.0) += weight;
-                    }
-
-                    // Process citations (papers that cite this paper)
-                    if citation_data.citation_count > 0 {
-                        // This venue is being cited, which increases its importance
-                        let weight = (citation_data.citation_count as f64).ln() + 1.0;
-
-                        *self
-                            .venue_graph
-                            .entry("_aggregate".to_string())
-                            .or_insert_with(HashMap::new)
-                            .entry(from_venue_id.clone())
-                            .or_insert(0.0) += weight;
-                    }
-                }
+        self.venue_graph.clear();
+        self.venue_paper_counts.clear();
+        for paper in self.unique_papers(self.graph.papers.values()) {
+            *self
+                .venue_paper_counts
+                .entry(normalize_venue_id(&paper.venue))
+                .or_default() += 1;
+            if paper.venue.is_empty() {
+                continue;
             }
-
-            // Remove the aggregate node and distribute its weight
-            if let Some(agg_edges) = self.venue_graph.remove("_aggregate") {
-                for (venue, weight) in agg_edges {
-                    // Distribute incoming citations as self-loops (increases importance)
-                    *self
-                        .venue_graph
-                        .entry(venue.clone())
-                        .or_insert_with(HashMap::new)
-                        .entry(venue.clone())
-                        .or_insert(0.0) += weight * 0.1; // Small self-loop weight
-                }
+            let from = normalize_venue_id(&paper.venue);
+            if !self.graph.venues.contains_key(&from) {
+                continue;
             }
-
-            info!(
-                "Built venue graph from cached citations with {} nodes",
-                self.venue_graph.len()
-            );
-        } else {
-            // Fall back to using BibTeX citation data if available
-            info!("No cached citation data, using BibTeX citations");
-
-            // Build venue-to-venue citation graph from BibTeX
-            for paper in self.graph.papers.values() {
-                let from_venue = &paper.venue;
-                if from_venue.is_empty() {
+            // Forward references alone: reverse adjacency represents the same edges.
+            for cited in self.unique_papers(
+                paper
+                    .citations
+                    .iter()
+                    .filter_map(|id| self.graph.papers.get(id)),
+            ) {
+                let to = normalize_venue_id(&cited.venue);
+                if cited.venue.is_empty() || to == from || !self.graph.venues.contains_key(&to) {
                     continue;
                 }
-
-                let from_venue_id = normalize_venue_id(from_venue);
-
-                // Process citations
-                for cited_id in &paper.citations {
-                    if let Some(cited_paper) = self.graph.papers.get(cited_id) {
-                        let to_venue = &cited_paper.venue;
-                        if !to_venue.is_empty() && to_venue != from_venue {
-                            let to_venue_id = normalize_venue_id(to_venue);
-
-                            // Calculate weight with year decay
-                            let mut weight = 1.0;
-                            if let (Some(from_year), Some(to_year)) = (paper.year, cited_paper.year)
-                            {
-                                let year_diff = (from_year as i32 - to_year as i32).abs();
-                                if year_diff > 0 {
-                                    weight *= self.params.year_decay.powi(year_diff);
-                                }
-                            }
-
-                            *self
-                                .venue_graph
-                                .entry(from_venue_id.clone())
-                                .or_insert_with(HashMap::new)
-                                .entry(to_venue_id)
-                                .or_insert(0.0) += weight;
-                        }
-                    }
+                let mut weight = 1.0;
+                if let (Some(from_year), Some(to_year)) = (paper.year, cited.year) {
+                    weight *= self
+                        .params
+                        .year_decay
+                        .powf(from_year.saturating_sub(to_year) as f64);
                 }
-
-                // Process citations to this paper (reverse direction)
-                for citing_id in &paper.cited_by {
-                    if let Some(citing_paper) = self.graph.papers.get(citing_id) {
-                        let to_venue = &citing_paper.venue;
-                        if !to_venue.is_empty() && to_venue != from_venue {
-                            let to_venue_id = normalize_venue_id(to_venue);
-
-                            let mut weight = 1.0;
-                            if let (Some(from_year), Some(to_year)) =
-                                (citing_paper.year, paper.year)
-                            {
-                                let year_diff = (from_year as i32 - to_year as i32).abs();
-                                if year_diff > 0 {
-                                    weight *= self.params.year_decay.powi(year_diff);
-                                }
-                            }
-
-                            *self
-                                .venue_graph
-                                .entry(to_venue_id.clone())
-                                .or_insert_with(HashMap::new)
-                                .entry(from_venue_id.clone())
-                                .or_insert(0.0) += weight;
-                        }
-                    }
+                // Underflowed edges carry no outgoing mass and must remain dangling.
+                if weight == 0.0 {
+                    continue;
                 }
+                *self
+                    .venue_graph
+                    .entry(from.clone())
+                    .or_default()
+                    .entry(to)
+                    .or_default() += weight;
             }
         }
-
-        debug!("Built venue graph with {} nodes", self.venue_graph.len());
+        // Normalize each source once, rather than re-summing weights on every iteration.
+        for edges in self.venue_graph.values_mut() {
+            let total: f64 = edges.values().sum();
+            for weight in edges.values_mut() {
+                *weight /= total;
+            }
+        }
+        debug!(
+            "Built venue graph with {} source nodes",
+            self.venue_graph.len()
+        );
     }
 
     fn calculate_venue_pagerank(&mut self) -> Result<()> {
-        let venues: Vec<String> = self.graph.venues.keys().cloned().collect();
+        self.venue_scores.clear();
+        let mut venues: Vec<String> = self.graph.venues.keys().cloned().collect();
+        venues.sort();
         let n = venues.len();
 
         if n == 0 {
@@ -292,34 +236,25 @@ impl<'a> PageRankCalculator<'a> {
             for iteration in 0..self.params.max_iterations {
                 let mut new_scores = HashMap::new();
 
-                // Initialize with damping
+                // Dangling venues have no entry in the sparse forward graph.
+                let dangling_mass: f64 = venues
+                    .iter()
+                    .filter(|venue| !self.venue_graph.contains_key(*venue))
+                    .map(|venue| self.venue_scores[venue])
+                    .sum();
+                let base = (1.0 - self.params.damping_factor
+                    + self.params.damping_factor * dangling_mass)
+                    / n as f64;
                 for venue in &venues {
-                    new_scores.insert(venue.clone(), (1.0 - self.params.damping_factor) / n as f64);
+                    new_scores.insert(venue.clone(), base);
                 }
 
                 // Add contributions from incoming links
                 for (from_venue, edges) in &self.venue_graph {
-                    let total_weight: f64 = edges.values().sum();
-
-                    if total_weight > 0.0 {
-                        let from_score =
-                            self.venue_scores.get(from_venue).unwrap_or(&initial_score);
-
-                        for (to_venue, weight) in edges {
-                            let contribution =
-                                self.params.damping_factor * from_score * (weight / total_weight);
-                            *new_scores.entry(to_venue.clone()).or_insert(0.0) += contribution;
-                        }
-                    } else {
-                        // Distribute evenly if no outgoing links
-                        let from_score =
-                            self.venue_scores.get(from_venue).unwrap_or(&initial_score);
-                        let uniform_contribution =
-                            self.params.damping_factor * from_score / n as f64;
-
-                        for venue in &venues {
-                            *new_scores.entry(venue.clone()).or_insert(0.0) += uniform_contribution;
-                        }
+                    let from_score = self.venue_scores[from_venue];
+                    for (to_venue, weight) in edges {
+                        let contribution = self.params.damping_factor * from_score * weight;
+                        *new_scores.get_mut(to_venue).unwrap() += contribution;
                     }
                 }
 
@@ -343,7 +278,7 @@ impl<'a> PageRankCalculator<'a> {
             }
 
             // Normalize scores
-            let sum: f64 = self.venue_scores.values().sum();
+            let sum: f64 = venues.iter().map(|venue| self.venue_scores[venue]).sum();
             if sum > 0.0 {
                 for score in self.venue_scores.values_mut() {
                     *score /= sum;
@@ -357,7 +292,7 @@ impl<'a> PageRankCalculator<'a> {
                 let mut score = 0.0;
 
                 // Base score from paper count (logarithmic scale)
-                let paper_count = venue.papers.len() as f64;
+                let paper_count = self.venue_paper_count(venue_id) as f64;
                 if paper_count > 0.0 {
                     score = (paper_count + 1.0).ln() / 10.0;
                 }
@@ -379,7 +314,7 @@ impl<'a> PageRankCalculator<'a> {
             }
 
             // Normalize scores
-            let sum: f64 = self.venue_scores.values().sum();
+            let sum: f64 = venues.iter().map(|venue| self.venue_scores[venue]).sum();
             if sum > 0.0 {
                 for score in self.venue_scores.values_mut() {
                     *score /= sum;
@@ -404,18 +339,16 @@ impl<'a> PageRankCalculator<'a> {
                 if let Some(bonus) = self.params.tier_bonus.get(&venue.tier) {
                     *score *= bonus;
                 }
-
-                // Calculate impact factor
-                let paper_count = venue.papers.len() as f64;
-                if paper_count > 0.0 {
-                    // Impact factor combines PageRank with paper count
-                    let _impact = *score * (paper_count + 1.0).ln();
-                }
             }
         }
 
         // Re-normalize after applying bonuses
-        let sum: f64 = self.venue_scores.values().sum();
+        let sum: f64 = self
+            .graph
+            .venues
+            .keys()
+            .filter_map(|id| self.venue_scores.get(id))
+            .sum();
         if sum > 0.0 {
             for score in self.venue_scores.values_mut() {
                 *score /= sum;
@@ -424,78 +357,49 @@ impl<'a> PageRankCalculator<'a> {
     }
 
     fn calculate_scholar_scores(&mut self) {
+        self.scholar_scores.clear();
         for (scholar_id, scholar) in &self.graph.scholars {
+            let papers = self.eligible_scholar_papers(scholar);
             let mut score = 0.0;
-            let total_papers = scholar.papers.len();
-
-            for (venue_id, paper_ids) in &scholar.publications_by_venue {
-                // Only consider papers from CSRankings venues
-                if let Some(venue) = self.graph.venues.get(venue_id) {
-                    if !is_csrankings_venue(&venue.name) {
-                        continue;
-                    }
+            for paper in &papers {
+                let venue_id = normalize_venue_id(&paper.venue);
+                let mut paper_score = self.venue_scores.get(&venue_id).copied().unwrap_or(0.0);
+                if let Some(year) = paper.year {
+                    let age = self.params.reference_year.saturating_sub(year);
+                    paper_score *= self.params.year_decay.powf(age as f64 / 5.0);
                 }
 
-                let venue_score = self.venue_scores.get(venue_id).unwrap_or(&0.01);
-
-                for paper_id in paper_ids {
-                    if let Some(paper) = self.graph.papers.get(paper_id) {
-                        let mut paper_score = *venue_score;
-
-                        // Apply year decay
-                        if let Some(year) = paper.year {
-                            let current_year = 2024;
-                            let year_diff = (current_year - year) as f64;
-                            if year_diff > 0.0 {
-                                paper_score *= self.params.year_decay.powf(year_diff / 5.0);
-                            }
-                        }
-
-                        // Apply author position weight
-                        let author_count = paper.authors.len();
-                        if author_count > 1 {
-                            let author_position = paper
-                                .authors
-                                .iter()
-                                .position(|a| {
-                                    crate::models::normalize_author_name(a)
-                                        == scholar.normalized_name
-                                })
-                                .unwrap_or(author_count);
-
-                            if author_position == 0 {
-                                // First author
-                                paper_score *= 1.0;
-                            } else if author_position == author_count - 1 {
-                                // Last author
-                                paper_score *= 0.8;
-                            } else {
-                                // Middle author
-                                paper_score *= 0.6 / (author_count - 2) as f64;
-                            }
-                        }
-
-                        score += paper_score;
+                // Eligibility guarantees a real author position, even for one-author papers.
+                let author_position = paper
+                    .authors
+                    .iter()
+                    .position(|author| {
+                        crate::models::normalize_author_name(author) == scholar.normalized_name
+                    })
+                    .expect("eligible publication must contain the scholar");
+                let author_count = paper.authors.len();
+                if author_count > 1 {
+                    if author_position == 0 {
+                        paper_score *= 1.0;
+                    } else if author_position == author_count - 1 {
+                        paper_score *= 0.8;
+                    } else {
+                        paper_score *= 0.6 / (author_count - 2) as f64;
                     }
                 }
+                score += paper_score;
             }
-
-            // Apply logarithmic scaling based on paper count
-            if total_papers > 0 {
-                score *= (total_papers as f64 + 1.0).ln();
-            }
-
+            score *= (papers.len() as f64 + 1.0).ln();
             self.scholar_scores.insert(scholar_id.clone(), score);
         }
 
-        // Normalize to 0-100 scale
+        // Normalize to 0-100 scale.
         let max_score = self
             .scholar_scores
             .values()
-            .max_by_key(|&&s| OrderedFloat(s))
+            .max_by_key(|&&score| OrderedFloat(score))
             .copied()
-            .unwrap_or(1.0);
-
+            .unwrap_or(0.0);
         if max_score > 0.0 {
             for score in self.scholar_scores.values_mut() {
                 *score = (*score / max_score) * 100.0;
@@ -512,31 +416,9 @@ impl<'a> PageRankCalculator<'a> {
     }
 
     fn calculate_scholar_h_index(&self, scholar: &Scholar) -> usize {
-        let mut citations: Vec<usize> = Vec::new();
-
-        for paper_id in &scholar.papers {
-            if let Some(paper) = self.graph.papers.get(paper_id) {
-                // Only consider papers from CSRankings venues
-                if let Some(venue) = self.graph.venues.get(&normalize_venue_id(&paper.venue)) {
-                    if is_csrankings_venue(&venue.name) {
-                        citations.push(paper.cited_by.len());
-                    }
-                }
-            }
-        }
-
-        citations.sort_by(|a, b| b.cmp(a));
-
-        let mut h_index = 0;
-        for (i, &citation_count) in citations.iter().enumerate() {
-            if citation_count >= i + 1 {
-                h_index = i + 1;
-            } else {
-                break;
-            }
-        }
-
-        h_index
+        self.citations
+            .unwrap_or(&S2agCitations::default())
+            .h_index(self.eligible_scholar_papers(scholar))
     }
 
     pub fn get_top_venues(
@@ -557,7 +439,7 @@ impl<'a> PageRankCalculator<'a> {
             })
             .map(|venue| {
                 let score = self.venue_scores.get(&venue.id).unwrap_or(&0.0);
-                let paper_count = venue.papers.len();
+                let paper_count = self.venue_paper_count(&venue.id);
                 let impact_factor = score * (paper_count as f64 + 1.0).ln();
 
                 VenueRanking {
@@ -572,7 +454,11 @@ impl<'a> PageRankCalculator<'a> {
             })
             .collect();
 
-        rankings.sort_by(|a, b| b.pagerank.partial_cmp(&a.pagerank).unwrap());
+        rankings.sort_by(|a, b| {
+            b.pagerank
+                .total_cmp(&a.pagerank)
+                .then_with(|| a.id.cmp(&b.id))
+        });
         rankings.truncate(n);
         rankings
     }
@@ -585,22 +471,8 @@ impl<'a> PageRankCalculator<'a> {
             .scholars
             .values()
             .map(|scholar| {
-                // Count only CSRankings papers
-                let mut csrankings_paper_count = 0;
-                let mut citation_count = 0;
-
-                for paper_id in &scholar.papers {
-                    if let Some(paper) = self.graph.papers.get(paper_id) {
-                        if let Some(venue) =
-                            self.graph.venues.get(&normalize_venue_id(&paper.venue))
-                        {
-                            if is_csrankings_venue(&venue.name) {
-                                csrankings_paper_count += 1;
-                                citation_count += paper.cited_by.len();
-                            }
-                        }
-                    }
-                }
+                let counted_papers = self.eligible_scholar_papers(scholar);
+                let csrankings_paper_count = counted_papers.len();
 
                 // Only include scholars with minimum CSRankings papers
                 if csrankings_paper_count < min_papers {
@@ -610,37 +482,14 @@ impl<'a> PageRankCalculator<'a> {
                 let qindex = self.scholar_scores.get(&scholar.id).unwrap_or(&0.0);
 
                 // Get top CSRankings venues
-                let mut venue_papers: Vec<(String, usize)> = scholar
-                    .publications_by_venue
-                    .iter()
-                    .filter_map(|(venue_id, paper_ids)| {
-                        if let Some(venue) = self.graph.venues.get(venue_id) {
-                            if is_csrankings_venue(&venue.name) {
-                                let csrankings_papers_in_venue = paper_ids
-                                    .iter()
-                                    .filter(|paper_id| {
-                                        if let Some(paper) = self.graph.papers.get(*paper_id) {
-                                            if let Some(v) = self
-                                                .graph
-                                                .venues
-                                                .get(&normalize_venue_id(&paper.venue))
-                                            {
-                                                return is_csrankings_venue(&v.name);
-                                            }
-                                        }
-                                        false
-                                    })
-                                    .count();
-                                Some((venue_id.clone(), csrankings_papers_in_venue))
-                            } else {
-                                None
-                            }
-                        } else {
-                            None
-                        }
-                    })
-                    .collect();
-                venue_papers.sort_by(|a, b| b.1.cmp(&a.1));
+                let mut counts_by_venue = HashMap::<String, usize>::new();
+                for paper in &counted_papers {
+                    *counts_by_venue
+                        .entry(normalize_venue_id(&paper.venue))
+                        .or_default() += 1;
+                }
+                let mut venue_papers: Vec<(String, usize)> = counts_by_venue.into_iter().collect();
+                venue_papers.sort_by(|a, b| b.1.cmp(&a.1).then_with(|| a.0.cmp(&b.0)));
 
                 let top_venues: Vec<String> = venue_papers
                     .iter()
@@ -656,47 +505,22 @@ impl<'a> PageRankCalculator<'a> {
                     qindex: *qindex,
                     h_index: self.calculate_scholar_h_index(scholar),
                     paper_count: csrankings_paper_count,
-                    citation_count,
+                    citation_count: self
+                        .citations
+                        .unwrap_or(&S2agCitations::default())
+                        .total(counted_papers),
                     top_venues,
                 })
             })
-            .filter_map(|x| x)
+            .flatten()
             .collect();
 
-        rankings.sort_by(|a, b| b.qindex.partial_cmp(&a.qindex).unwrap());
+        rankings.sort_by(|a, b| b.qindex.total_cmp(&a.qindex).then_with(|| a.id.cmp(&b.id)));
         rankings.truncate(n);
         rankings
     }
 }
 
-fn normalize_venue_id(venue: &str) -> String {
-    venue
-        .trim()
-        .to_uppercase()
-        .replace(' ', "_")
-        .replace('-', "_")
-        .replace('\'', "")
-}
-
-fn calculate_h_index(scholar: &Scholar, graph: &CitationGraph) -> usize {
-    let mut citations: Vec<usize> = Vec::new();
-
-    for paper_id in &scholar.papers {
-        if let Some(paper) = graph.papers.get(paper_id) {
-            citations.push(paper.cited_by.len());
-        }
-    }
-
-    citations.sort_by(|a, b| b.cmp(a));
-
-    let mut h_index = 0;
-    for (i, &citation_count) in citations.iter().enumerate() {
-        if citation_count >= i + 1 {
-            h_index = i + 1;
-        } else {
-            break;
-        }
-    }
-
-    h_index
-}
+#[cfg(test)]
+#[path = "algorithm_tests.rs"]
+mod tests;

@@ -46,10 +46,10 @@ jobs:
       - name: Build qindex
         run: cargo build --release
 
-      # tests/integration_test.rs is skipped: test_get_venue_field expects the
-      # old "Systems" field name (renamed to "Operating Systems" in 8ea3418)
-      - name: Run unit and site tests
-        run: cargo test --release --lib --test site_test
+      - name: Run regression tests
+        run: |
+          cargo test --release
+          python3 -I -m unittest discover -s tests -p test_match_s2ag.py
 
       - name: Build book
         run: mdbook build docs

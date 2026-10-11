@@ -172,73 +172,77 @@ python3 scripts/deep_clean_sigcomm.py  # Modify for other conferences
 python3 scripts/sort_papers_by_year.py
 ```
 
-## S2AG Citation Data Integration (2025-08-14)
+## S2AG Citation Data Integration (release 2026-10-06)
 
-### Downloaded Data Status
-- **Papers dataset**: 32 files downloaded (~27GB, release 2025-08-08; one file is truncated)
-- **Citations dataset**: 122 files downloaded (~90GB)  
-- **Total downloaded**: 138GB from Semantic Scholar Academic Graph (S2AG)
-- **Location**: `data/s2ag/`
+### Complete Local Snapshot
+- **Papers dataset**: 60 gzip JSONL shards in `data/s2ag/2026-10-06/papers/`
+- **Citations dataset**: 395 shards in `data/s2ag/2026-10-06/citations/`
+- Raw data and `data/s2ag/2026-10-06/work/` are gitignored.
 
-### Citation Counts (rebuilt 2026-10-08)
-Per-paper citation counts on the site come from `cache/citations/s2ag_paper_citations.json`,
-keyed by our paper ids (exact lookups in `src/s2ag_citations.rs`, no fuzzy matching).
-- **16,462 / 19,954 papers matched (82.5%)**: 97% of papers with a DOI, 48% of papers
-  without one (USENIX venues, NeurIPS, ICML have no DOIs and can only be title-matched)
-- The no-DOI gap is the 28 S2AG papers files never downloaded; closing it needs the
-  API key (title-match API, or downloading the full papers dataset)
-- Scholar/venue citation totals and h-indexes on the site are computed from these
-  per-paper counts (each S2 corpus id counted once); QIndex/PageRank are unchanged
+### Verified Local Extraction (2026-10-11)
+- Scanned **238,595,900 paper records** and **5,850,750,847 citation records**.
+- Matched **19,025 / 19,661 BibTeX entries (96.8%)**, representing **18,589 distinct
+  S2 corpus IDs**. The remaining **636 entries** have no acceptable local
+  DOI/DBLP/title-year match.
+- Whole-S2 snapshot citation total: **2,621,520**, counting each corpus ID once.
+- Extracted **84,760 unique internal directed paper citations**; the ranking
+  computation aggregates these into **679 directed cross-venue connections**.
+- Extraction and the rebuilt CLI/site were exercised with networking disabled.
+- Publication audit checked all **19,025 matched counts** against raw snapshot
+  records with **zero mismatches**; independently recomputed venue scores and
+  all **100 published scholar QIndex scores** with zero numeric discrepancies.
+- Browser audit exercised the top ten profiles: **597 publication cards across
+  34 pages**, no duplicate works, and **25 unmatched cards** correctly shown
+  as citation `n/a`, not fabricated zeroes or complete career totals.
+
+
+### Local Extraction and Ranking
+Run the single local pipeline after changing `bib/`:
 
 ```bash
-# Rebuild the matches (rerun after adding papers to bib/)
-./target/release/qindex export-papers                # -> cache/citations/papers.jsonl
-python3 -I scripts/match_s2ag.py scan                # local S2AG files -> corpus ids (few min)
-python3 -I scripts/match_s2ag.py resolve             # Graph API batch -> current counts
-# With a key, also title-match papers missing from the local files (~1 req/s):
-S2_API_KEY="$S2_API_KEY" python3 -I scripts/match_s2ag.py resolve --title-match
-```
-Intermediate results are cached in `data/s2ag/work/` (gitignored), so reruns only fetch
-what's new. Commit the updated `cache/citations/s2ag_paper_citations.json` — CI builds
-the site from it.
-
-`scripts/parse_s2ag.py` and its outputs (`s2ag_citations.json`, `s2ag_id_mapping.json`,
-`s2ag_citation_graph.json`, `s2ag_summary.json`) are superseded: they matched only 731
-papers and the site no longer reads them.
-
-### S2AG Scripts
-```bash
-# Download S2AG datasets (requires API key)
-# Set S2_API_KEY in your environment first (see .env.example; e.g. `set -a; source .env; set +a`)
-S2_API_KEY="$S2_API_KEY" python3 scripts/download_s2ag.py --dataset papers
-S2_API_KEY="$S2_API_KEY" python3 scripts/download_s2ag.py --dataset citations
-
-# Monitor download progress
-python3 scripts/monitor_s2ag_download.py
+./target/release/qindex export-papers
+python3 -I scripts/match_s2ag.py scan --snapshot-dir data/s2ag/2026-10-06
+python3 -I scripts/match_s2ag.py resolve --snapshot-dir data/s2ag/2026-10-06
+python3 -I scripts/match_s2ag.py graph --snapshot-dir data/s2ag/2026-10-06
 ```
 
-### API Key
-The Semantic Scholar API key is read from the `S2_API_KEY` environment variable.
-Copy `.env.example` to `.env`, set your key there, and load it before running the
-S2AG scripts (the `.env` file is gitignored and must never be committed).
+`--snapshot-dir ROOT` is required; `--work-dir` defaults to `ROOT/work`.
+`--workers` defaults to 16, capped by available CPUs. `--papers` defaults to
+`cache/citations/papers.jsonl`; `--out` defaults to
+`cache/citations/s2ag_paper_citations.json`; `--graph-out` defaults to
+`cache/citations/s2ag_citation_graph.json`. Scan records matches in
+`ROOT/work/scan_matches.json`; resolve selects local DOI/DBLP/title-year matches and
+snapshot counts; graph extracts unique directed corpus-id pairs whose endpoints
+both match our bibliography. All three stages are offline: no search, API batch,
+API response cache, or API key is involved.
 
-### To Continue Downloads
-The S2AG dataset has:
-- **Papers**: 60 files total (~90GB) - 32 downloaded
-- **Citations**: 236 files total (~236GB) - 122 downloaded
+Commit **both** derived artifacts. Whole-S2 snapshot counts in the paper artifact
+drive reported totals and h-indices (each corpus id counted once). The internal,
+bibliography-only graph drives default CLI and website venue PageRank and QIndex,
+without duplicate BibTeX aliases multiplying edges. Internal in-degree is not the
+whole-S2 count. Coverage and edge totals are in generated extraction summaries;
+do not reuse the old partial-download coverage figures.
 
-Downloads can freeze due to rate limiting. If needed, restart with smaller batches:
-```bash
-# Download specific number of files
-S2_API_KEY="..." python3 scripts/download_s2ag.py --dataset papers --max-files 10
-S2_API_KEY="..." python3 scripts/download_s2ag.py --dataset citations --max-files 50
-```
+Both files carry `release_id` (the snapshot date) and `generated` (processing
+date); rebuilding does not fetch newer counts. Loaded graph and count releases
+must agree. `build-site --citations-file PATH --citation-graph-file PATH` overrides
+the two default inputs. Preserve cross-venue/year-decay weighting, tier bonuses
+and CSRankings filtering when modifying rankings.
 
-## Citation Data Fetching
+`scripts/parse_s2ag.py` and its old title-keyed count/mapping/summary outputs are
+superseded; `s2ag_citation_graph.json` is now produced by `match_s2ag.py graph`.
+
+### Download API Key
+`S2_API_KEY` is required only for downloading datasets, not local extraction or
+site builds. Configure it via `.env.example` and a gitignored `.env`; never commit
+the key. The complete 2026-10-06 snapshot is already present, so no further
+downloads are needed for this extraction.
+
+## Legacy Citation Data Fetching (not the snapshot workflow)
 
 ### Fetching Citation Data from Academic APIs
 
-The project includes scripts to fetch citation data from Semantic Scholar and CrossRef APIs:
+The project retains legacy Semantic Scholar/CrossRef API scripts. Their outputs do not feed default rankings or site citation data; use the local 2026-10-06 pipeline above for that purpose.
 
 1. **Fetch Citations for Papers**
    ```bash
